@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ToDo+ Veritabani Diyagramlari</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      color: #1f2937;
+      background: #f6f7f9;
+      line-height: 1.55;
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 20px 56px;
+    }
+
+    h1, h2, h3 {
+      color: #111827;
+      line-height: 1.2;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 32px;
+    }
+
+    h2 {
+      margin-top: 36px;
+      padding-top: 16px;
+      border-top: 1px solid #d8dde6;
+      font-size: 24px;
+    }
+
+    section {
+      margin-top: 20px;
+    }
+
+    .diagram {
+      overflow-x: auto;
+      margin: 18px 0;
+      padding: 20px;
+      border: 1px solid #d8dde6;
+      border-radius: 8px;
+      background: #ffffff;
+    }
+
+    .summary {
+      padding: 16px 18px;
+      border-left: 4px solid #2563eb;
+      background: #ffffff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #ffffff;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border: 1px solid #d8dde6;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #eef2f7;
+    }
+
+    code {
+      font-family: Consolas, monospace;
+      font-size: 0.95em;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>ToDo+ Gorev Takip Sistemi</h1>
+    <p>Supabase/PostgreSQL icin veritabani yapisi ve iliski diyagramlari.</p>
+
+    <section>
+      <h2>ER Diyagrami</h2>
+      <div class="diagram">
+        <pre class="mermaid">
+erDiagram
+    USERS ||--o{ PROJECTS : "proje olusturur"
+    USERS ||--o{ TASKS : "gorev olusturur"
+    USERS ||--o{ TASK_HISTORY : "islem yapar"
+    USERS ||--o{ TASK_ASSIGNMENTS : "gorev alir"
+    USERS ||--o{ TASK_GIVERS : "gorev verir"
+
+    PROJECTS ||--o{ TASKS : "gorev icerir"
+    CATEGORIES ||--o{ TASKS : "kategori verir"
+    TASKS ||--o{ TASK_GIVERS : "verenleri tutar"
+    TASKS ||--o{ TASK_ASSIGNMENTS : "kisilere atanir"
+    TASKS ||--o{ TASK_HISTORY : "gecmis kaydi tutar"
+
+    USERS {
+        uuid id PK
+        varchar full_name
+        varchar email
+        timestamp created_at
+    }
+
+    PROJECTS {
+        uuid id PK
+        uuid user_id FK
+        varchar name
+        text description
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    CATEGORIES {
+        uuid id PK
+        uuid user_id FK
+        varchar name
+        varchar color
+        timestamp created_at
+    }
+
+    TASKS {
+        uuid id PK
+        uuid project_id FK
+        uuid category_id FK
+        uuid created_by FK
+        varchar title
+        text description
+        varchar priority
+        varchar status
+        integer estimated_minutes
+        date due_date
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    TASK_ASSIGNMENTS {
+        uuid id PK
+        uuid task_id FK
+        uuid user_id FK
+        boolean is_completed
+        timestamp completed_at
+        integer earned_score
+        timestamp assigned_at
+    }
+
+    TASK_GIVERS {
+        uuid id PK
+        uuid task_id FK
+        uuid user_id FK
+        timestamp assigned_at
+    }
+
+    TASK_HISTORY {
+        uuid id PK
+        uuid task_id FK
+        uuid changed_by FK
+        varchar old_status
+        varchar new_status
+        text note
+        timestamp changed_at
+    }
+        </pre>
+      </div>
+    </section>
+
+    <section>
+      <h2>Is Akisi Diyagrami</h2>
+      <div class="diagram">
+        <pre class="mermaid">
+flowchart TD
+    A[Kullanici giris yapar] --> B[Proje olusturur]
+    B --> C[Gorev olusturur]
+    C --> D[Oncelik secer]
+    C --> E[Durum secer]
+    C --> F[Son teslim tarihi girer]
+    C --> G[Kategori secer]
+    C --> H[Gorevi veren kisi veya kisiler secilir]
+    C --> I[Gorev kullaniciya atanir]
+    I --> J[Kullanici gorevi tamamlar]
+    J --> K[Oncelige gore basari puani hesaplanir]
+    E --> L[Durum degisikligi olursa TaskHistory kaydi olusur]
+        </pre>
+      </div>
+    </section>
+
+    <section>
+      <h2>Tablolar</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Tablo</th>
+            <th>Amac</th>
+            <th>Onemli Alanlar</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>users</code></td>
+            <td>Kullanici profil bilgilerini tutar.</td>
+            <td><code>id</code>, <code>full_name</code>, <code>email</code>, <code>created_at</code></td>
+          </tr>
+          <tr>
+            <td><code>projects</code></td>
+            <td>Kullanicilarin olusturdugu projeleri tutar.</td>
+            <td><code>id</code>, <code>user_id</code>, <code>name</code>, <code>description</code></td>
+          </tr>
+          <tr>
+            <td><code>categories</code></td>
+            <td>Gorevleri kategoriye ayirmak icin kullanilir.</td>
+            <td><code>id</code>, <code>user_id</code>, <code>name</code>, <code>color</code></td>
+          </tr>
+          <tr>
+            <td><code>tasks</code></td>
+            <td>Gorevlerin ana bilgilerini tutar.</td>
+            <td><code>project_id</code>, <code>category_id</code>, <code>priority</code>, <code>status</code>, <code>due_date</code></td>
+          </tr>
+          <tr>
+            <td><code>task_givers</code></td>
+            <td>Gorevi veren kisi veya kisileri tutar.</td>
+            <td><code>task_id</code>, <code>user_id</code>, <code>assigned_at</code></td>
+          </tr>
+          <tr>
+            <td><code>task_assignments</code></td>
+            <td>Gorevlerin hangi kullaniciya atandigini ve basari puanini tutar.</td>
+            <td><code>task_id</code>, <code>user_id</code>, <code>is_completed</code>, <code>earned_score</code></td>
+          </tr>
+          <tr>
+            <td><code>task_history</code></td>
+            <td>Gorev durum degisikliklerini kaydeder.</td>
+            <td><code>task_id</code>, <code>changed_by</code>, <code>old_status</code>, <code>new_status</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Basari Orani Mantigi</h2>
+      <p>
+        Basari orani, kullaniciya atanan gorevlerin onemine gore hesaplanir.
+        Dusuk oncelikli gorev 1 puan, orta oncelikli gorev 2 puan, yuksek
+        oncelikli gorev 3 puan kabul edilir.
+      </p>
+      <div class="summary">
+        basari_orani = tamamlanan_gorevlerin_oncelik_puani / atanmis_tum_gorevlerin_oncelik_puani * 100
+      </div>
+    </section>
+
+    <section>
+      <h2>Kisa Aciklama</h2>
+      <p class="summary">
+        Bu projede kullanicilar sisteme giris yaparak kendi projelerini olusturur.
+        Her projenin altinda gorevler bulunur. Gorevlerin oncelik, durum, sure,
+        kategori ve son teslim tarihi bilgileri tutulur. TaskAssignments tablosu
+        sayesinde gorevlerin kimlere atandigi ve basari puanlari takip edilir.
+        TaskHistory tablosu sayesinde gorevlerin durum degisiklikleri kayit altina alinir.
+      </p>
+    </section>
+  </main>
+
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({ startOnLoad: true, theme: "default" });
+  </script>
+</body>
+</html>

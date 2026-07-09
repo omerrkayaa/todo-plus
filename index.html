@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ToDo+ Görev Takip Sistemi</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <section id="authScreen" class="auth-screen">
+    <div class="auth-card">
+      <div class="brand auth-brand">
+        <div class="brand-mark">T+</div>
+        <div>
+          <h1>ToDo+</h1>
+          <p>Görev Takip Sistemi</p>
+        </div>
+      </div>
+
+      <div class="auth-tabs" role="tablist" aria-label="Giriş seçenekleri">
+        <button id="showLoginBtn" class="auth-tab active" type="button">Giriş</button>
+        <button id="showRegisterBtn" class="auth-tab" type="button">Kayıt</button>
+      </div>
+
+      <form id="loginForm" class="auth-form">
+        <label>
+          E-posta
+          <input id="loginEmail" type="email" required autocomplete="email" placeholder="omer@example.com" />
+        </label>
+        <label>
+          Şifre
+          <input id="loginPassword" type="password" required autocomplete="current-password" placeholder="123456" />
+        </label>
+        <button class="primary-button" type="submit">Giriş yap</button>
+      </form>
+
+      <form id="registerForm" class="auth-form hidden">
+        <label>
+          Ad soyad
+          <input id="registerName" type="text" required autocomplete="name" placeholder="Ad Soyad" />
+        </label>
+        <label>
+          E-posta
+          <input id="registerEmail" type="email" required autocomplete="email" placeholder="ad@ornek.com" />
+        </label>
+        <label>
+          Şifre
+          <input id="registerPassword" type="password" required minlength="6" autocomplete="new-password" placeholder="En az 6 karakter" />
+        </label>
+        <button class="primary-button" type="submit">Kayıt ol</button>
+      </form>
+
+      <p id="authMessage" class="auth-message"></p>
+      <p class="auth-hint">Demo hesap: <strong>omer@example.com</strong> / <strong>123456</strong></p>
+    </div>
+  </section>
+
+  <div id="appShell" class="app-shell hidden">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">T+</div>
+        <div>
+          <h1>ToDo+</h1>
+          <p>Görev Takip Sistemi</p>
+        </div>
+      </div>
+
+      <section class="profile-panel">
+        <label for="activeUser">Aktif kullanıcı</label>
+        <select id="activeUser"></select>
+        <button id="addUserBtn" class="ghost-button" type="button">Kullanıcı ekle</button>
+        <button id="resetDemoBtn" class="ghost-button" type="button">Demo verileri sıfırla</button>
+        <button id="logoutBtn" class="ghost-button" type="button">Çıkış yap</button>
+      </section>
+
+      <nav class="nav-list" aria-label="Ana menü">
+        <button class="nav-item active" data-view="dashboard" type="button">İstatistik</button>
+        <button class="nav-item" data-view="projects" type="button">Projeler</button>
+        <button class="nav-item" data-view="tasks" type="button">Görevler</button>
+      </nav>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Supabase hazır tasarım</p>
+          <h2 id="pageTitle">İstatistik</h2>
+        </div>
+        <button id="newTaskBtn" class="primary-button" type="button">Yeni görev</button>
+      </header>
+
+      <section id="dashboardView" class="view active-view">
+        <div class="stats-grid">
+          <article class="stat-card">
+            <span>Toplam görev</span>
+            <strong id="totalTasks">0</strong>
+          </article>
+          <article class="stat-card">
+            <span>Tamamlanan</span>
+            <strong id="completedTasks">0</strong>
+          </article>
+          <article class="stat-card">
+            <span>Devam eden</span>
+            <strong id="inProgressTasks">0</strong>
+          </article>
+          <article class="stat-card">
+            <span>Başarı oranı</span>
+            <strong id="successRate">0%</strong>
+          </article>
+        </div>
+
+        <div class="content-grid">
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Kullanıcı başarıları</h3>
+              <span>Öncelik katsayılı</span>
+            </div>
+            <div id="userScores" class="score-list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Yaklaşan teslimler</h3>
+              <span>Tarihe göre</span>
+            </div>
+            <div id="upcomingTasks" class="mini-list"></div>
+          </section>
+        </div>
+
+        <section class="panel history-panel">
+          <div class="panel-header">
+            <h3>Son görev hareketleri</h3>
+            <span>TaskHistory kayıtları</span>
+          </div>
+          <div id="historyList" class="history-list"></div>
+        </section>
+      </section>
+
+      <section id="projectsView" class="view">
+        <div class="split-layout">
+          <div class="stack-layout">
+            <form id="projectForm" class="panel form-panel">
+              <h3 id="projectFormTitle">Proje oluştur</h3>
+              <label>
+                Proje adı
+                <input id="projectName" type="text" required placeholder="Mobil uygulama tasarımı" />
+              </label>
+              <label>
+                Açıklama
+                <textarea id="projectDescription" rows="4" placeholder="Projenin kısa açıklaması"></textarea>
+              </label>
+              <div class="form-actions">
+                <button id="projectSubmitBtn" class="primary-button" type="submit">Projeyi kaydet</button>
+                <button id="cancelProjectEditBtn" class="small-button hidden" type="button">Vazgeç</button>
+              </div>
+            </form>
+
+            <form id="categoryForm" class="panel form-panel">
+              <h3 id="categoryFormTitle">Kategori oluştur</h3>
+              <label>
+                Kategori adı
+                <input id="categoryName" type="text" required placeholder="Analiz" />
+              </label>
+              <label>
+                Renk
+                <input id="categoryColor" type="color" value="#2563eb" />
+              </label>
+              <div class="form-actions">
+                <button id="categorySubmitBtn" class="primary-button" type="submit">Kategoriyi kaydet</button>
+                <button id="cancelCategoryEditBtn" class="small-button hidden" type="button">Vazgeç</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="stack-layout">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Projeler</h3>
+                <span id="projectCount">0 proje</span>
+              </div>
+              <div id="projectList" class="project-list"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Kategoriler</h3>
+                <span id="categoryCount">0 kategori</span>
+              </div>
+              <div id="categoryList" class="category-list"></div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section id="tasksView" class="view">
+        <section class="panel filters">
+          <input id="searchInput" type="search" placeholder="Görev ara" />
+          <select id="statusFilter">
+            <option value="all">Tüm durumlar</option>
+            <option value="bekliyor">Bekliyor</option>
+            <option value="devam_ediyor">Devam ediyor</option>
+            <option value="tamamlandi">Tamamlandı</option>
+          </select>
+          <select id="priorityFilter">
+            <option value="all">Tüm öncelikler</option>
+            <option value="dusuk">Düşük</option>
+            <option value="orta">Orta</option>
+            <option value="yuksek">Yüksek</option>
+          </select>
+        </section>
+
+        <section class="panel kanban-panel">
+          <div class="panel-header">
+            <h3>Kanban panosu</h3>
+            <span>Duruma göre görev akışı</span>
+          </div>
+          <div id="kanbanBoard" class="kanban-board"></div>
+        </section>
+
+        <div class="split-layout">
+          <form id="taskForm" class="panel form-panel">
+            <h3 id="taskFormTitle">Görev oluştur</h3>
+            <label>
+              Başlık
+              <input id="taskTitle" type="text" required placeholder="ER diyagramını hazırla" />
+            </label>
+            <label>
+              Açıklama
+              <textarea id="taskDescription" rows="3" placeholder="Görev notu"></textarea>
+            </label>
+            <div class="form-row">
+              <label>
+                Proje
+                <select id="taskProject" required></select>
+              </label>
+              <label>
+                Kategori
+                <select id="taskCategory"></select>
+              </label>
+            </div>
+            <div class="form-row">
+              <label>
+                Atanan kişi
+                <select id="taskAssignee" required></select>
+              </label>
+              <label>
+                Süre (dakika)
+                <input id="taskMinutes" type="number" min="5" step="5" value="60" />
+              </label>
+            </div>
+            <label>
+              Görevi veren kişi(ler)
+              <select id="taskGivers" multiple required></select>
+            </label>
+            <div class="form-row">
+              <label>
+                Öncelik
+                <select id="taskPriority">
+                  <option value="dusuk">Düşük</option>
+                  <option value="orta" selected>Orta</option>
+                  <option value="yuksek">Yüksek</option>
+                </select>
+              </label>
+              <label>
+                Durum
+                <select id="taskStatus">
+                  <option value="bekliyor">Bekliyor</option>
+                  <option value="devam_ediyor">Devam ediyor</option>
+                  <option value="tamamlandi">Tamamlandı</option>
+                </select>
+              </label>
+            </div>
+            <div class="form-row">
+              <label>
+                Son teslim
+                <input id="taskDueDate" type="date" />
+              </label>
+            </div>
+            <div class="form-actions">
+              <button id="taskSubmitBtn" class="primary-button" type="submit">Görevi kaydet</button>
+              <button id="cancelTaskEditBtn" class="small-button hidden" type="button">Vazgeç</button>
+            </div>
+          </form>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Görev listesi</h3>
+              <span id="taskCount">0 görev</span>
+            </div>
+            <div id="taskList" class="task-list"></div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./supabase-config.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
