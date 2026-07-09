@@ -135,6 +135,15 @@ const defaultState = {
       changedAt: "2026-07-09",
     },
   ],
+  taskComments: [
+    {
+      id: "comment-1",
+      taskId: "task-2",
+      userId: "user-1",
+      body: "Kanban akışı ve görev düzenleme kontrolleri birlikte test edilecek.",
+      createdAt: "2026-07-09",
+    },
+  ],
 };
 
 const defaultAuthAccounts = [
@@ -152,6 +161,8 @@ let currentSession = loadSession();
 let editingProjectId = null;
 let editingCategoryId = null;
 let editingTaskId = null;
+let activeDetailTaskId = null;
+let draggedTaskId = null;
 let supabaseClient = null;
 let supabaseReady = false;
 let isLoadingRemoteData = false;
@@ -222,6 +233,12 @@ const elements = {
   taskCount: document.querySelector("#taskCount"),
   kanbanBoard: document.querySelector("#kanbanBoard"),
   taskList: document.querySelector("#taskList"),
+  taskDetailModal: document.querySelector("#taskDetailModal"),
+  closeTaskDetailBtn: document.querySelector("#closeTaskDetailBtn"),
+  taskDetailTitle: document.querySelector("#taskDetailTitle"),
+  taskDetailBody: document.querySelector("#taskDetailBody"),
+  taskCommentForm: document.querySelector("#taskCommentForm"),
+  taskCommentText: document.querySelector("#taskCommentText"),
 };
 
 function loadState() {
@@ -248,6 +265,10 @@ function migrateState(nextState, parsedState) {
       userId: task.createdBy,
       assignedAt: task.createdAt || today(),
     }));
+  }
+
+  if (!Array.isArray(parsedState.taskComments)) {
+    nextState.taskComments = [];
   }
 
   return nextState;
@@ -819,9 +840,10 @@ function renderTaskCard(task, options = {}) {
   const actionText = task.status === "tamamlandi" ? "Tekrar aç" : "Tamamla";
   const dueDate = getDueDateMeta(task);
   const compactClass = options.compact ? " task-card-compact" : "";
+  const draggableAttribute = options.compact ? ' draggable="true"' : "";
 
   return `
-    <article class="task-card${compactClass}">
+    <article class="task-card${compactClass}"${draggableAttribute} data-task-card data-task-id="${task.id}">
       <h4>${escapeHtml(task.title)}</h4>
       <p>${escapeHtml(task.description || "Açıklama girilmedi.")}</p>
       <div class="task-meta">
@@ -835,6 +857,7 @@ function renderTaskCard(task, options = {}) {
         <span class="badge ${dueDate.className}">${escapeHtml(dueDate.label)}</span>
       </div>
       <div class="card-actions">
+        <button class="small-button" type="button" data-detail-task="${task.id}">Detay</button>
         <button class="small-button" type="button" data-edit-task="${task.id}">Düzenle</button>
         <button class="small-button" type="button" data-status-task="${task.id}" data-next-status="${nextStatus}">${actionText}</button>
         <button class="danger-button" type="button" data-delete-task="${task.id}">Sil</button>
@@ -871,7 +894,7 @@ function renderKanbanBoard() {
             <h4>${statusLabels[status]}</h4>
             <span>${columnTasks.length}</span>
           </div>
-          <div class="kanban-column-body">
+          <div class="kanban-column-body" data-kanban-status="${status}">
             ${
               columnTasks.length === 0
                 ? `<div class="empty-state kanban-empty">Görev yok.</div>`
@@ -887,6 +910,135 @@ function renderKanbanBoard() {
 function renderTaskViews() {
   renderTasks();
   renderKanbanBoard();
+}
+
+function getTaskComments(taskId) {
+  return state.taskComments
+    .filter((comment) => comment.taskId === taskId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+function getTaskHistoryItems(taskId) {
+  return state.history
+    .filter((item) => item.taskId === taskId)
+    .slice()
+    .reverse();
+}
+
+function renderTaskDetail() {
+  if (!activeDetailTaskId) return;
+
+  const task = state.tasks.find((item) => item.id === activeDetailTaskId);
+  if (!task) {
+    closeTaskDetail();
+    return;
+  }
+
+  const assignment = getTaskAssignment(task.id);
+  const category = getCategory(task.categoryId);
+  const giverNames = getTaskGivers(task.id)
+    .map((giver) => getUserName(giver.userId))
+    .join(", ");
+  const dueDate = getDueDateMeta(task);
+  const comments = getTaskComments(task.id);
+  const historyItems = getTaskHistoryItems(task.id);
+
+  elements.taskDetailTitle.textContent = task.title;
+  elements.taskDetailBody.innerHTML = `
+    <div class="task-detail-grid">
+      <section class="detail-block">
+        <h3>Bilgiler</h3>
+        <div class="detail-meta">
+          <span class="badge">${escapeHtml(getProjectName(task.projectId))}</span>
+          <span class="badge">${escapeHtml(category ? category.name : "Kategori yok")}</span>
+          <span class="badge status-${task.status}">${statusLabels[task.status]}</span>
+          <span class="badge priority-${task.priority}">${priorityLabels[task.priority]} öncelik</span>
+          <span class="badge ${dueDate.className}">${escapeHtml(dueDate.label)}</span>
+          <span class="badge">${task.estimatedMinutes} dakika</span>
+        </div>
+        <p>${escapeHtml(task.description || "Açıklama girilmedi.")}</p>
+        <dl class="detail-list">
+          <div>
+            <dt>Atanan</dt>
+            <dd>${escapeHtml(assignment ? getUserName(assignment.userId) : "Atanmamış")}</dd>
+          </div>
+          <div>
+            <dt>Veren</dt>
+            <dd>${escapeHtml(giverNames || getUserName(task.createdBy))}</dd>
+          </div>
+          <div>
+            <dt>Puan</dt>
+            <dd>${getTaskScore(task)}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="detail-block">
+        <h3>Yorumlar</h3>
+        <div class="comment-list">
+          ${
+            comments.length === 0
+              ? `<div class="empty-state">Henüz yorum yok.</div>`
+              : comments
+                  .map(
+                    (comment) => `
+                      <article class="comment-item">
+                        <strong>${escapeHtml(getUserName(comment.userId))}</strong>
+                        <p>${escapeHtml(comment.body)}</p>
+                        <span>${formatDate(comment.createdAt)}</span>
+                      </article>
+                    `,
+                  )
+                  .join("")
+          }
+        </div>
+      </section>
+    </div>
+
+    <section class="detail-block">
+      <h3>Geçmiş</h3>
+      <div class="history-list">
+        ${
+          historyItems.length === 0
+            ? `<div class="empty-state">Henüz hareket yok.</div>`
+            : historyItems
+                .map((item) => {
+                  const statusText = item.oldStatus
+                    ? `${statusLabels[item.oldStatus]} → ${statusLabels[item.newStatus]}`
+                    : statusLabels[item.newStatus];
+
+                  return `
+                    <article class="history-item">
+                      <div>
+                        <strong>${escapeHtml(item.note)}</strong>
+                        <p>${escapeHtml(getUserName(item.changedBy))}</p>
+                      </div>
+                      <div class="history-meta">
+                        <span class="badge">${statusText}</span>
+                        <span>${formatDate(item.changedAt)}</span>
+                      </div>
+                    </article>
+                  `;
+                })
+                .join("")
+        }
+      </div>
+    </section>
+  `;
+}
+
+function openTaskDetail(taskId) {
+  activeDetailTaskId = taskId;
+  elements.taskDetailModal.classList.remove("hidden");
+  renderTaskDetail();
+  elements.taskCommentText.value = "";
+  elements.taskCommentText.focus();
+}
+
+function closeTaskDetail() {
+  activeDetailTaskId = null;
+  elements.taskDetailModal.classList.add("hidden");
+  elements.taskCommentText.value = "";
 }
 
 function renderDashboard() {
@@ -973,6 +1125,7 @@ function renderAll() {
   renderCategories();
   renderTaskViews();
   renderDashboard();
+  renderTaskDetail();
 }
 
 function showAuthMessage(message, type = "error") {
@@ -1469,6 +1622,7 @@ function editTask(taskId) {
 function updateTaskStatus(taskId, nextStatus) {
   const task = state.tasks.find((item) => item.id === taskId);
   if (!task) return;
+  if (task.status === nextStatus) return;
 
   const oldStatus = task.status;
   task.status = nextStatus;
@@ -1504,6 +1658,10 @@ function deleteTask(taskId) {
   state.assignments = state.assignments.filter((assignment) => assignment.taskId !== taskId);
   state.taskGivers = state.taskGivers.filter((giver) => giver.taskId !== taskId);
   state.history = state.history.filter((historyItem) => historyItem.taskId !== taskId);
+  state.taskComments = state.taskComments.filter((comment) => comment.taskId !== taskId);
+  if (activeDetailTaskId === taskId) {
+    closeTaskDetail();
+  }
   saveState();
   renderAll();
 }
@@ -1524,6 +1682,10 @@ function deleteProject(projectId) {
   );
   state.taskGivers = state.taskGivers.filter((giver) => !projectTaskIds.includes(giver.taskId));
   state.history = state.history.filter((historyItem) => !projectTaskIds.includes(historyItem.taskId));
+  state.taskComments = state.taskComments.filter((comment) => !projectTaskIds.includes(comment.taskId));
+  if (projectTaskIds.includes(activeDetailTaskId)) {
+    closeTaskDetail();
+  }
   saveState();
   renderAll();
 }
@@ -1568,10 +1730,34 @@ function addUser() {
   renderAll();
 }
 
+function addTaskComment(event) {
+  event.preventDefault();
+
+  const body = elements.taskCommentText.value.trim();
+  if (!activeDetailTaskId || !body) return;
+
+  state.taskComments.push({
+    id: createId("comment"),
+    taskId: activeDetailTaskId,
+    userId: getActiveUser().id,
+    body,
+    createdAt: today(),
+  });
+
+  elements.taskCommentText.value = "";
+  saveState();
+  renderTaskDetail();
+}
+
 function handleTaskActionClick(event) {
+  const detailButton = event.target.closest("[data-detail-task]");
   const editButton = event.target.closest("[data-edit-task]");
   const statusButton = event.target.closest("[data-status-task]");
   const deleteButton = event.target.closest("[data-delete-task]");
+
+  if (detailButton) {
+    openTaskDetail(detailButton.dataset.detailTask);
+  }
 
   if (editButton) {
     editTask(editButton.dataset.editTask);
@@ -1583,6 +1769,56 @@ function handleTaskActionClick(event) {
 
   if (deleteButton) {
     deleteTask(deleteButton.dataset.deleteTask);
+  }
+}
+
+function handleKanbanDragStart(event) {
+  const card = event.target.closest("[data-task-card]");
+  if (!card) return;
+
+  draggedTaskId = card.dataset.taskId;
+  event.dataTransfer.effectAllowed = "move";
+  event.dataTransfer.setData("text/plain", draggedTaskId);
+  card.classList.add("dragging");
+}
+
+function handleKanbanDragEnd() {
+  draggedTaskId = null;
+  document.querySelectorAll(".task-card.dragging").forEach((card) => {
+    card.classList.remove("dragging");
+  });
+  document.querySelectorAll(".kanban-column-body.drop-target").forEach((column) => {
+    column.classList.remove("drop-target");
+  });
+}
+
+function handleKanbanDragOver(event) {
+  const dropTarget = event.target.closest("[data-kanban-status]");
+  if (!dropTarget) return;
+
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "move";
+  dropTarget.classList.add("drop-target");
+}
+
+function handleKanbanDragLeave(event) {
+  const dropTarget = event.target.closest("[data-kanban-status]");
+  if (!dropTarget || dropTarget.contains(event.relatedTarget)) return;
+
+  dropTarget.classList.remove("drop-target");
+}
+
+function handleKanbanDrop(event) {
+  const dropTarget = event.target.closest("[data-kanban-status]");
+  if (!dropTarget) return;
+
+  event.preventDefault();
+  const taskId = event.dataTransfer.getData("text/plain") || draggedTaskId;
+  const nextStatus = dropTarget.dataset.kanbanStatus;
+  dropTarget.classList.remove("drop-target");
+
+  if (taskId && nextStatus) {
+    updateTaskStatus(taskId, nextStatus);
   }
 }
 
@@ -1638,6 +1874,23 @@ function bindEvents() {
 
   elements.taskList.addEventListener("click", handleTaskActionClick);
   elements.kanbanBoard.addEventListener("click", handleTaskActionClick);
+  elements.kanbanBoard.addEventListener("dragstart", handleKanbanDragStart);
+  elements.kanbanBoard.addEventListener("dragend", handleKanbanDragEnd);
+  elements.kanbanBoard.addEventListener("dragover", handleKanbanDragOver);
+  elements.kanbanBoard.addEventListener("dragleave", handleKanbanDragLeave);
+  elements.kanbanBoard.addEventListener("drop", handleKanbanDrop);
+  elements.taskCommentForm.addEventListener("submit", addTaskComment);
+  elements.closeTaskDetailBtn.addEventListener("click", closeTaskDetail);
+  elements.taskDetailModal.addEventListener("click", (event) => {
+    if (event.target.closest("[data-close-task-detail]")) {
+      closeTaskDetail();
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && activeDetailTaskId) {
+      closeTaskDetail();
+    }
+  });
 
   elements.projectList.addEventListener("click", (event) => {
     const editButton = event.target.closest("[data-edit-project]");

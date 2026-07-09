@@ -294,6 +294,29 @@
     </main>
   </div>
 
+  <div id="taskDetailModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="taskDetailTitle">
+    <div class="modal-backdrop" data-close-task-detail></div>
+    <section class="modal-panel">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow">Görev detayı</p>
+          <h2 id="taskDetailTitle">Görev</h2>
+        </div>
+        <button id="closeTaskDetailBtn" class="small-button" type="button" aria-label="Görev detayını kapat">Kapat</button>
+      </div>
+
+      <div id="taskDetailBody" class="task-detail-body"></div>
+
+      <form id="taskCommentForm" class="comment-form">
+        <label>
+          Yorum
+          <textarea id="taskCommentText" rows="3" required placeholder="Görev hakkında not yaz"></textarea>
+        </label>
+        <button class="primary-button" type="submit">Yorum ekle</button>
+      </form>
+    </section>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./supabase-config.js"></script>
   <script src="./app.js"></script>
