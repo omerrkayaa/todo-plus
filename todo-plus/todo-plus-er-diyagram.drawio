@@ -37,6 +37,10 @@
           <mxGeometry x="1110" y="620" width="250" height="190" as="geometry" />
         </mxCell>
 
+        <mxCell id="comments" value="&lt;b&gt;TASK_COMMENTS&lt;/b&gt;&lt;hr&gt;PK id : uuid&lt;br&gt;FK task_id : uuid&lt;br&gt;FK user_id : uuid&lt;br&gt;body : text&lt;br&gt;created_at : timestamp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ccfbf1;strokeColor=#0d9488;fontColor=#0f172a;align=left;spacingLeft=12;arcSize=8;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="770" y="620" width="250" height="155" as="geometry" />
+        </mxCell>
+
         <mxCell id="note" value="&lt;b&gt;Basari Orani Hesabi&lt;/b&gt;&lt;br&gt;&lt;br&gt;Dusuk oncelik = 1 puan&lt;br&gt;Orta oncelik = 2 puan&lt;br&gt;Yuksek oncelik = 3 puan&lt;br&gt;&lt;br&gt;Basari orani = tamamlanan gorev puani / atanmis toplam gorev puani * 100" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#94a3b8;fontColor=#0f172a;align=left;spacingLeft=12;arcSize=8;fontSize=13;dashed=1;" vertex="1" parent="1">
           <mxGeometry x="70" y="560" width="310" height="185" as="geometry" />
         </mxCell>
@@ -61,6 +65,9 @@
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="e_tasks_history" value="1 - N" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#334155;fontSize=12;edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="tasks" target="history">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_tasks_comments" value="1 - N" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#334155;fontSize=12;edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="tasks" target="comments">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="e_users_assignments" value="1 - N" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#64748b;fontSize=12;edgeStyle=orthogonalEdgeStyle;dashed=1;" edge="1" parent="1" source="users" target="assignments">
@@ -92,6 +99,14 @@
             <Array as="points">
               <mxPoint x="185" y="805" />
               <mxPoint x="1235" y="805" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_users_comments" value="yorum yazar" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#64748b;fontSize=12;edgeStyle=orthogonalEdgeStyle;dashed=1;" edge="1" parent="1" source="users" target="comments">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="185" y="780" />
+              <mxPoint x="895" y="780" />
             </Array>
           </mxGeometry>
         </mxCell>

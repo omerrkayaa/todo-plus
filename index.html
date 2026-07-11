@@ -4,10 +4,31 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ToDo+ Görev Takip Sistemi</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232563eb'/%3E%3Ctext x='32' y='41' text-anchor='middle' font-family='Arial' font-size='28' font-weight='700' fill='white'%3ET%2B%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <section id="authScreen" class="auth-screen">
+    <div class="auth-layout">
+      <section class="auth-showcase" aria-label="ToDo+ ürün tanıtımı">
+        <div class="showcase-badge"><span></span> Daha düzenli, daha görünür</div>
+        <h2>Ekibinizin iş akışını tek bir yerde yönetin.</h2>
+        <p>Projeleri planlayın, görevleri önceliklendirin ve ilerlemeyi gerçek zamanlı görün.</p>
+        <div class="showcase-preview" aria-hidden="true">
+          <div class="preview-top"><span></span><span></span><span></span></div>
+          <div class="preview-layout">
+            <div class="preview-nav"><i></i><i></i><i></i><i></i></div>
+            <div class="preview-content">
+              <div class="preview-title"></div>
+              <div class="preview-stats"><i></i><i></i><i></i></div>
+              <div class="preview-board"><i></i><i></i><i></i></div>
+            </div>
+          </div>
+        </div>
+        <div class="showcase-points">
+          <span>✓ Kanban akışı</span><span>✓ Akıllı filtreler</span><span>✓ Başarı analizi</span>
+        </div>
+      </section>
     <div class="auth-card">
       <div class="brand auth-brand">
         <div class="brand-mark">T+</div>
@@ -23,6 +44,13 @@
       </div>
 
       <form id="loginForm" class="auth-form">
+        <label>
+          Giriş türü
+          <select id="loginRole" required>
+            <option value="admin">Yönetici girişi</option>
+            <option value="user">Kullanıcı girişi</option>
+          </select>
+        </label>
         <label>
           E-posta
           <input id="loginEmail" type="email" required autocomplete="email" placeholder="omer@example.com" />
@@ -51,66 +79,146 @@
       </form>
 
       <p id="authMessage" class="auth-message"></p>
-      <p class="auth-hint">Demo hesap: <strong>omer@example.com</strong> / <strong>123456</strong></p>
+      <p class="auth-hint">Yönetici: <strong>omer@example.com</strong> · Kullanıcı: <strong>ayse@example.com</strong> · Şifre: <strong>123456</strong></p>
+    </div>
     </div>
   </section>
 
   <div id="appShell" class="app-shell hidden">
-    <aside class="sidebar">
+    <aside id="sidebar" class="sidebar">
       <div class="brand">
         <div class="brand-mark">T+</div>
         <div>
           <h1>ToDo+</h1>
-          <p>Görev Takip Sistemi</p>
+          <p>Workspace</p>
         </div>
       </div>
 
+      <div class="workspace-pill">
+        <span class="workspace-avatar">TK</span>
+        <div><strong>ToDo+ Ekibi</strong><small>Proje alanı</small></div>
+        <span class="workspace-chevron">⌄</span>
+      </div>
+
       <section class="profile-panel">
-        <label for="activeUser">Aktif kullanıcı</label>
+        <label id="activeUserLabel" for="activeUser">Ekip görünümü</label>
         <select id="activeUser"></select>
+        <p id="roleBadge" class="role-badge"></p>
         <button id="addUserBtn" class="ghost-button" type="button">Kullanıcı ekle</button>
         <button id="resetDemoBtn" class="ghost-button" type="button">Demo verileri sıfırla</button>
         <button id="logoutBtn" class="ghost-button" type="button">Çıkış yap</button>
       </section>
 
       <nav class="nav-list" aria-label="Ana menü">
-        <button class="nav-item active" data-view="dashboard" type="button">İstatistik</button>
-        <button class="nav-item" data-view="projects" type="button">Projeler</button>
-        <button class="nav-item" data-view="tasks" type="button">Görevler</button>
+        <span id="navRoleLabel" class="nav-label">YÖNETİCİ PANELİ</span>
+        <button class="nav-item active" data-view="dashboard" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6v-9h-6v9Zm0-16v5h6V4h-6Z"/></svg><span id="dashboardNavText">Ekip özeti</span></button>
+        <button class="nav-item admin-only" data-view="projects" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H10l2 2h6.5A2.5 2.5 0 0 1 21 8.5v8A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5v-10Z"/></svg><span>Proje yönetimi</span></button>
+        <button class="nav-item" data-view="tasks" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11 11 13 15.5 8.5M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/></svg><span id="tasksNavText">Görev yönetimi</span></button>
       </nav>
+
+      <div class="sidebar-spacer"></div>
+      <p class="sidebar-footnote">Odaklan. Planla. Tamamla.</p>
     </aside>
 
     <main>
       <header class="topbar">
-        <div>
-          <p class="eyebrow">Supabase hazır tasarım</p>
-          <h2 id="pageTitle">İstatistik</h2>
+        <div class="topbar-title">
+          <button id="menuToggleBtn" class="menu-toggle" type="button" aria-controls="sidebar" aria-expanded="false" aria-label="Menüyü aç">☰</button>
+          <div>
+            <p class="eyebrow"><span id="connectionDot" class="connection-dot"></span><span id="connectionStatus">Demo mod · Yerel kayıt</span></p>
+            <h2 id="pageTitle">Genel bakış</h2>
+            <p id="pageSubtitle" class="page-subtitle">Çalışma alanınızdaki son durumu görün.</p>
+          </div>
         </div>
-        <button id="newTaskBtn" class="primary-button" type="button">Yeni görev</button>
+        <button id="newTaskBtn" class="primary-button topbar-cta" type="button"><span>+</span> Yeni görev</button>
       </header>
 
       <section id="dashboardView" class="view active-view">
         <div class="stats-grid">
-          <article class="stat-card">
-            <span>Toplam görev</span>
-            <strong id="totalTasks">0</strong>
+          <article class="stat-card stat-total">
+            <div class="stat-card-top"><span class="stat-icon">▦</span><span class="stat-kicker">Tüm zamanlar</span></div>
+            <span class="stat-label">Toplam görev</span>
+            <strong id="totalTasks">0</strong><small>aktif çalışma kaydı</small>
           </article>
-          <article class="stat-card">
-            <span>Tamamlanan</span>
-            <strong id="completedTasks">0</strong>
+          <article class="stat-card stat-done">
+            <div class="stat-card-top"><span class="stat-icon">✓</span><span class="stat-kicker">Başarı</span></div>
+            <span class="stat-label">Tamamlanan</span>
+            <strong id="completedTasks">0</strong><small>başarıyla sonuçlandı</small>
           </article>
-          <article class="stat-card">
-            <span>Devam eden</span>
-            <strong id="inProgressTasks">0</strong>
+          <article class="stat-card stat-progress">
+            <div class="stat-card-top"><span class="stat-icon">↗</span><span class="stat-kicker">Aktif</span></div>
+            <span class="stat-label">Devam eden</span>
+            <strong id="inProgressTasks">0</strong><small>üzerinde çalışılıyor</small>
           </article>
-          <article class="stat-card">
-            <span>Başarı oranı</span>
-            <strong id="successRate">0%</strong>
+          <article class="stat-card stat-rate">
+            <div class="stat-card-top"><span class="stat-icon">◎</span><span class="stat-kicker">Performans</span></div>
+            <span class="stat-label">Başarı oranı</span>
+            <strong id="successRate">0%</strong><small>öncelik ağırlıklı</small>
+          </article>
+          <article class="stat-card stat-overdue">
+            <div class="stat-card-top"><span class="stat-icon">!</span><span class="stat-kicker">Dikkat</span></div>
+            <span class="stat-label">Geciken görev</span>
+            <strong id="overdueTasks">0</strong><small>aksiyon bekliyor</small>
           </article>
         </div>
 
+        <section class="panel dashboard-focus-panel">
+          <div class="panel-header">
+            <div>
+              <p class="section-kicker">GÜNÜN ODAĞI</p>
+              <h3>Bugün, yaklaşan ve yeni atanan işler</h3>
+            </div>
+            <span id="focusTaskCount">0 görev</span>
+          </div>
+          <div class="focus-overview" aria-label="Odak özeti">
+            <article class="focus-metric">
+              <strong id="focusDueToday">0</strong>
+              <span>Bugün teslim</span>
+            </article>
+            <article class="focus-metric">
+              <strong id="focusOverdue">0</strong>
+              <span>Geciken</span>
+            </article>
+            <article class="focus-metric">
+              <strong id="focusThisWeek">0</strong>
+              <span>Bu hafta</span>
+            </article>
+            <article class="focus-metric">
+              <strong id="focusNew">0</strong>
+              <span>Yeni atanan</span>
+            </article>
+            <article class="focus-metric">
+              <strong id="focusHigh">0</strong>
+              <span>Yüksek öncelik</span>
+            </article>
+          </div>
+          <div id="focusTaskList" class="focus-list"></div>
+        </section>
+
+        <section class="panel demo-examples-panel">
+          <div class="panel-header">
+            <div>
+              <p class="section-kicker">ÖRNEKLER</p>
+              <h3>Sonraki ekleyeceğim işlerin canlı örnekleri</h3>
+            </div>
+            <span>Direkt ekranda</span>
+          </div>
+          <div id="demoExamplesList" class="demo-examples-list"></div>
+        </section>
+
+        <section class="panel notification-center-panel">
+          <div class="panel-header">
+            <div>
+              <p class="section-kicker">BİLDİRİM MERKEZİ</p>
+              <h3>Görev, yorum ve teslim uyarıları</h3>
+            </div>
+            <span id="notificationCount">0 bildirim</span>
+          </div>
+          <div id="notificationList" class="notification-list"></div>
+        </section>
+
         <div class="content-grid">
-          <section class="panel">
+          <section class="panel admin-only">
             <div class="panel-header">
               <h3>Kullanıcı başarıları</h3>
               <span>Öncelik katsayılı</span>
@@ -126,6 +234,17 @@
             <div id="upcomingTasks" class="mini-list"></div>
           </section>
         </div>
+
+        <section class="panel manager-analytics admin-only">
+          <div class="panel-header">
+            <div>
+              <p class="section-kicker">KARAR DESTEĞİ</p>
+              <h3>Ekip iş yükü ve görev önerisi</h3>
+            </div>
+            <span id="assignmentRecommendation">Hesaplanıyor</span>
+          </div>
+          <div id="workloadInsights" class="workload-grid"></div>
+        </section>
 
         <section class="panel history-panel">
           <div class="panel-header">
@@ -144,6 +263,10 @@
               <label>
                 Proje adı
                 <input id="projectName" type="text" required placeholder="Mobil uygulama tasarımı" />
+              </label>
+              <label>
+                Üst kategori
+                <select id="projectCategory" required aria-label="Projenin üst kategorisi"></select>
               </label>
               <label>
                 Açıklama
@@ -186,6 +309,10 @@
                 <h3>Kategoriler</h3>
                 <span id="categoryCount">0 kategori</span>
               </div>
+              <label class="filter-field">
+                Kategori veya proje ara
+                <input id="categorySearchInput" type="search" placeholder="Örn. Mekanik" />
+              </label>
               <div id="categoryList" class="category-list"></div>
             </section>
           </div>
@@ -193,23 +320,48 @@
       </section>
 
       <section id="tasksView" class="view">
-        <section class="panel filters">
-          <input id="searchInput" type="search" placeholder="Görev ara" />
-          <select id="statusFilter">
+        <div class="view-toolbar">
+          <div class="view-switcher" role="tablist" aria-label="Görev görünümü">
+            <button class="view-switch active" type="button" data-task-layout="list" role="tab" aria-selected="true"><span>☷</span> Liste</button>
+            <button class="view-switch" type="button" data-task-layout="board" role="tab" aria-selected="false"><span>▦</span> Pano</button>
+          </div>
+          <p>İşlerinizi size en uygun görünümde yönetin.</p>
+        </div>
+
+        <section class="panel filters" aria-label="Görev filtreleri">
+          <input id="searchInput" type="search" placeholder="Görev ara" aria-label="Görev ara" />
+          <select id="statusFilter" aria-label="Duruma göre filtrele">
             <option value="all">Tüm durumlar</option>
             <option value="bekliyor">Bekliyor</option>
             <option value="devam_ediyor">Devam ediyor</option>
             <option value="tamamlandi">Tamamlandı</option>
           </select>
-          <select id="priorityFilter">
+          <select id="priorityFilter" aria-label="Önceliğe göre filtrele">
             <option value="all">Tüm öncelikler</option>
             <option value="dusuk">Düşük</option>
             <option value="orta">Orta</option>
             <option value="yuksek">Yüksek</option>
           </select>
+          <select id="categoryFilter" aria-label="Kategoriye göre filtrele">
+            <option value="all">Tüm kategoriler</option>
+          </select>
+          <select id="projectFilter" aria-label="Projeye göre filtrele">
+            <option value="all">Tüm projeler</option>
+          </select>
+          <select id="assigneeFilter" aria-label="Atanan kişiye göre filtrele">
+            <option value="all">Tüm kullanıcılar</option>
+          </select>
+          <select id="sortFilter" aria-label="Sıralama seç">
+            <option value="created_desc">Yeni eklenen</option>
+            <option value="due_asc">Teslim tarihi yakın</option>
+            <option value="priority_desc">Önceliği yüksek</option>
+          </select>
+          <button id="clearFiltersBtn" class="small-button filter-clear" type="button">Filtreleri temizle</button>
         </section>
 
-        <section class="panel kanban-panel">
+        <section id="filterScopeSummary" class="panel hidden" aria-live="polite"></section>
+
+        <section class="panel kanban-panel task-layout-panel hidden" data-task-layout-panel="board">
           <div class="panel-header">
             <h3>Kanban panosu</h3>
             <span>Duruma göre görev akışı</span>
@@ -217,9 +369,12 @@
           <div id="kanbanBoard" class="kanban-board"></div>
         </section>
 
-        <div class="split-layout">
-          <form id="taskForm" class="panel form-panel">
-            <h3 id="taskFormTitle">Görev oluştur</h3>
+        <div class="split-layout task-content-layout">
+          <form id="taskForm" class="panel form-panel task-drawer" aria-hidden="true">
+            <div class="drawer-header">
+              <div><span class="drawer-kicker">GÖREV YÖNETİMİ</span><h3 id="taskFormTitle">Görev oluştur</h3></div>
+              <button id="closeTaskDrawerBtn" class="drawer-close" type="button" aria-label="Görev formunu kapat">×</button>
+            </div>
             <label>
               Başlık
               <input id="taskTitle" type="text" required placeholder="ER diyagramını hazırla" />
@@ -228,20 +383,25 @@
               Açıklama
               <textarea id="taskDescription" rows="3" placeholder="Görev notu"></textarea>
             </label>
+            <label>
+              Alt görevler
+              <textarea id="taskSubtasks" rows="4" placeholder="Her satıra bir alt görev yaz.&#10;Örn. Veri kontrolü&#10;Örn. Ekran testi&#10;Örn. Onay"></textarea>
+              <small>Alt görevler görev detayında checklist olarak gösterilir.</small>
+            </label>
             <div class="form-row">
               <label>
                 Proje
-                <select id="taskProject" required></select>
+                <select id="taskProject" required aria-label="Görev projesi"></select>
               </label>
               <label>
                 Kategori
-                <select id="taskCategory"></select>
+                <select id="taskCategory" aria-label="Görev kategorisi"></select>
               </label>
             </div>
             <div class="form-row">
               <label>
                 Atanan kişi
-                <select id="taskAssignee" required></select>
+                <select id="taskAssignee" required aria-label="Görevi atanan kişi"></select>
               </label>
               <label>
                 Süre (dakika)
@@ -250,12 +410,12 @@
             </div>
             <label>
               Görevi veren kişi(ler)
-              <select id="taskGivers" multiple required></select>
+              <select id="taskGivers" multiple required aria-label="Görevi veren kişiler"></select>
             </label>
             <div class="form-row">
               <label>
                 Öncelik
-                <select id="taskPriority">
+                <select id="taskPriority" aria-label="Görev önceliği">
                   <option value="dusuk">Düşük</option>
                   <option value="orta" selected>Orta</option>
                   <option value="yuksek">Yüksek</option>
@@ -263,7 +423,7 @@
               </label>
               <label>
                 Durum
-                <select id="taskStatus">
+                <select id="taskStatus" aria-label="Görev durumu">
                   <option value="bekliyor">Bekliyor</option>
                   <option value="devam_ediyor">Devam ediyor</option>
                   <option value="tamamlandi">Tamamlandı</option>
@@ -276,13 +436,27 @@
                 <input id="taskDueDate" type="date" />
               </label>
             </div>
+            <label class="file-field">
+              Dosyalar
+              <input id="taskFiles" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.txt,.csv" />
+              <small>Proje notu, ekran görüntüsü, teklif, tablo veya teknik doküman ekleyebilirsin.</small>
+            </label>
+            <div id="taskAttachmentDropzone" class="attachment-dropzone" tabindex="0" role="button" aria-label="Dosyaları sürükle ve bırak">
+              Dosyaları buraya bırak veya yukarıdan seç.
+            </div>
+            <p class="attachment-limits">En fazla 5 dosya eklenebilir. Her dosya en fazla 3 MB olabilir.</p>
+            <div id="taskAttachmentStatus" class="attachment-status hidden" aria-live="polite">
+              <span class="attachment-status-text">Dosya hazırlanıyor</span>
+              <div class="attachment-status-bar"><span></span></div>
+            </div>
+            <div id="taskAttachmentPreview" class="attachment-preview" aria-live="polite"></div>
             <div class="form-actions">
               <button id="taskSubmitBtn" class="primary-button" type="submit">Görevi kaydet</button>
               <button id="cancelTaskEditBtn" class="small-button hidden" type="button">Vazgeç</button>
             </div>
           </form>
 
-          <section class="panel">
+          <section class="panel task-layout-panel" data-task-layout-panel="list">
             <div class="panel-header">
               <h3>Görev listesi</h3>
               <span id="taskCount">0 görev</span>
@@ -293,6 +467,9 @@
       </section>
     </main>
   </div>
+
+  <div id="sidebarBackdrop" class="sidebar-backdrop hidden"></div>
+  <div id="taskDrawerBackdrop" class="drawer-backdrop hidden"></div>
 
   <div id="taskDetailModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="taskDetailTitle">
     <div class="modal-backdrop" data-close-task-detail></div>
@@ -316,6 +493,58 @@
       </form>
     </section>
   </div>
+
+  <div id="attachmentPreviewModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="attachmentPreviewTitle">
+    <div class="modal-backdrop" data-close-attachment-preview></div>
+    <section class="modal-panel attachment-preview-modal">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow">Ek önizleme</p>
+          <h2 id="attachmentPreviewTitle">Dosya</h2>
+        </div>
+        <button id="closeAttachmentPreviewBtn" class="small-button" type="button" aria-label="Ek önizlemeyi kapat">Kapat</button>
+      </div>
+      <div id="attachmentPreviewBody" class="attachment-preview-body"></div>
+    </section>
+  </div>
+
+  <div id="userModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="userModalTitle">
+    <div class="modal-backdrop" data-close-user-modal></div>
+    <section class="modal-panel user-modal">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow">Kullanıcı yönetimi</p>
+          <h2 id="userModalTitle">Kullanıcı ekle</h2>
+        </div>
+        <button id="closeUserModalBtn" class="small-button" type="button" aria-label="Kullanıcı ekleme penceresini kapat">Kapat</button>
+      </div>
+
+      <form id="userForm" class="user-form">
+        <label>
+          Ad soyad
+          <input id="userName" type="text" required placeholder="Yeni kullanıcı adı" />
+        </label>
+        <label>
+          Rol
+          <select id="userRole">
+            <option value="user">Kullanıcı</option>
+            <option value="admin">Yönetici</option>
+          </select>
+        </label>
+        <div class="user-form-preview">
+          <span>Oluşacak e-posta</span>
+          <strong id="userEmailPreview">yeni.kullanici@example.com</strong>
+          <small>Demo şifre: 123456</small>
+        </div>
+        <div class="form-actions">
+          <button id="userSubmitBtn" class="primary-button" type="submit">Kullanıcıyı ekle</button>
+          <button id="cancelUserBtn" class="small-button" type="button">Vazgeç</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <div id="toastRegion" class="toast-region" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./supabase-config.js"></script>

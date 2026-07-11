@@ -93,17 +93,20 @@ erDiagram
     USERS ||--o{ TASK_HISTORY : "islem yapar"
     USERS ||--o{ TASK_ASSIGNMENTS : "gorev alir"
     USERS ||--o{ TASK_GIVERS : "gorev verir"
+    USERS ||--o{ TASK_COMMENTS : "yorum yazar"
 
     PROJECTS ||--o{ TASKS : "gorev icerir"
     CATEGORIES ||--o{ TASKS : "kategori verir"
     TASKS ||--o{ TASK_GIVERS : "verenleri tutar"
     TASKS ||--o{ TASK_ASSIGNMENTS : "kisilere atanir"
     TASKS ||--o{ TASK_HISTORY : "gecmis kaydi tutar"
+    TASKS ||--o{ TASK_COMMENTS : "yorum tutar"
 
     USERS {
         uuid id PK
         varchar full_name
         varchar email
+        varchar role
         timestamp created_at
     }
 
@@ -165,6 +168,14 @@ erDiagram
         text note
         timestamp changed_at
     }
+
+    TASK_COMMENTS {
+        uuid id PK
+        uuid task_id FK
+        uuid user_id FK
+        text body
+        timestamp created_at
+    }
         </pre>
       </div>
     </section>
@@ -185,6 +196,12 @@ flowchart TD
     I --> J[Kullanici gorevi tamamlar]
     J --> K[Oncelige gore basari puani hesaplanir]
     E --> L[Durum degisikligi olursa TaskHistory kaydi olusur]
+    C --> M[Yorum eklenirse TaskComments kaydi olusur]
+    R[Uye kaydolur] --> U[users tablosuna role=user olarak yazilir]
+        A --> N[Yonetici paneli ile yeni user veya admin eklenir]
+        U --> K{Kullanicinin rolu}
+        K -->|admin| Y[Yonetici paneli: ekip, proje, atama, analiz]
+        K -->|user| C[Kullanici paneli: kendi gorevleri ve ilerlemesi]
         </pre>
       </div>
     </section>
@@ -202,8 +219,8 @@ flowchart TD
         <tbody>
           <tr>
             <td><code>users</code></td>
-            <td>Kullanici profil bilgilerini tutar.</td>
-            <td><code>id</code>, <code>full_name</code>, <code>email</code>, <code>created_at</code></td>
+            <td>Kullanici profil ve rol bilgilerini tutar.</td>
+            <td><code>id</code>, <code>full_name</code>, <code>email</code>, <code>role</code>, <code>created_at</code></td>
           </tr>
           <tr>
             <td><code>projects</code></td>
@@ -235,6 +252,11 @@ flowchart TD
             <td>Gorev durum degisikliklerini kaydeder.</td>
             <td><code>task_id</code>, <code>changed_by</code>, <code>old_status</code>, <code>new_status</code></td>
           </tr>
+          <tr>
+            <td><code>task_comments</code></td>
+            <td>Gorev detay ekranindaki yorumlari kaydeder.</td>
+            <td><code>task_id</code>, <code>user_id</code>, <code>body</code>, <code>created_at</code></td>
+          </tr>
         </tbody>
       </table>
     </section>
@@ -258,7 +280,8 @@ flowchart TD
         Her projenin altinda gorevler bulunur. Gorevlerin oncelik, durum, sure,
         kategori ve son teslim tarihi bilgileri tutulur. TaskAssignments tablosu
         sayesinde gorevlerin kimlere atandigi ve basari puanlari takip edilir.
-        TaskHistory tablosu sayesinde gorevlerin durum degisiklikleri kayit altina alinir.
+        TaskHistory tablosu sayesinde gorevlerin durum degisiklikleri, TaskComments
+        tablosu sayesinde gorev yorumlari kayit altina alinir.
       </p>
     </section>
   </main>
