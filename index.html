@@ -298,6 +298,18 @@
                 <button id="cancelCategoryEditBtn" class="small-button hidden" type="button">Vazgeç</button>
               </div>
             </form>
+
+            <form id="projectInviteForm" class="panel form-panel admin-only">
+              <div class="panel-header">
+                <div><p class="section-kicker">EKİP ERİŞİMİ</p><h3>Projeye kullanıcı davet et</h3></div>
+              </div>
+              <label>Proje<select id="inviteProject" required aria-label="Davet edilecek proje"></select></label>
+              <label>E-posta<input id="inviteEmail" type="email" required placeholder="kullanici@example.com" /></label>
+              <label>Proje rolü
+                <select id="inviteRole"><option value="member">Üye</option><option value="manager">Proje yöneticisi</option></select>
+              </label>
+              <button class="primary-button" type="submit">Daveti gönder</button>
+            </form>
           </div>
 
           <div class="stack-layout">
@@ -319,6 +331,11 @@
                 <input id="categorySearchInput" type="search" placeholder="Örn. Mekanik" />
               </label>
               <div id="categoryList" class="category-list"></div>
+            </section>
+
+            <section class="panel admin-only">
+              <div class="panel-header"><h3>Proje üyeleri ve davetler</h3><span id="membershipCount">0 kayıt</span></div>
+              <div id="projectMembershipList" class="membership-list"></div>
             </section>
           </div>
         </div>

@@ -58,6 +58,14 @@ try {
   await page.selectOption("#projectCategory", { label: "Smoke Kategori" });
   await page.click("#projectSubmitBtn");
   await expectVisible("#projectList >> text=Smoke Test Projesi", "Yeni proje");
+  await page.selectOption("#inviteProject", { label: "Smoke Test Projesi" });
+  await page.fill("#inviteEmail", "ayse@example.com");
+  await page.selectOption("#inviteRole", "member");
+  await page.click("#projectInviteForm button[type='submit']");
+  await expectVisible("#projectMembershipList >> text=Ayşe Demir", "Projeye eklenen kullanıcı");
+  await page.fill("#inviteEmail", "davetli@example.com");
+  await page.click("#projectInviteForm button[type='submit']");
+  await expectVisible("#projectMembershipList >> text=davetli@example.com", "Bekleyen proje daveti");
 
   await page.click("[data-view='tasks']");
   await page.click("#newTaskBtn");

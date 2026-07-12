@@ -288,6 +288,8 @@ const defaultState = {
       createdAt: "2026-07-09",
     },
   ],
+  projectMembers: [],
+  projectInvitations: [],
 };
 
 const defaultAuthAccounts = [
@@ -409,6 +411,12 @@ const elements = {
   categoryCount: document.querySelector("#categoryCount"),
   categoryList: document.querySelector("#categoryList"),
   categorySearchInput: document.querySelector("#categorySearchInput"),
+  projectInviteForm: document.querySelector("#projectInviteForm"),
+  inviteProject: document.querySelector("#inviteProject"),
+  inviteEmail: document.querySelector("#inviteEmail"),
+  inviteRole: document.querySelector("#inviteRole"),
+  membershipCount: document.querySelector("#membershipCount"),
+  projectMembershipList: document.querySelector("#projectMembershipList"),
   searchInput: document.querySelector("#searchInput"),
   taskFilters: document.querySelector("#taskFilters"),
   statusFilter: document.querySelector("#statusFilter"),
@@ -526,6 +534,8 @@ function migrateState(nextState, parsedState) {
   if (!Array.isArray(parsedState.taskComments)) {
     nextState.taskComments = [];
   }
+  if (!Array.isArray(parsedState.projectMembers)) nextState.projectMembers = [];
+  if (!Array.isArray(parsedState.projectInvitations)) nextState.projectInvitations = [];
 
   return nextState;
 }
@@ -642,7 +652,7 @@ function startRealtimeUpdates(userId) {
       if (loaded) renderAll();
     }, 350);
   };
-  realtimeChannel = ["projects", "categories", "tasks", "task_assignments", "task_givers", "task_history", "task_comments"]
+  realtimeChannel = ["projects", "categories", "tasks", "task_assignments", "task_givers", "task_history", "task_comments", "project_members", "project_invitations"]
     .reduce(
       (channel, table) => channel.on("postgres_changes", { event: "*", schema: "public", table }, refresh),
       client.channel(`todo-plus-${userId}`),
@@ -854,6 +864,8 @@ async function loadSupabaseData(userId) {
       giversResult,
       historyResult,
       commentsResult,
+      membersResult,
+      invitationsResult,
     ] = await Promise.all([
       client.from("users").select("*"),
       client.from("projects").select("*"),
@@ -863,6 +875,8 @@ async function loadSupabaseData(userId) {
       client.from("task_givers").select("*"),
       client.from("task_history").select("*"),
       client.from("task_comments").select("*"),
+      client.from("project_members").select("*"),
+      client.from("project_invitations").select("*"),
     ]);
 
     const failedResult = [
@@ -874,6 +888,8 @@ async function loadSupabaseData(userId) {
       giversResult,
       historyResult,
       commentsResult,
+      membersResult,
+      invitationsResult,
     ].find((result) => result.error);
 
     if (failedResult) throw failedResult.error;
@@ -966,6 +982,20 @@ async function loadSupabaseData(userId) {
         userId: comment.user_id,
         body: comment.body || "",
         createdAt: comment.created_at?.slice(0, 10) || today(),
+      }));
+    }
+
+    if (membersResult.data) {
+      state.projectMembers = membersResult.data.map((member) => ({
+        id: member.id, projectId: member.project_id, userId: member.user_id,
+        memberRole: member.member_role, joinedAt: member.joined_at?.slice(0, 10) || today(),
+      }));
+    }
+    if (invitationsResult.data) {
+      state.projectInvitations = invitationsResult.data.map((invite) => ({
+        id: invite.id, projectId: invite.project_id, email: invite.email,
+        memberRole: invite.member_role, invitedBy: invite.invited_by, status: invite.status,
+        createdAt: invite.created_at?.slice(0, 10) || today(),
       }));
     }
 
@@ -1706,6 +1736,11 @@ function renderProjectFilterOptions() {
 
 function renderProjects() {
   elements.projectCount.textContent = `${state.projects.length} proje`;
+  const selectedInviteProject = elements.inviteProject.value;
+  elements.inviteProject.innerHTML = state.projects
+    .map((project) => `<option value="${project.id}">${escapeHtml(project.name)}</option>`)
+    .join("");
+  if (state.projects.some((project) => project.id === selectedInviteProject)) elements.inviteProject.value = selectedInviteProject;
 
   if (state.projects.length === 0) {
     elements.projectList.innerHTML = `<div class="empty-state">Henüz proje eklenmedi.</div>`;
@@ -1747,6 +1782,73 @@ function renderProjects() {
       `;
     })
     .join("");
+}
+
+function renderProjectMemberships() {
+  const members = state.projectMembers || [];
+  const invitations = state.projectInvitations || [];
+  elements.membershipCount.textContent = `${members.length + invitations.length} kayıt`;
+  const memberRows = members.map((member) => `
+    <article class="membership-item">
+      <div><strong>${escapeHtml(getUserName(member.userId))}</strong><span>${escapeHtml(getProjectName(member.projectId))}</span></div>
+      <span class="badge status-tamamlandi">${member.memberRole === "manager" ? "Proje yöneticisi" : "Üye"}</span>
+    </article>`);
+  const invitationRows = invitations.map((invite) => `
+    <article class="membership-item">
+      <div><strong>${escapeHtml(invite.email)}</strong><span>${escapeHtml(getProjectName(invite.projectId))}</span></div>
+      <span class="badge status-bekliyor">${invite.status === "pending" ? "Davet bekliyor" : escapeHtml(invite.status)}</span>
+      ${invite.status === "pending" ? `<button class="small-button" type="button" data-cancel-invite="${invite.id}">İptal et</button>` : ""}
+    </article>`);
+  elements.projectMembershipList.innerHTML = memberRows.length || invitationRows.length
+    ? [...memberRows, ...invitationRows].join("")
+    : `<div class="empty-state"><strong>Henüz proje üyesi yok.</strong><span>Bir kullanıcıyı e-posta adresiyle projeye davet edebilirsin.</span></div>`;
+}
+
+async function addProjectInvitation(event) {
+  event.preventDefault();
+  if (!isAdmin()) return showToast("Bu işlem için yönetici yetkisi gerekiyor.", "error");
+  const projectId = elements.inviteProject.value;
+  const email = elements.inviteEmail.value.trim().toLocaleLowerCase("tr-TR");
+  const memberRole = elements.inviteRole.value;
+  if (!projectId || !email) return;
+  const existingUser = state.users.find((user) => user.email.toLocaleLowerCase("tr-TR") === email);
+  if (existingUser) {
+    const exists = state.projectMembers.some((member) => member.projectId === projectId && member.userId === existingUser.id);
+    if (exists) return showToast("Bu kullanıcı zaten projenin üyesi.", "error");
+    const member = { id: createId("member"), projectId, userId: existingUser.id, memberRole, joinedAt: today() };
+    if (supabaseReady) {
+      const { data, error } = await getSupabaseClient().from("project_members").insert({ project_id: projectId, user_id: existingUser.id, member_role: memberRole }).select("id").single();
+      if (error) return showToast(`Üyelik eklenemedi: ${error.message}`, "error");
+      member.id = data.id;
+    }
+    state.projectMembers.push(member);
+    showToast("Kullanıcı projeye eklendi.");
+  } else {
+    if (state.projectInvitations.some((invite) => invite.projectId === projectId && invite.email === email && invite.status === "pending")) {
+      return showToast("Bu e-posta için bekleyen bir davet var.", "error");
+    }
+    const invitation = { id: createId("invite"), projectId, email, memberRole, invitedBy: getSessionUser().id, status: "pending", createdAt: today() };
+    if (supabaseReady) {
+      const { data, error } = await getSupabaseClient().from("project_invitations").insert({ project_id: projectId, email, member_role: memberRole, invited_by: getSessionUser().id }).select("id").single();
+      if (error) return showToast(`Davet gönderilemedi: ${error.message}`, "error");
+      invitation.id = data.id;
+    }
+    state.projectInvitations.push(invitation);
+    showToast("Proje daveti oluşturuldu.");
+  }
+  elements.projectInviteForm.reset();
+  saveState();
+  renderProjectMemberships();
+}
+
+async function cancelProjectInvitation(invitationId) {
+  const invitation = state.projectInvitations.find((item) => item.id === invitationId);
+  if (!invitation) return;
+  invitation.status = "cancelled";
+  if (supabaseReady) await getSupabaseClient().from("project_invitations").update({ status: "cancelled", responded_at: new Date().toISOString() }).eq("id", invitationId);
+  saveState();
+  renderProjectMemberships();
+  showToast("Davet iptal edildi.");
 }
 
 function renderCategories() {
@@ -2481,6 +2583,7 @@ function renderAll() {
   renderProjectOptions();
   renderCategoryOptions();
   renderProjects();
+  renderProjectMemberships();
   renderCategories();
   renderTaskViews();
   renderDashboard();
@@ -3604,6 +3707,11 @@ function bindEvents() {
   });
   elements.resetDemoBtn.addEventListener("click", resetDemoData);
   elements.projectForm.addEventListener("submit", addProject);
+  elements.projectInviteForm.addEventListener("submit", addProjectInvitation);
+  elements.projectMembershipList.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-cancel-invite]");
+    if (button) cancelProjectInvitation(button.dataset.cancelInvite);
+  });
   elements.cancelProjectEditBtn.addEventListener("click", resetProjectForm);
   elements.categoryForm.addEventListener("submit", addCategory);
   elements.cancelCategoryEditBtn.addEventListener("click", resetCategoryForm);
