@@ -34,6 +34,12 @@ try {
   await expectVisible("#appShell:not(.hidden)", "Uygulama");
   await expectVisible("#workloadInsights .workload-card:first-child", "Yönetici iş yükü analizi");
   await expectVisible("#assignmentRecommendation", "Görev atama önerisi");
+  await page.click("[data-dashboard-tab='analytics']");
+  await expectVisible("[data-dashboard-panel='analytics']:not(.hidden)", "Analitik bölümü");
+  await page.click("[data-dashboard-tab='history']");
+  await expectVisible("[data-dashboard-panel='history']:not(.hidden)", "Geçmiş bölümü");
+  await page.click("[data-dashboard-tab='overview']");
+  await expectVisible("[data-dashboard-panel='overview']:not(.hidden)", "Genel bakış bölümü");
   const ayseScoreCard = page.locator("#userScores .score-card", { hasText: "Ayşe Demir" });
   await ayseScoreCard.locator("[data-toggle-role]").click();
   await expectVisible("#userScores .score-card >> text=Ayşe Demir", "Rolü değiştirilen ekip üyesi");
@@ -57,24 +63,37 @@ try {
   await page.click("#newTaskBtn");
   await expectVisible("#taskForm.open", "Görev oluşturma çekmecesi");
   await page.fill("#taskTitle", "Smoke Test Görevi");
+  await page.selectOption("#taskAssignee", { label: "Ayşe Demir" });
+  await page.click("#taskDetailsToggle");
+  await expectVisible("#taskAdvancedFields:not(.hidden)", "Görev detay alanları");
   await page.fill("#taskDescription", "Otomatik doğrulama görevi");
   await page.selectOption("#taskProject", { label: "Smoke Test Projesi" });
   await page.selectOption("#taskCategory", { label: "Smoke Kategori" });
   await page.selectOption("#taskPriority", "yuksek");
+  const giverChip = page.locator("#taskGiverChips [data-giver-id]", { hasText: "Ayşe Demir" });
+  await giverChip.click();
+  if ((await giverChip.getAttribute("aria-pressed")) !== "true") {
+    throw new Error("Görevi veren kişi chip seçimi çalışmadı.");
+  }
   await page.click("#taskSubmitBtn");
   await page.locator("#taskForm.open").waitFor({ state: "hidden" });
   await expectVisible("#taskList >> text=Smoke Test Görevi", "Yeni görev");
 
+  await page.click("#filterToggleBtn");
+  await expectVisible("#advancedFilters:not(.hidden)", "Gelişmiş filtreler");
   await page.selectOption("#categoryFilter", { label: "Smoke Kategori" });
   await page.selectOption("#projectFilter", { label: "Smoke Test Projesi" });
   await page.selectOption("#priorityFilter", "yuksek");
   await page.selectOption("#statusFilter", "bekliyor");
+  if ((await page.locator("#activeFilterCount").textContent()) !== "4") {
+    throw new Error("Aktif filtre sayacı doğru güncellenmedi.");
+  }
   const combinedCards = page.locator("#taskList .task-card");
   if ((await combinedCards.count()) !== 1 || !(await combinedCards.first().textContent()).includes("Smoke Test Görevi")) {
     throw new Error("Kategori + proje + öncelik + durum filtreleri AND mantığıyla çalışmadı.");
   }
   await page.selectOption("#priorityFilter", "dusuk");
-  await expectVisible("#taskList >> text=Bu filtrelere uygun görev bulunamadı.", "Boş filtre sonucu");
+  await expectVisible("#taskList >> text=Aradığın görev bulunamadı.", "Boş filtre sonucu");
   await page.click("#clearFiltersBtn");
 
   await page.fill("#searchInput", "Smoke Test Görevi");
@@ -83,6 +102,7 @@ try {
   }
   await page.click("#clearFiltersBtn");
 
+  await page.click("#filterToggleBtn");
   await page.selectOption("#priorityFilter", "dusuk");
   const lowPriorityCards = page.locator("#taskList .task-card");
   if ((await lowPriorityCards.count()) === 0) throw new Error("Düşük öncelik filtresi sonuç döndürmedi.");
@@ -116,6 +136,8 @@ try {
   await page.fill("#taskCommentText", "Smoke test yorumu");
   await page.click("#taskCommentForm button[type='submit']");
   await expectVisible("#taskDetailBody >> text=Smoke test yorumu", "Yeni yorum");
+  await page.selectOption("[data-detail-status]", "devam_ediyor");
+  await expectVisible("#taskDetailBody .status-devam_ediyor", "Modal içi hızlı durum değişikliği");
   await page.click("#closeTaskDetailBtn");
 
   await taskCard.locator("[data-status-task]").click();
@@ -124,6 +146,12 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.click("#menuToggleBtn");
   await expectVisible("#sidebar.open", "Mobil menü");
+  await page.locator("#newTaskBtn").evaluate((button) => button.click());
+  await page.locator("#sidebar.open").waitFor({ state: "hidden" });
+  await expectVisible("#taskForm.open", "Mobil görev çekmecesi");
+  await page.click("#closeTaskDrawerBtn");
+  await page.click("#menuToggleBtn");
+  await expectVisible("#sidebar.open", "Mobil menü yeniden açıldı");
   await page.click("#sidebarBackdrop");
   await page.locator("#sidebar.open").waitFor({ state: "hidden" });
 
