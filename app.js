@@ -1,30 +1,8 @@
-const STORAGE_KEY = "todo_plus_state_v1";
-const AUTH_STORAGE_KEY = "todo_plus_auth_accounts_v1";
-const SESSION_STORAGE_KEY = "todo_plus_session_v1";
-const DELETION_QUEUE_KEY = "todo_plus_pending_deletions_v1";
-
-const priorityScores = {
-  dusuk: 1,
-  orta: 2,
-  yuksek: 3,
-};
-
-const priorityLabels = {
-  dusuk: "Düşük",
-  orta: "Orta",
-  yuksek: "Yüksek",
-};
-
-const statusLabels = {
-  bekliyor: "Bekliyor",
-  devam_ediyor: "Devam ediyor",
-  tamamlandi: "Tamamlandı",
-};
-
-const roleLabels = {
-  admin: "Yönetici",
-  user: "Kullanıcı",
-};
+const { storageKeys, priorityScores, priorityLabels, statusLabels, roleLabels } = window.TODO_PLUS_APP;
+const STORAGE_KEY = storageKeys.state;
+const AUTH_STORAGE_KEY = storageKeys.accounts;
+const SESSION_STORAGE_KEY = storageKeys.session;
+const DELETION_QUEUE_KEY = storageKeys.deletionQueue;
 
 const sampleAttachmentDataUrl =
   "data:image/svg+xml;charset=utf-8," +
@@ -345,6 +323,8 @@ let taskDraftAttachments = [];
 let activeAttachmentPreview = null;
 let userModalMode = "create";
 let supabaseClient = null;
+let realtimeChannel = null;
+let realtimeRefreshTimer = null;
 let supabaseReady = false;
 let isLoadingRemoteData = false;
 let syncTimer = null;
@@ -642,6 +622,35 @@ function getSupabaseClient() {
   }
 
   return supabaseClient;
+}
+
+function stopRealtimeUpdates() {
+  if (realtimeRefreshTimer) clearTimeout(realtimeRefreshTimer);
+  realtimeRefreshTimer = null;
+  if (realtimeChannel && supabaseClient) supabaseClient.removeChannel(realtimeChannel);
+  realtimeChannel = null;
+}
+
+function startRealtimeUpdates(userId) {
+  const client = getSupabaseClient();
+  if (!client || !userId) return;
+  stopRealtimeUpdates();
+  const refresh = () => {
+    clearTimeout(realtimeRefreshTimer);
+    realtimeRefreshTimer = setTimeout(async () => {
+      const loaded = await loadSupabaseData(userId);
+      if (loaded) renderAll();
+    }, 350);
+  };
+  realtimeChannel = ["projects", "categories", "tasks", "task_assignments", "task_givers", "task_history", "task_comments"]
+    .reduce(
+      (channel, table) => channel.on("postgres_changes", { event: "*", schema: "public", table }, refresh),
+      client.channel(`todo-plus-${userId}`),
+    )
+    .subscribe((status) => {
+      if (status === "SUBSCRIBED") setConnectionStatus("online", "Supabase · Canlı bağlı");
+      if (status === "CHANNEL_ERROR") setConnectionStatus("error", "Supabase · Canlı bağlantı hatası");
+    });
 }
 
 function isUuid(value) {
@@ -2502,7 +2511,10 @@ async function showApp() {
   if (supabaseReady && currentSession?.userId) {
     setConnectionStatus("syncing", "Supabase · Yükleniyor…");
     const loaded = await loadSupabaseData(currentSession.userId);
-    if (loaded) setConnectionStatus("online", "Supabase · Bağlı");
+    if (loaded) {
+      setConnectionStatus("online", "Supabase · Bağlı");
+      startRealtimeUpdates(currentSession.userId);
+    }
   } else {
     setConnectionStatus("", "Demo mod · Yerel kayıt");
   }
@@ -3545,6 +3557,7 @@ function bindEvents() {
   });
 
   elements.logoutBtn.addEventListener("click", async () => {
+    stopRealtimeUpdates();
     if (supabaseReady) {
       await getSupabaseClient()?.auth.signOut();
     }

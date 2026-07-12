@@ -107,6 +107,27 @@ create table if not exists public.task_comments (
   created_at timestamp with time zone not null default now()
 );
 
+create table if not exists public.project_members (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.projects(id) on delete cascade,
+  user_id uuid not null references public.users(id) on delete cascade,
+  member_role varchar(20) not null default 'member' check (member_role in ('manager', 'member')),
+  joined_at timestamp with time zone not null default now(),
+  unique (project_id, user_id)
+);
+
+create table if not exists public.project_invitations (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.projects(id) on delete cascade,
+  email varchar(160) not null,
+  member_role varchar(20) not null default 'member' check (member_role in ('manager', 'member')),
+  invited_by uuid not null references public.users(id) on delete cascade,
+  status varchar(20) not null default 'pending' check (status in ('pending', 'accepted', 'declined', 'cancelled')),
+  created_at timestamp with time zone not null default now(),
+  responded_at timestamp with time zone,
+  unique (project_id, email)
+);
+
 create index if not exists idx_projects_user_id on public.projects(user_id);
 create index if not exists idx_categories_user_id on public.categories(user_id);
 create index if not exists idx_projects_category_id on public.projects(category_id);
@@ -120,6 +141,9 @@ create index if not exists idx_task_givers_user_id on public.task_givers(user_id
 create index if not exists idx_task_history_task_id on public.task_history(task_id);
 create index if not exists idx_task_comments_task_id on public.task_comments(task_id);
 create index if not exists idx_task_comments_user_id on public.task_comments(user_id);
+create index if not exists idx_project_members_project_id on public.project_members(project_id);
+create index if not exists idx_project_members_user_id on public.project_members(user_id);
+create index if not exists idx_project_invitations_email on public.project_invitations(lower(email));
 
 -- Gorev onceligine gore puan hesaplama.
 create or replace function public.priority_score(task_priority varchar)
@@ -343,6 +367,8 @@ alter table public.task_assignments enable row level security;
 alter table public.task_givers enable row level security;
 alter table public.task_history enable row level security;
 alter table public.task_comments enable row level security;
+alter table public.project_members enable row level security;
+alter table public.project_invitations enable row level security;
 
 drop policy if exists "users_select_authenticated" on public.users;
 drop policy if exists "users_select_related" on public.users;
@@ -366,6 +392,35 @@ drop policy if exists "task_history_actor_select" on public.task_history;
 drop policy if exists "task_history_actor_insert" on public.task_history;
 drop policy if exists "task_comments_related_select" on public.task_comments;
 drop policy if exists "task_comments_related_insert" on public.task_comments;
+drop policy if exists "project_members_select" on public.project_members;
+drop policy if exists "project_members_manage" on public.project_members;
+drop policy if exists "project_invitations_select" on public.project_invitations;
+drop policy if exists "project_invitations_manage" on public.project_invitations;
+drop policy if exists "project_invitations_respond" on public.project_invitations;
+
+create policy "project_members_select" on public.project_members
+  for select using (public.is_admin() or auth.uid() = user_id);
+
+create policy "project_members_manage" on public.project_members
+  for all using (public.is_admin())
+  with check (public.is_admin());
+
+create policy "project_invitations_select" on public.project_invitations
+  for select using (
+    public.is_admin()
+    or lower(email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+  );
+
+create policy "project_invitations_manage" on public.project_invitations
+  for all using (public.is_admin())
+  with check (public.is_admin() and auth.uid() = invited_by);
+
+create policy "project_invitations_respond" on public.project_invitations
+  for update using (lower(email) = lower(coalesce(auth.jwt() ->> 'email', '')))
+  with check (
+    lower(email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+    and status in ('accepted', 'declined')
+  );
 
 create policy "users_select_related" on public.users
   for select using (public.can_view_user_profile(id));
@@ -453,3 +508,23 @@ create policy "task_comments_related_insert" on public.task_comments
     auth.uid() = user_id
     and public.can_access_task(task_id)
   );
+
+-- Canli ekran guncellemeleri icin gerekli tablolar Realtime yayınına eklenir.
+do $$
+declare
+  table_name text;
+begin
+  foreach table_name in array array[
+    'projects', 'categories', 'tasks', 'task_assignments', 'task_givers',
+    'task_history', 'task_comments', 'project_members', 'project_invitations'
+  ] loop
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = table_name
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', table_name);
+    end if;
+  end loop;
+end $$;
