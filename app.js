@@ -325,9 +325,6 @@ let draggedTaskId = null;
 let taskDraftAttachments = [];
 let activeAttachmentPreview = null;
 let userModalMode = "create";
-let supabaseClient = null;
-let realtimeChannel = null;
-let realtimeRefreshTimer = null;
 let supabaseReady = false;
 let isLoadingRemoteData = false;
 let syncTimer = null;
@@ -609,71 +606,29 @@ function scheduleSupabaseSync() {
   }, 300);
 }
 
-function isSupabaseConfigured() {
-  const config = window.TODO_PLUS_SUPABASE;
-  return Boolean(
-    window.supabase &&
-      config?.url &&
-      config?.anonKey &&
-      config.url.startsWith("https://") &&
-      config.anonKey.length > 20,
-  );
-}
-
-function getSupabaseClient() {
-  if (!isSupabaseConfigured()) {
-    return null;
-  }
-
-  if (!supabaseClient) {
-    supabaseClient = window.supabase.createClient(
-      window.TODO_PLUS_SUPABASE.url,
-      window.TODO_PLUS_SUPABASE.anonKey,
-    );
-  }
-
-  return supabaseClient;
-}
-
-function stopRealtimeUpdates() {
-  if (realtimeRefreshTimer) clearTimeout(realtimeRefreshTimer);
-  realtimeRefreshTimer = null;
-  if (realtimeChannel && supabaseClient) supabaseClient.removeChannel(realtimeChannel);
-  realtimeChannel = null;
-}
-
-function startRealtimeUpdates(userId) {
-  const client = getSupabaseClient();
-  if (!client || !userId) return;
-  stopRealtimeUpdates();
-  const refresh = (payload) => {
-    clearTimeout(realtimeRefreshTimer);
-    realtimeRefreshTimer = setTimeout(async () => {
-      const loaded = await loadSupabaseData(userId);
-      if (loaded) {
-        renderAll();
-        const messages = {
-          tasks: "Görevlerde yeni bir değişiklik var.",
-          task_comments: "Bir göreve yeni yorum eklendi.",
-          task_assignments: "Görev atamalarında değişiklik var.",
-          project_invitations: "Proje davetlerinde yeni bir hareket var.",
-          project_members: "Proje üyeleri güncellendi.",
-        };
-        const message = messages[payload?.table];
-        if (message) showToast(message);
-      }
-    }, 350);
-  };
-  realtimeChannel = ["projects", "categories", "tasks", "task_assignments", "task_givers", "task_history", "task_comments", "project_members", "project_invitations"]
-    .reduce(
-      (channel, table) => channel.on("postgres_changes", { event: "*", schema: "public", table }, refresh),
-      client.channel(`todo-plus-${userId}`),
-    )
-    .subscribe((status) => {
-      if (status === "SUBSCRIBED") setConnectionStatus("online", "Supabase · Canlı bağlı");
-      if (status === "CHANNEL_ERROR") setConnectionStatus("error", "Supabase · Canlı bağlantı hatası");
-    });
-}
+const supabaseGateway = window.TODO_PLUS_SUPABASE_GATEWAY.createGateway({
+  onRemoteChange: async (payload) => {
+    const loaded = await loadSupabaseData(currentSession?.userId);
+    if (!loaded) return;
+    renderAll();
+    const messages = {
+      tasks: "Görevlerde yeni bir değişiklik var.",
+      task_comments: "Bir göreve yeni yorum eklendi.",
+      task_assignments: "Görev atamalarında değişiklik var.",
+      project_invitations: "Proje davetlerinde yeni bir hareket var.",
+      project_members: "Proje üyeleri güncellendi.",
+    };
+    if (messages[payload?.table]) showToast(messages[payload.table]);
+  },
+  onStatusChange: (status) => {
+    if (status === "SUBSCRIBED") setConnectionStatus("online", "Supabase · Canlı bağlı");
+    if (status === "CHANNEL_ERROR") setConnectionStatus("error", "Supabase · Canlı bağlantı hatası");
+  },
+});
+const isSupabaseConfigured = () => supabaseGateway.isConfigured();
+const getSupabaseClient = () => supabaseGateway.getClient();
+const startRealtimeUpdates = (userId) => supabaseGateway.startRealtime(userId);
+const stopRealtimeUpdates = () => supabaseGateway.stopRealtime();
 
 function toSupabaseRows() {
   const allUsers = state.users.filter((user) => isUuid(user.id));
