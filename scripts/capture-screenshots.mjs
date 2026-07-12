@@ -22,9 +22,19 @@ await page.click("button[type='submit']");
 await page.waitForSelector("#appShell:not(.hidden)");
 await page.screenshot({ path: path.join(outDir, "02-istatistik-ekrani.png"), fullPage: true });
 
+await page.click("[data-dashboard-tab='analytics']");
+await page.waitForSelector("[data-dashboard-panel='analytics']:not(.hidden)");
+await page.screenshot({ path: path.join(outDir, "10-analitik-ekrani.png"), fullPage: true });
+await page.click("[data-dashboard-tab='history']");
+await page.waitForSelector("[data-dashboard-panel='history']:not(.hidden)");
+await page.screenshot({ path: path.join(outDir, "11-gecmis-ekrani.png"), fullPage: true });
+await page.click("[data-dashboard-tab='overview']");
+
 await page.click("[data-view='projects']");
 await page.waitForSelector("#projectsView.active-view");
 await page.screenshot({ path: path.join(outDir, "03-projeler-kategoriler.png"), fullPage: true });
+await page.locator("#projectInviteForm").scrollIntoViewIfNeeded();
+await page.screenshot({ path: path.join(outDir, "12-proje-uyelikleri.png"), fullPage: true });
 
 await page.click("[data-view='tasks']");
 await page.waitForSelector("#tasksView.active-view");

@@ -1,4 +1,5 @@
 const { storageKeys, priorityScores, priorityLabels, statusLabels, roleLabels } = window.TODO_PLUS_APP;
+const { createId, escapeHtml, today, formatDate, getDueDateMeta, isTaskOverdue, isUuid, formatFileSize, readFileAsDataURL, getAttachmentLabel, getAttachmentGroupLabel, getAttachmentGroupIcon } = window.TODO_PLUS_UTILS;
 const STORAGE_KEY = storageKeys.state;
 const AUTH_STORAGE_KEY = storageKeys.accounts;
 const SESSION_STORAGE_KEY = storageKeys.session;
@@ -645,11 +646,22 @@ function startRealtimeUpdates(userId) {
   const client = getSupabaseClient();
   if (!client || !userId) return;
   stopRealtimeUpdates();
-  const refresh = () => {
+  const refresh = (payload) => {
     clearTimeout(realtimeRefreshTimer);
     realtimeRefreshTimer = setTimeout(async () => {
       const loaded = await loadSupabaseData(userId);
-      if (loaded) renderAll();
+      if (loaded) {
+        renderAll();
+        const messages = {
+          tasks: "Görevlerde yeni bir değişiklik var.",
+          task_comments: "Bir göreve yeni yorum eklendi.",
+          task_assignments: "Görev atamalarında değişiklik var.",
+          project_invitations: "Proje davetlerinde yeni bir hareket var.",
+          project_members: "Proje üyeleri güncellendi.",
+        };
+        const message = messages[payload?.table];
+        if (message) showToast(message);
+      }
     }, 350);
   };
   realtimeChannel = ["projects", "categories", "tasks", "task_assignments", "task_givers", "task_history", "task_comments", "project_members", "project_invitations"]
@@ -661,12 +673,6 @@ function startRealtimeUpdates(userId) {
       if (status === "SUBSCRIBED") setConnectionStatus("online", "Supabase · Canlı bağlı");
       if (status === "CHANNEL_ERROR") setConnectionStatus("error", "Supabase · Canlı bağlantı hatası");
     });
-}
-
-function isUuid(value) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    String(value || ""),
-  );
 }
 
 function toSupabaseRows() {
@@ -1091,71 +1097,6 @@ function resetDemoData() {
   renderAll();
 }
 
-function createId() {
-  if (window.crypto?.randomUUID) {
-    return window.crypto.randomUUID();
-  }
-
-  return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (char) =>
-    (
-      Number(char) ^
-      (((window.crypto?.getRandomValues?.(new Uint8Array(1))[0] ?? Math.floor(Math.random() * 256)) &
-        (15 >> (Number(char) / 4))))
-    ).toString(16),
-  );
-}
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function today() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function formatDate(value) {
-  if (!value) return "Tarih yok";
-  return new Intl.DateTimeFormat("tr-TR", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  }).format(new Date(`${value}T12:00:00`));
-}
-
-function getDueDateMeta(task) {
-  if (!task.dueDate) {
-    return { label: "Tarih yok", className: "" };
-  }
-
-  if (task.status === "tamamlandi") {
-    return { label: formatDate(task.dueDate), className: "due-complete" };
-  }
-
-  const current = new Date(`${today()}T12:00:00`);
-  const dueDate = new Date(`${task.dueDate}T12:00:00`);
-  const remainingDays = Math.ceil((dueDate - current) / 86400000);
-
-  if (remainingDays < 0) {
-    return { label: `${formatDate(task.dueDate)} - gecikti`, className: "due-overdue" };
-  }
-
-  if (remainingDays <= 2) {
-    return { label: `${formatDate(task.dueDate)} - yaklaşıyor`, className: "due-soon" };
-  }
-
-  return { label: formatDate(task.dueDate), className: "" };
-}
-
-function isTaskOverdue(task) {
-  if (!task.dueDate || task.status === "tamamlandi") return false;
-  return new Date(`${task.dueDate}T12:00:00`) < new Date(`${today()}T12:00:00`);
-}
-
 function getTaskAttachments(task) {
   return Array.isArray(task?.attachments) ? task.attachments : [];
 }
@@ -1174,49 +1115,6 @@ function parseTaskSubtasks(value) {
       title,
       completed: false,
     }));
-}
-
-function formatFileSize(bytes) {
-  const size = Number(bytes) || 0;
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${Math.round(size / 102.4) / 10} KB`;
-  return `${Math.round((size / 1048576) * 10) / 10} MB`;
-}
-
-function readFileAsDataURL(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(reader.error || new Error("Dosya okunamadı."));
-    reader.readAsDataURL(file);
-  });
-}
-
-function getAttachmentLabel(attachment) {
-  if (!attachment?.type) return "Dosya";
-  if (attachment.type.startsWith("image/")) return "Görsel";
-  if (attachment.type.includes("pdf")) return "PDF";
-  if (attachment.type.includes("spreadsheet") || attachment.name?.match(/\.(xlsx|xls|csv)$/i)) return "Tablo";
-  if (attachment.name?.match(/\.(docx|doc)$/i)) return "Belge";
-  return "Dosya";
-}
-
-function getAttachmentGroupLabel(attachment) {
-  const label = getAttachmentLabel(attachment);
-  if (label === "Görsel") return "Görseller";
-  if (label === "PDF") return "PDF'ler";
-  if (label === "Tablo") return "Tablolar";
-  if (label === "Belge") return "Belgeler";
-  return "Diğer ekler";
-}
-
-function getAttachmentGroupIcon(attachment) {
-  const label = getAttachmentLabel(attachment);
-  if (label === "Görsel") return "🖼";
-  if (label === "PDF") return "PDF";
-  if (label === "Tablo") return "▦";
-  if (label === "Belge") return "DOC";
-  return "📎";
 }
 
 function renderTaskAttachmentPreview() {
