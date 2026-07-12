@@ -1,9 +1,11 @@
 const { storageKeys, priorityScores, priorityLabels, statusLabels, roleLabels } = window.TODO_PLUS_APP;
 const { createId, escapeHtml, today, formatDate, getDueDateMeta, isTaskOverdue, isUuid, formatFileSize, readFileAsDataURL, getAttachmentLabel, getAttachmentGroupLabel, getAttachmentGroupIcon } = window.TODO_PLUS_UTILS;
-const STORAGE_KEY = storageKeys.state;
-const AUTH_STORAGE_KEY = storageKeys.accounts;
-const SESSION_STORAGE_KEY = storageKeys.session;
-const DELETION_QUEUE_KEY = storageKeys.deletionQueue;
+const localStore = window.TODO_PLUS_STORAGE.createStorage(window.localStorage, storageKeys);
+const taskModel = window.TODO_PLUS_TASK_MODEL.createTaskModel({ createId, priorityScores, isTaskOverdue });
+const getTaskAttachments = taskModel.getAttachments;
+const getTaskSubtasks = taskModel.getSubtasks;
+const parseTaskSubtasks = taskModel.parseSubtasks;
+const getTaskScore = taskModel.getScore;
 
 const sampleAttachmentDataUrl =
   "data:image/svg+xml;charset=utf-8," +
@@ -479,19 +481,8 @@ const elements = {
 };
 
 function loadState() {
-  const storedState = localStorage.getItem(STORAGE_KEY);
-
-  if (!storedState) {
-    return structuredClone(defaultState);
-  }
-
-  try {
-    const parsed = JSON.parse(storedState);
-    const nextState = { ...structuredClone(defaultState), ...parsed };
-    return migrateState(nextState, parsed);
-  } catch {
-    return structuredClone(defaultState);
-  }
+  const parsed = localStore.loadState(defaultState);
+  return migrateState({ ...structuredClone(defaultState), ...parsed }, parsed);
 }
 
 function migrateState(nextState, parsedState) {
@@ -539,7 +530,7 @@ function migrateState(nextState, parsedState) {
 }
 
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  localStore.saveState(state);
 
   if (supabaseReady && currentSession?.userId && !isLoadingRemoteData) {
     scheduleSupabaseSync();
@@ -547,16 +538,11 @@ function saveState() {
 }
 
 function loadPendingDeletions() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(DELETION_QUEUE_KEY) || "[]");
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+  return localStore.loadDeletionQueue();
 }
 
 function savePendingDeletions() {
-  localStorage.setItem(DELETION_QUEUE_KEY, JSON.stringify(pendingDeletions));
+  localStore.saveDeletionQueue(pendingDeletions);
 }
 
 async function flushPendingDeletions(client) {
@@ -961,7 +947,7 @@ async function loadSupabaseData(userId) {
     }
 
     state.activeUserId = userId;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStore.saveState(state);
     return true;
   } catch (error) {
     console.error("Supabase veri yükleme hatası:", error);
@@ -974,40 +960,17 @@ async function loadSupabaseData(userId) {
 }
 
 function loadAuthAccounts() {
-  const storedAccounts = localStorage.getItem(AUTH_STORAGE_KEY);
-
-  if (!storedAccounts) {
-    return structuredClone(defaultAuthAccounts);
-  }
-
-  try {
-    const parsed = JSON.parse(storedAccounts);
-    if (!Array.isArray(parsed)) return structuredClone(defaultAuthAccounts);
-    return parsed.map((account) => ({
-      ...account,
-      role: account.role || "user",
-    }));
-  } catch {
-    return structuredClone(defaultAuthAccounts);
-  }
+  const accounts = localStore.loadAccounts(defaultAuthAccounts);
+  if (!Array.isArray(accounts)) return structuredClone(defaultAuthAccounts);
+  return accounts.map((account) => ({ ...account, role: account.role || "user" }));
 }
 
 function saveAuthAccounts() {
-  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authAccounts));
+  localStore.saveAccounts(authAccounts);
 }
 
 function loadSession() {
-  const storedSession = localStorage.getItem(SESSION_STORAGE_KEY);
-
-  if (!storedSession) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(storedSession);
-  } catch {
-    return null;
-  }
+  return localStore.loadSession();
 }
 
 function saveSession(userId) {
@@ -1015,12 +978,12 @@ function saveSession(userId) {
     userId,
     loggedInAt: new Date().toISOString(),
   };
-  localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(currentSession));
+  localStore.saveSession(currentSession);
 }
 
 function clearSession() {
   currentSession = null;
-  localStorage.removeItem(SESSION_STORAGE_KEY);
+  localStore.clearSession();
 }
 
 function resetDemoData() {
@@ -1042,34 +1005,14 @@ function resetDemoData() {
   };
 
   saveAuthAccounts();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(currentSession));
+  localStore.saveState(state);
+  localStore.saveSession(currentSession);
   pendingDeletions = [];
-  localStorage.removeItem(DELETION_QUEUE_KEY);
+  localStore.clearDeletionQueue();
   resetProjectForm();
   resetCategoryForm();
   resetTaskForm();
   renderAll();
-}
-
-function getTaskAttachments(task) {
-  return Array.isArray(task?.attachments) ? task.attachments : [];
-}
-
-function getTaskSubtasks(task) {
-  return Array.isArray(task?.subtasks) ? task.subtasks : [];
-}
-
-function parseTaskSubtasks(value) {
-  return String(value || "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((title) => ({
-      id: createId("subtask"),
-      title,
-      completed: false,
-    }));
 }
 
 function renderTaskAttachmentPreview() {
@@ -1405,48 +1348,12 @@ function getTaskTitle(taskId) {
   return state.tasks.find((task) => task.id === taskId)?.title || "Silinmiş görev";
 }
 
-function getTaskScore(task) {
-  return priorityScores[task.priority] || 1;
-}
-
 function calculateUserStats(userId) {
-  const assignments = state.assignments.filter((assignment) => assignment.userId === userId);
-  const assignedTasks = assignments
-    .map((assignment) => state.tasks.find((task) => task.id === assignment.taskId))
-    .filter(Boolean);
-
-  const totalScore = assignedTasks.reduce((sum, task) => sum + getTaskScore(task), 0);
-  const completedScore = assignments.reduce((sum, assignment) => {
-    const task = state.tasks.find((item) => item.id === assignment.taskId);
-    return assignment.isCompleted && task ? sum + getTaskScore(task) : sum;
-  }, 0);
-
-  const rate = totalScore === 0 ? 0 : Math.round((completedScore / totalScore) * 100);
-
-  return {
-    assignedCount: assignments.length,
-    completedCount: assignments.filter((assignment) => assignment.isCompleted).length,
-    totalScore,
-    completedScore,
-    rate,
-  };
+  return taskModel.calculateUserStats(state, userId);
 }
 
 function calculateWorkload(userId) {
-  const assignedTaskIds = new Set(
-    state.assignments.filter((assignment) => assignment.userId === userId).map((assignment) => assignment.taskId),
-  );
-  const tasks = state.tasks.filter((task) => assignedTaskIds.has(task.id));
-  const activeTasks = tasks.filter((task) => task.status !== "tamamlandi");
-  const overdueCount = activeTasks.filter(isTaskOverdue).length;
-  const activeMinutes = activeTasks.reduce((sum, task) => sum + (Number(task.estimatedMinutes) || 0), 0);
-  const stats = calculateUserStats(userId);
-  const readinessScore = Math.max(
-    0,
-    Math.round((stats.assignedCount ? stats.rate : 50) - activeTasks.length * 12 - overdueCount * 20),
-  );
-
-  return { ...stats, activeCount: activeTasks.length, overdueCount, activeMinutes, readinessScore };
+  return taskModel.calculateWorkload(state, userId);
 }
 
 function setView(viewName) {
