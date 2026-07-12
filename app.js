@@ -2,6 +2,7 @@ const { storageKeys, priorityScores, priorityLabels, statusLabels, roleLabels } 
 const { createId, escapeHtml, today, formatDate, getDueDateMeta, isTaskOverdue, isUuid, formatFileSize, readFileAsDataURL, getAttachmentLabel, getAttachmentGroupLabel, getAttachmentGroupIcon } = window.TODO_PLUS_UTILS;
 const localStore = window.TODO_PLUS_STORAGE.createStorage(window.localStorage, storageKeys);
 const taskModel = window.TODO_PLUS_TASK_MODEL.createTaskModel({ createId, priorityScores, isTaskOverdue });
+const supabaseMapper = window.TODO_PLUS_SUPABASE_MAPPER;
 const getTaskAttachments = taskModel.getAttachments;
 const getTaskSubtasks = taskModel.getSubtasks;
 const parseTaskSubtasks = taskModel.parseSubtasks;
@@ -335,6 +336,7 @@ let syncRetryTimer = null;
 let syncRetryCount = 0;
 let pendingDeletions = loadPendingDeletions();
 let toastTimer = null;
+const modalReturnFocus = new WeakMap();
 
 const elements = {
   authScreen: document.querySelector("#authScreen"),
@@ -454,6 +456,7 @@ const elements = {
   taskDueDate: document.querySelector("#taskDueDate"),
   taskFiles: document.querySelector("#taskFiles"),
   taskAttachmentDropzone: document.querySelector("#taskAttachmentDropzone"),
+  taskAttachmentError: document.querySelector("#taskAttachmentError"),
   taskAttachmentStatus: document.querySelector("#taskAttachmentStatus"),
   taskAttachmentPreview: document.querySelector("#taskAttachmentPreview"),
   taskCount: document.querySelector("#taskCount"),
@@ -719,7 +722,7 @@ async function syncStateToSupabase() {
   const client = getSupabaseClient();
   if (!client) return false;
 
-  const rows = toSupabaseRows();
+  const rows = supabaseMapper.toRemoteRows(state, isUuid);
   const upsertRows = async (tableName, tableRows, options = undefined) => {
     if (tableRows.length === 0) return;
     const { error } = await client.from(tableName).upsert(tableRows, options);
@@ -841,110 +844,18 @@ async function loadSupabaseData(userId) {
 
     if (failedResult) throw failedResult.error;
 
-    if (usersResult.data) {
-      state.users = usersResult.data.map((user) => ({
-        id: user.id,
-        fullName: user.full_name,
-        email: user.email,
-        role: user.role || "user",
-      }));
-    }
-
-    if (projectsResult.data) {
-      state.projects = projectsResult.data.map((project) => ({
-        id: project.id,
-        userId: project.user_id,
-        categoryId: project.category_id || "",
-        name: project.name,
-        description: project.description || "",
-        createdAt: project.created_at?.slice(0, 10) || today(),
-        updatedAt: project.updated_at?.slice(0, 10) || today(),
-      }));
-    }
-
-    if (categoriesResult.data) {
-      state.categories = categoriesResult.data.map((category) => ({
-        id: category.id,
-        userId: category.user_id,
-        name: category.name,
-        color: category.color,
-        createdAt: category.created_at?.slice(0, 10) || today(),
-      }));
-    }
-
-    if (tasksResult.data) {
-      state.tasks = tasksResult.data.map((task) => ({
-        id: task.id,
-        projectId: task.project_id,
-        categoryId: task.category_id || "",
-        createdBy: task.created_by,
-        title: task.title,
-        description: task.description || "",
-        priority: task.priority,
-        status: task.status,
-        estimatedMinutes: task.estimated_minutes,
-        dueDate: task.due_date || "",
-        createdAt: task.created_at?.slice(0, 10) || today(),
-        updatedAt: task.updated_at?.slice(0, 10) || today(),
-      }));
-    }
-
-    if (assignmentsResult.data) {
-      state.assignments = assignmentsResult.data.map((assignment) => ({
-        id: assignment.id,
-        taskId: assignment.task_id,
-        userId: assignment.user_id,
-        isCompleted: assignment.is_completed,
-        completedAt: assignment.completed_at?.slice(0, 10) || "",
-        earnedScore: assignment.earned_score,
-        assignedAt: assignment.assigned_at?.slice(0, 10) || today(),
-      }));
-    }
-
-    if (giversResult.data) {
-      state.taskGivers = giversResult.data.map((giver) => ({
-        id: giver.id,
-        taskId: giver.task_id,
-        userId: giver.user_id,
-        assignedAt: giver.assigned_at?.slice(0, 10) || today(),
-      }));
-    }
-
-    if (historyResult.data) {
-      state.history = historyResult.data.map((item) => ({
-        id: item.id,
-        taskId: item.task_id,
-        changedBy: item.changed_by,
-        oldStatus: item.old_status || "",
-        newStatus: item.new_status,
-        note: item.note || "",
-        changedAt: item.changed_at?.slice(0, 10) || today(),
-      }));
-    }
-
-    if (commentsResult.data) {
-      state.taskComments = commentsResult.data.map((comment) => ({
-        id: comment.id,
-        taskId: comment.task_id,
-        userId: comment.user_id,
-        body: comment.body || "",
-        createdAt: comment.created_at?.slice(0, 10) || today(),
-      }));
-    }
-
-    if (membersResult.data) {
-      state.projectMembers = membersResult.data.map((member) => ({
-        id: member.id, projectId: member.project_id, userId: member.user_id,
-        memberRole: member.member_role, joinedAt: member.joined_at?.slice(0, 10) || today(),
-      }));
-    }
-    if (invitationsResult.data) {
-      state.projectInvitations = invitationsResult.data.map((invite) => ({
-        id: invite.id, projectId: invite.project_id, email: invite.email,
-        memberRole: invite.member_role, invitedBy: invite.invited_by, status: invite.status,
-        createdAt: invite.created_at?.slice(0, 10) || today(),
-      }));
-    }
+    supabaseMapper.applyRemoteRows(state, {
+      users: usersResult.data,
+      projects: projectsResult.data,
+      categories: categoriesResult.data,
+      tasks: tasksResult.data,
+      task_assignments: assignmentsResult.data,
+      task_givers: giversResult.data,
+      task_history: historyResult.data,
+      task_comments: commentsResult.data,
+      project_members: membersResult.data,
+      project_invitations: invitationsResult.data,
+    }, today);
 
     state.activeUserId = userId;
     localStore.saveState(state);
@@ -1045,6 +956,7 @@ function renderTaskAttachmentPreview() {
 
 function clearTaskDraftAttachments() {
   taskDraftAttachments = [];
+  setTaskAttachmentError("");
   if (elements.taskAttachmentStatus) {
     elements.taskAttachmentStatus.classList.add("hidden");
     const statusText = elements.taskAttachmentStatus.querySelector(".attachment-status-text");
@@ -1055,6 +967,14 @@ function clearTaskDraftAttachments() {
   renderTaskAttachmentPreview();
 }
 
+function setTaskAttachmentError(message) {
+  if (!elements.taskAttachmentError) return;
+  elements.taskAttachmentError.textContent = message;
+  elements.taskAttachmentError.classList.toggle("hidden", !message);
+  elements.taskFiles.setAttribute("aria-invalid", String(Boolean(message)));
+  elements.taskAttachmentDropzone.setAttribute("aria-invalid", String(Boolean(message)));
+}
+
 async function addAttachmentsToDraft(fileList) {
   const files = [...(fileList || [])];
   if (files.length === 0) return;
@@ -1063,22 +983,29 @@ async function addAttachmentsToDraft(fileList) {
   const maxFileSize = 3 * 1024 * 1024;
   const remainingSlots = Math.max(0, maxFiles - taskDraftAttachments.length);
   const safeFiles = files.slice(0, remainingSlots);
+  const errors = [];
+
+  if (files.length > remainingSlots) {
+    errors.push(`En fazla ${maxFiles} dosya eklenebilir; ${files.length - remainingSlots} dosya eklenmedi.`);
+  }
+  const validFiles = safeFiles.filter((file) => {
+    if (file.size <= maxFileSize) return true;
+    errors.push(`“${file.name}” 3 MB sınırını aştığı için eklenmedi.`);
+    return false;
+  });
+  setTaskAttachmentError(errors.join(" "));
+  if (errors.length) showToast(errors.join(" "), "error");
 
   if (elements.taskAttachmentStatus) {
     elements.taskAttachmentStatus.classList.remove("hidden");
     const statusText = elements.taskAttachmentStatus.querySelector(".attachment-status-text");
     const statusBar = elements.taskAttachmentStatus.querySelector(".attachment-status-bar span");
-    if (statusText) statusText.textContent = `${safeFiles.length} dosya yükleniyor`;
+    if (statusText) statusText.textContent = `${validFiles.length} dosya yükleniyor`;
     if (statusBar) statusBar.style.width = "0%";
   }
 
   let loadedCount = 0;
-  for (const file of safeFiles) {
-    if (file.size > maxFileSize) {
-      showToast(`"${file.name}" çok büyük. 3 MB altı dosya seçin.`, "error");
-      continue;
-    }
-
+  for (const file of validFiles) {
     const dataUrl = await readFileAsDataURL(file);
     taskDraftAttachments.push({
       id: createId("attachment"),
@@ -1092,15 +1019,11 @@ async function addAttachmentsToDraft(fileList) {
     if (elements.taskAttachmentStatus) {
       const statusText = elements.taskAttachmentStatus.querySelector(".attachment-status-text");
       const statusBar = elements.taskAttachmentStatus.querySelector(".attachment-status-bar span");
-      const total = safeFiles.length || 1;
+      const total = validFiles.length || 1;
       const percent = Math.round((loadedCount / total) * 100);
       if (statusText) statusText.textContent = `${loadedCount}/${total} dosya hazır`;
       if (statusBar) statusBar.style.width = `${percent}%`;
     }
-  }
-
-  if (files.length > safeFiles.length) {
-    showToast("En fazla 5 dosya eklenebilir.", "error");
   }
 
   if (elements.taskAttachmentStatus) {
@@ -2083,17 +2006,72 @@ function renderTaskDetail() {
   `;
 }
 
+const modalFocusableSelector = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled]):not([type='hidden'])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "[tabindex]:not([tabindex='-1'])",
+].join(",");
+
+function activateModal(modal, initialFocus) {
+  const trigger = document.activeElement;
+  if (trigger instanceof HTMLElement && !modal.contains(trigger)) modalReturnFocus.set(modal, trigger);
+  modal.classList.remove("hidden");
+  requestAnimationFrame(() => {
+    const target = initialFocus || modal.querySelector(modalFocusableSelector);
+    target?.focus();
+  });
+}
+
+function deactivateModal(modal) {
+  modal.classList.add("hidden");
+  const trigger = modalReturnFocus.get(modal);
+  modalReturnFocus.delete(modal);
+  requestAnimationFrame(() => {
+    if (trigger?.isConnected) trigger.focus();
+  });
+}
+
+function trapModalFocus(event, modal) {
+  if (event.key !== "Tab") return;
+  const focusable = [...modal.querySelectorAll(modalFocusableSelector)].filter((item) => item.getClientRects().length > 0);
+  if (focusable.length === 0) {
+    event.preventDefault();
+    return;
+  }
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  } else if (!modal.contains(document.activeElement)) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+function getTopmostOpenModal() {
+  if (!elements.attachmentPreviewModal.classList.contains("hidden")) return elements.attachmentPreviewModal;
+  if (!elements.userModal.classList.contains("hidden")) return elements.userModal;
+  if (!elements.taskDetailModal.classList.contains("hidden")) return elements.taskDetailModal;
+  return null;
+}
+
 function openTaskDetail(taskId) {
   activeDetailTaskId = taskId;
-  elements.taskDetailModal.classList.remove("hidden");
   renderTaskDetail();
   elements.taskCommentText.value = "";
-  elements.taskCommentText.focus();
+  activateModal(elements.taskDetailModal, elements.taskCommentText);
 }
 
 function closeTaskDetail() {
   activeDetailTaskId = null;
-  elements.taskDetailModal.classList.add("hidden");
+  deactivateModal(elements.taskDetailModal);
   elements.taskCommentText.value = "";
 }
 
@@ -3089,16 +3067,15 @@ function openUserModal() {
     return;
   }
   userModalMode = "create";
-  elements.userModal.classList.remove("hidden");
   elements.userForm.reset();
   elements.userName.value = "";
   elements.userRole.value = "user";
   elements.userEmailPreview.textContent = buildDemoUserEmail("Yeni Kullanıcı");
-  elements.userName.focus();
+  activateModal(elements.userModal, elements.userName);
 }
 
 function closeUserModal() {
-  elements.userModal.classList.add("hidden");
+  deactivateModal(elements.userModal);
   elements.userForm.reset();
 }
 
@@ -3219,12 +3196,12 @@ function openAttachmentPreview(taskId, attachmentId) {
       </div>
     </div>
   `;
-  elements.attachmentPreviewModal.classList.remove("hidden");
+  activateModal(elements.attachmentPreviewModal, elements.closeAttachmentPreviewBtn);
 }
 
 function closeAttachmentPreview() {
   activeAttachmentPreview = null;
-  elements.attachmentPreviewModal.classList.add("hidden");
+  deactivateModal(elements.attachmentPreviewModal);
 }
 
 function deleteTaskAttachment(taskId, attachmentId) {
@@ -3309,6 +3286,7 @@ function handleTaskActionClick(event) {
 
   if (removeDraftAttachmentButton) {
     taskDraftAttachments = taskDraftAttachments.filter((attachment) => attachment.id !== removeDraftAttachmentButton.dataset.removeDraftAttachment);
+    setTaskAttachmentError("");
     renderTaskAttachmentPreview();
   }
 
@@ -3405,6 +3383,22 @@ function handleTaskAttachmentDragLeave(event) {
   elements.taskForm.classList.remove("attachment-drop-active");
 }
 
+function debounce(callback, delay = 250) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => callback(...args), delay);
+  };
+}
+
+function getLocalTodayValue() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function bindEvents() {
   elements.showLoginBtn.addEventListener("click", () => setAuthMode("login"));
   elements.showRegisterBtn.addEventListener("click", () => setAuthMode("register"));
@@ -3498,7 +3492,7 @@ function bindEvents() {
   elements.taskForm.addEventListener("drop", handleTaskAttachmentDrop);
   elements.taskForm.addEventListener("dragleave", handleTaskAttachmentDragLeave);
 
-  elements.searchInput.addEventListener("input", renderTaskViews);
+  elements.searchInput.addEventListener("input", debounce(renderTaskViews, 250));
   elements.dashboardSectionTabs.forEach((tab) => {
     tab.addEventListener("click", () => setDashboardSection(tab.dataset.dashboardTab));
   });
@@ -3524,7 +3518,7 @@ function bindEvents() {
     renderProjectFilterOptions();
     renderTaskViews();
   });
-  elements.categorySearchInput.addEventListener("input", renderCategories);
+  elements.categorySearchInput.addEventListener("input", debounce(renderCategories, 250));
   elements.taskProject.addEventListener("change", renderCategoryOptions);
   elements.assigneeFilter.addEventListener("change", renderTaskViews);
   elements.projectFilter.addEventListener("change", renderTaskViews);
@@ -3584,11 +3578,17 @@ function bindEvents() {
     }
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !elements.userModal.classList.contains("hidden")) {
+    const openModal = getTopmostOpenModal();
+    if (event.key === "Tab" && openModal) {
+      trapModalFocus(event, openModal);
+    } else if (event.key === "Escape" && !elements.userModal.classList.contains("hidden")) {
+      event.preventDefault();
       closeUserModal();
     } else if (event.key === "Escape" && !elements.attachmentPreviewModal.classList.contains("hidden")) {
+      event.preventDefault();
       closeAttachmentPreview();
     } else if (event.key === "Escape" && activeDetailTaskId) {
+      event.preventDefault();
       closeTaskDetail();
     } else if (event.key === "Escape" && elements.taskForm.classList.contains("open")) {
       resetTaskForm();
@@ -3624,6 +3624,7 @@ function bindEvents() {
   });
 }
 
+elements.taskDueDate.min = getLocalTodayValue();
 bindEvents();
 setTaskLayout("list");
 initializeAuth();

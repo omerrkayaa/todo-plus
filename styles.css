@@ -1607,6 +1607,13 @@ main { padding: 0 36px 48px; }
   font-size: 12px;
   font-weight: 600;
 }
+
+.attachment-error {
+  margin: 0;
+  color: var(--danger, #b42318);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
 .attachment-dropzone {
   display: grid;
   place-items: center;
