@@ -435,6 +435,9 @@ const elements = {
   assigneeFilter: document.querySelector("#assigneeFilter"),
   sortFilter: document.querySelector("#sortFilter"),
   clearFiltersBtn: document.querySelector("#clearFiltersBtn"),
+  filterToggleBtn: document.querySelector("#filterToggleBtn"),
+  activeFilterCount: document.querySelector("#activeFilterCount"),
+  advancedFilters: document.querySelector("#advancedFilters"),
   filterScopeSummary: document.querySelector("#filterScopeSummary"),
   taskLayoutButtons: document.querySelectorAll("[data-task-layout]"),
   taskLayoutPanels: document.querySelectorAll("[data-task-layout-panel]"),
@@ -451,6 +454,9 @@ const elements = {
   taskCategory: document.querySelector("#taskCategory"),
   taskAssignee: document.querySelector("#taskAssignee"),
   taskGivers: document.querySelector("#taskGivers"),
+  taskGiverChips: document.querySelector("#taskGiverChips"),
+  taskDetailsToggle: document.querySelector("#taskDetailsToggle"),
+  taskAdvancedFields: document.querySelector("#taskAdvancedFields"),
   taskPriority: document.querySelector("#taskPriority"),
   taskStatus: document.querySelector("#taskStatus"),
   taskMinutes: document.querySelector("#taskMinutes"),
@@ -1613,6 +1619,7 @@ function renderUsers() {
   elements.taskGivers.innerHTML = state.users
     .map((user) => `<option value="${user.id}">${escapeHtml(user.fullName)}</option>`)
     .join("");
+  renderTaskGiverChips();
 
   elements.assigneeFilter.innerHTML = `
     <option value="all">Tüm kullanıcılar</option>
@@ -1876,7 +1883,10 @@ function renderTasks() {
   elements.taskCount.textContent = `${tasks.length} görev`;
 
   if (tasks.length === 0) {
-    elements.taskList.innerHTML = `<div class="empty-state">Bu filtrelere uygun görev bulunamadı.</div>`;
+    const hasFilters = elements.searchInput.value.trim() || [elements.statusFilter, elements.priorityFilter, elements.categoryFilter, elements.projectFilter, elements.assigneeFilter].some((control) => control.value !== "all");
+    elements.taskList.innerHTML = hasFilters
+      ? `<div class="empty-state"><strong>Aradığın görev bulunamadı.</strong><span>Filtreleri temizleyerek tüm görevleri yeniden görebilirsin.</span><button class="small-button" type="button" data-clear-task-filters>Filtreleri temizle</button></div>`
+      : `<div class="empty-state"><strong>Henüz görev yok.</strong><span>İlk işini planlamak için yeni bir görev oluştur.</span>${isAdmin() ? `<button class="primary-button" type="button" data-create-first-task>+ Yeni görev</button>` : ""}</div>`;
     return;
   }
 
@@ -1914,8 +1924,32 @@ function renderKanbanBoard() {
 
 function renderTaskViews() {
   renderFilterScopeSummary();
+  updateActiveFilterCount();
   renderTasks();
   renderKanbanBoard();
+}
+
+function updateActiveFilterCount() {
+  const count = [elements.statusFilter, elements.priorityFilter, elements.categoryFilter, elements.projectFilter, elements.assigneeFilter]
+    .filter((control) => control.value !== "all").length + (elements.sortFilter.value !== "created_desc" ? 1 : 0);
+  elements.activeFilterCount.textContent = count;
+  elements.activeFilterCount.classList.toggle("hidden", count === 0);
+}
+
+function renderTaskGiverChips() {
+  if (!elements.taskGiverChips) return;
+  const selectedIds = new Set([...elements.taskGivers.selectedOptions].map((option) => option.value));
+  elements.taskGiverChips.innerHTML = state.users.map((user) => `
+    <button class="selection-chip ${selectedIds.has(user.id) ? "selected" : ""}" type="button" data-giver-id="${user.id}" aria-pressed="${selectedIds.has(user.id)}">
+      <span>${escapeHtml(user.fullName)}</span><span aria-hidden="true">${selectedIds.has(user.id) ? "✓" : "+"}</span>
+    </button>
+  `).join("");
+}
+
+function setTaskDetailsExpanded(expanded) {
+  elements.taskAdvancedFields.classList.toggle("hidden", !expanded);
+  elements.taskDetailsToggle.setAttribute("aria-expanded", String(expanded));
+  elements.taskDetailsToggle.firstChild.textContent = expanded ? "Detayları gizle " : "Detayları göster ";
 }
 
 function renderFilterScopeSummary() {
@@ -2000,7 +2034,16 @@ function renderTaskDetail() {
   elements.taskDetailBody.innerHTML = `
     <div class="task-detail-grid">
       <section class="detail-block">
-        <h3>Bilgiler</h3>
+        <div class="detail-action-row">
+          <h3>Bilgiler</h3>
+          <label>Durumu değiştir
+            <select data-detail-status="${task.id}" aria-label="Görev durumunu değiştir">
+              <option value="bekliyor" ${task.status === "bekliyor" ? "selected" : ""}>Bekliyor</option>
+              <option value="devam_ediyor" ${task.status === "devam_ediyor" ? "selected" : ""}>Devam ediyor</option>
+              <option value="tamamlandi" ${task.status === "tamamlandi" ? "selected" : ""}>Tamamlandı</option>
+            </select>
+          </label>
+        </div>
         <div class="detail-meta">
           <span class="badge">${escapeHtml(getProjectName(task.projectId))}</span>
           <span class="badge">${escapeHtml(category ? category.name : "Kategori yok")}</span>
@@ -2695,6 +2738,7 @@ function closeSidebar() {
 }
 
 function openTaskDrawer() {
+  closeSidebar();
   elements.taskForm.classList.add("open");
   elements.taskForm.setAttribute("aria-hidden", "false");
   elements.taskDrawerBackdrop.classList.remove("hidden");
@@ -2724,6 +2768,8 @@ function resetTaskForm() {
   [...elements.taskGivers.options].forEach((option) => {
     option.selected = option.value === getSessionUser().id;
   });
+  renderTaskGiverChips();
+  setTaskDetailsExpanded(false);
   closeTaskDrawer();
 }
 
@@ -3046,6 +3092,8 @@ function editTask(taskId) {
   [...elements.taskGivers.options].forEach((option) => {
     option.selected = giverIds.length > 0 ? giverIds.includes(option.value) : option.value === task.createdBy;
   });
+  renderTaskGiverChips();
+  setTaskDetailsExpanded(true);
   openTaskDrawer();
 }
 
@@ -3330,6 +3378,15 @@ function toggleTaskSubtask(taskId, subtaskId) {
 }
 
 function handleTaskActionClick(event) {
+  if (event.target.closest("[data-create-first-task]")) {
+    resetTaskForm();
+    openTaskDrawer();
+    return;
+  }
+  if (event.target.closest("[data-clear-task-filters]")) {
+    elements.clearFiltersBtn.click();
+    return;
+  }
   const detailButton = event.target.closest("[data-detail-task]");
   const editButton = event.target.closest("[data-edit-task]");
   const statusButton = event.target.closest("[data-status-task]");
@@ -3537,11 +3594,31 @@ function bindEvents() {
   });
   elements.taskAttachmentPreview.addEventListener("click", handleTaskActionClick);
   elements.taskDetailBody.addEventListener("click", handleTaskActionClick);
+  elements.taskDetailBody.addEventListener("change", (event) => {
+    const statusSelect = event.target.closest("[data-detail-status]");
+    if (statusSelect) updateTaskStatus(statusSelect.dataset.detailStatus, statusSelect.value);
+  });
   elements.taskForm.addEventListener("dragover", handleTaskAttachmentDragOver);
   elements.taskForm.addEventListener("drop", handleTaskAttachmentDrop);
   elements.taskForm.addEventListener("dragleave", handleTaskAttachmentDragLeave);
 
   elements.searchInput.addEventListener("input", renderTaskViews);
+  elements.filterToggleBtn.addEventListener("click", () => {
+    const expanded = elements.filterToggleBtn.getAttribute("aria-expanded") !== "true";
+    elements.filterToggleBtn.setAttribute("aria-expanded", String(expanded));
+    elements.advancedFilters.classList.toggle("hidden", !expanded);
+  });
+  elements.taskDetailsToggle.addEventListener("click", () => {
+    setTaskDetailsExpanded(elements.taskDetailsToggle.getAttribute("aria-expanded") !== "true");
+  });
+  elements.taskGiverChips.addEventListener("click", (event) => {
+    const chip = event.target.closest("[data-giver-id]");
+    if (!chip) return;
+    const option = [...elements.taskGivers.options].find((item) => item.value === chip.dataset.giverId);
+    if (!option) return;
+    option.selected = !option.selected;
+    renderTaskGiverChips();
+  });
   elements.statusFilter.addEventListener("change", renderTaskViews);
   elements.priorityFilter.addEventListener("change", renderTaskViews);
   elements.categoryFilter.addEventListener("change", () => {
@@ -3562,6 +3639,8 @@ function bindEvents() {
     elements.projectFilter.value = "all";
     elements.assigneeFilter.value = "all";
     elements.sortFilter.value = "created_desc";
+    elements.advancedFilters.classList.add("hidden");
+    elements.filterToggleBtn.setAttribute("aria-expanded", "false");
     renderTaskViews();
     showToast("Filtreler temizlendi.");
   });

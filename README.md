@@ -390,7 +390,7 @@ npm run screenshots
 - [x] Teslim ekran görüntüleri oluşturuldu.
 - [x] Proje dokümantasyonu tek dosyada birleştirildi.
 - [ ] Gerçek Supabase proje bilgileriyle uçtan uca test yapılmalı.
-- [ ] Test ve ekran görüntüsü scriptlerindeki makineye özel yollar kaldırılmalı.
+- [x] Test ve ekran görüntüsü scriptlerindeki makineye özel yollar kaldırıldı.
 - [ ] Supabase modunda demo kullanıcı ekleme ve sıfırlama işlemleri kapatılmalı.
 - [x] Rol yükseltme ve görev yönetim alanları veritabanı tetikleyicileriyle korunuyor.
 - [ ] Supabase profil/e-posta görünürlüğü ekip üyeliği tablosuyla daha dar bir politikaya bağlanmalı.

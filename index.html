@@ -330,6 +330,8 @@
 
         <section class="panel filters" aria-label="Görev filtreleri">
           <input id="searchInput" type="search" placeholder="Görev ara" aria-label="Görev ara" />
+          <button id="filterToggleBtn" class="small-button filter-toggle" type="button" aria-expanded="false" aria-controls="advancedFilters">Filtrele <span id="activeFilterCount" class="filter-count hidden">0</span></button>
+          <div id="advancedFilters" class="advanced-filters hidden">
           <select id="statusFilter" aria-label="Duruma göre filtrele">
             <option value="all">Tüm durumlar</option>
             <option value="bekliyor">Bekliyor</option>
@@ -357,6 +359,7 @@
             <option value="priority_desc">Önceliği yüksek</option>
           </select>
           <button id="clearFiltersBtn" class="small-button filter-clear" type="button">Filtreleri temizle</button>
+          </div>
         </section>
 
         <section id="filterScopeSummary" class="panel hidden" aria-live="polite"></section>
@@ -379,6 +382,18 @@
               Başlık
               <input id="taskTitle" type="text" required placeholder="ER diyagramını hazırla" />
             </label>
+            <div class="form-row quick-task-fields">
+              <label>
+                Atanan kişi
+                <select id="taskAssignee" required aria-label="Görevi atanan kişi"></select>
+              </label>
+              <label>
+                Son teslim
+                <input id="taskDueDate" type="date" />
+              </label>
+            </div>
+            <button id="taskDetailsToggle" class="details-toggle" type="button" aria-expanded="false" aria-controls="taskAdvancedFields">Detayları göster <span>⌄</span></button>
+            <div id="taskAdvancedFields" class="task-advanced-fields hidden">
             <label>
               Açıklama
               <textarea id="taskDescription" rows="3" placeholder="Görev notu"></textarea>
@@ -400,17 +415,15 @@
             </div>
             <div class="form-row">
               <label>
-                Atanan kişi
-                <select id="taskAssignee" required aria-label="Görevi atanan kişi"></select>
-              </label>
-              <label>
                 Süre (dakika)
                 <input id="taskMinutes" type="number" min="5" step="5" value="60" />
               </label>
             </div>
-            <label>
+            <label class="giver-field">
               Görevi veren kişi(ler)
-              <select id="taskGivers" multiple required aria-label="Görevi veren kişiler"></select>
+              <select id="taskGivers" class="visually-hidden" multiple required aria-label="Görevi veren kişiler"></select>
+              <div id="taskGiverChips" class="chip-picker" role="group" aria-label="Görevi veren kişileri seç"></div>
+              <small>Bir veya daha fazla kişiyi seçebilirsin.</small>
             </label>
             <div class="form-row">
               <label>
@@ -430,12 +443,6 @@
                 </select>
               </label>
             </div>
-            <div class="form-row">
-              <label>
-                Son teslim
-                <input id="taskDueDate" type="date" />
-              </label>
-            </div>
             <label class="file-field">
               Dosyalar
               <input id="taskFiles" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.txt,.csv" />
@@ -450,6 +457,7 @@
               <div class="attachment-status-bar"><span></span></div>
             </div>
             <div id="taskAttachmentPreview" class="attachment-preview" aria-live="polite"></div>
+            </div>
             <div class="form-actions">
               <button id="taskSubmitBtn" class="primary-button" type="submit">Görevi kaydet</button>
               <button id="cancelTaskEditBtn" class="small-button hidden" type="button">Vazgeç</button>
