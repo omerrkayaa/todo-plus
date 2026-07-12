@@ -402,6 +402,8 @@ const elements = {
   focusNew: document.querySelector("#focusNew"),
   focusHigh: document.querySelector("#focusHigh"),
   focusTaskList: document.querySelector("#focusTaskList"),
+  dashboardSectionTabs: document.querySelectorAll("[data-dashboard-tab]"),
+  dashboardSectionPanels: document.querySelectorAll("[data-dashboard-panel]"),
   notificationCount: document.querySelector("#notificationCount"),
   notificationList: document.querySelector("#notificationList"),
   userScores: document.querySelector("#userScores"),
@@ -428,6 +430,7 @@ const elements = {
   categoryList: document.querySelector("#categoryList"),
   categorySearchInput: document.querySelector("#categorySearchInput"),
   searchInput: document.querySelector("#searchInput"),
+  taskFilters: document.querySelector("#taskFilters"),
   statusFilter: document.querySelector("#statusFilter"),
   priorityFilter: document.querySelector("#priorityFilter"),
   categoryFilter: document.querySelector("#categoryFilter"),
@@ -1929,6 +1932,17 @@ function renderTaskViews() {
   renderKanbanBoard();
 }
 
+function setDashboardSection(section) {
+  elements.dashboardSectionTabs.forEach((tab) => {
+    const active = tab.dataset.dashboardTab === section;
+    tab.classList.toggle("active", active);
+    tab.setAttribute("aria-selected", String(active));
+  });
+  elements.dashboardSectionPanels.forEach((panel) => {
+    panel.classList.toggle("hidden", panel.dataset.dashboardPanel !== section);
+  });
+}
+
 function updateActiveFilterCount() {
   const count = [elements.statusFilter, elements.priorityFilter, elements.categoryFilter, elements.projectFilter, elements.assigneeFilter]
     .filter((control) => control.value !== "all").length + (elements.sortFilter.value !== "created_desc" ? 1 : 0);
@@ -2711,6 +2725,7 @@ async function initializeAuth() {
 }
 
 function setTaskLayout(layout) {
+  elements.taskFilters.classList.toggle("board-filter-mode", layout === "board");
   elements.taskLayoutButtons.forEach((button) => {
     const isActive = button.dataset.taskLayout === layout;
     button.classList.toggle("active", isActive);
@@ -3603,6 +3618,9 @@ function bindEvents() {
   elements.taskForm.addEventListener("dragleave", handleTaskAttachmentDragLeave);
 
   elements.searchInput.addEventListener("input", renderTaskViews);
+  elements.dashboardSectionTabs.forEach((tab) => {
+    tab.addEventListener("click", () => setDashboardSection(tab.dataset.dashboardTab));
+  });
   elements.filterToggleBtn.addEventListener("click", () => {
     const expanded = elements.filterToggleBtn.getAttribute("aria-expanded") !== "true";
     elements.filterToggleBtn.setAttribute("aria-expanded", String(expanded));

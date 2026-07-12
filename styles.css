@@ -737,33 +737,33 @@ textarea {
 }
 
 .badge.status-tamamlandi {
-  color: #166534;
-  background: #dcfce7;
+  color: var(--success);
+  background: var(--success-soft);
 }
 
 .badge.status-devam_ediyor {
-  color: #1d4ed8;
-  background: #dbeafe;
+  color: var(--primary);
+  background: var(--primary-soft);
 }
 
 .badge.status-bekliyor {
-  color: #92400e;
-  background: #fef3c7;
+  color: var(--warning);
+  background: var(--warning-soft);
 }
 
 .badge.priority-yuksek {
-  color: #991b1b;
-  background: #fee2e2;
+  color: var(--danger);
+  background: var(--danger-soft);
 }
 
 .badge.priority-orta {
-  color: #854d0e;
-  background: #fef3c7;
+  color: var(--warning);
+  background: var(--warning-soft);
 }
 
 .badge.priority-dusuk {
-  color: #166534;
-  background: #dcfce7;
+  color: var(--primary);
+  background: var(--primary-soft);
 }
 
 .badge.due-overdue {
@@ -1375,6 +1375,10 @@ main { padding: 0 36px 48px; }
 .panel-header > span { border-radius: 999px; padding: 4px 8px; background: var(--surface-soft); font-size: 11px; }
 
 /* Dashboard */
+.dashboard-section-tabs { display: inline-flex; gap: 5px; margin-bottom: 16px; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); }
+.dashboard-section-tab { min-height: 38px; padding: 8px 15px; border: 0; border-radius: 9px; color: var(--muted); background: transparent; font-size: 12px; font-weight: 700; }
+.dashboard-section-tab.active { color: var(--primary); background: var(--surface); box-shadow: 0 3px 10px rgba(24,26,32,.08); }
+[data-dashboard-panel] + [data-dashboard-panel] { margin-top: 16px; }
 .stats-grid { grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 12px; }
 .stat-card {
   position: relative;
@@ -1394,8 +1398,8 @@ main { padding: 0 36px 48px; }
 .stat-card strong { position: relative; z-index: 1; margin-top: 3px; font-size: 29px; line-height: 1.15; letter-spacing: -.04em; }
 .stat-card small { position: relative; z-index: 1; display: block; margin-top: 3px; color: #9a9ea7; font-size: 10px; }
 .stat-done { --icon-color: var(--success); --icon-bg: var(--success-soft); --card-glow: rgba(22,128,92,.06); }
-.stat-progress { --icon-color: #2873b9; --icon-bg: #e9f3ff; --card-glow: rgba(40,115,185,.06); }
-.stat-rate { --icon-color: #7a4bb2; --icon-bg: #f2eaff; --card-glow: rgba(122,75,178,.06); }
+.stat-progress { --icon-color: var(--primary); --icon-bg: var(--primary-soft); --card-glow: rgba(91,80,214,.06); }
+.stat-rate { --icon-color: var(--success); --icon-bg: var(--success-soft); --card-glow: rgba(22,128,92,.06); }
 .stat-overdue { --icon-color: var(--danger); --icon-bg: var(--danger-soft); --card-glow: rgba(196,61,75,.06); }
 .dashboard-focus-panel {
   margin-top: 16px;
@@ -1896,6 +1900,7 @@ main { padding: 0 36px 48px; }
 .filters input, .filters select, .filter-clear { min-height: 38px; padding-top: 7px; padding-bottom: 7px; font-size: 12px; }
 .advanced-filters { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit,minmax(145px,1fr)); gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
 .advanced-filters.hidden, .task-advanced-fields.hidden, .filter-count.hidden { display: none; }
+.board-filter-mode #statusFilter, .board-filter-mode #priorityFilter, .board-filter-mode #categoryFilter, .board-filter-mode #sortFilter { display: none; }
 .filter-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; }
 .filter-count { display: grid; place-items: center; min-width: 21px; height: 21px; padding: 0 6px; border-radius: 999px; color: #fff; background: var(--primary); font-size: 11px; }
 .filter-clear { white-space: nowrap; }
@@ -1916,14 +1921,14 @@ main { padding: 0 36px 48px; }
 .task-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .task-card-title { display: flex; align-items: center; min-width: 0; gap: 10px; }
 .task-status-dot { width: 9px; height: 9px; flex: 0 0 auto; border: 2px solid currentColor; border-radius: 50%; color: #a4a8b1; }
-.status-dot-devam_ediyor { color: #4185c5; background: #d9ecff; }
+.status-dot-devam_ediyor { color: var(--primary); background: var(--primary-soft); }
 .status-dot-tamamlandi { color: var(--success); background: var(--success); }
 .task-card h4 { overflow-wrap: anywhere; font-size: 14px; line-height: 1.4; letter-spacing: -.01em; }
 .task-card > p { display: -webkit-box; max-width: 800px; margin-top: 7px; overflow: hidden; color: #777c87; font-size: 12px; line-height: 1.55; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .priority-chip { flex: 0 0 auto; border-radius: 999px; padding: 3px 7px; font-size: 9px; font-weight: 750; text-transform: uppercase; }
 .priority-chip.priority-yuksek { color: var(--danger); background: var(--danger-soft); }
 .priority-chip.priority-orta { color: var(--warning); background: var(--warning-soft); }
-.priority-chip.priority-dusuk { color: var(--success); background: var(--success-soft); }
+.priority-chip.priority-dusuk { color: var(--primary); background: var(--primary-soft); }
 .task-context { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 11px; color: #91959f; font-size: 10px; font-weight: 600; }
 .task-project { color: var(--primary); }
 .context-separator { color: #d0d2d8; }
@@ -2034,6 +2039,8 @@ main { padding: 0 36px 48px; }
 }
 
 @media (max-width: 680px) {
+  .dashboard-section-tabs { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; }
+  .dashboard-section-tab { padding-inline: 8px; }
   .auth-screen { padding: 14px; }
   .auth-layout { min-height: calc(100svh - 28px); border-radius: 22px; }
   .auth-card { min-height: auto; padding: 36px 24px; }

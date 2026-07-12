@@ -134,7 +134,12 @@
       </header>
 
       <section id="dashboardView" class="view active-view">
-        <div class="stats-grid">
+        <div class="dashboard-section-tabs" role="tablist" aria-label="Genel bakış bölümleri">
+          <button class="dashboard-section-tab active" type="button" role="tab" aria-selected="true" data-dashboard-tab="overview">Genel Bakış</button>
+          <button class="dashboard-section-tab" type="button" role="tab" aria-selected="false" data-dashboard-tab="analytics">Analitik</button>
+          <button class="dashboard-section-tab" type="button" role="tab" aria-selected="false" data-dashboard-tab="history">Geçmiş</button>
+        </div>
+        <div class="stats-grid" data-dashboard-panel="overview">
           <article class="stat-card stat-total">
             <div class="stat-card-top"><span class="stat-icon">▦</span><span class="stat-kicker">Tüm zamanlar</span></div>
             <span class="stat-label">Toplam görev</span>
@@ -162,7 +167,7 @@
           </article>
         </div>
 
-        <section class="panel dashboard-focus-panel">
+        <section class="panel dashboard-focus-panel" data-dashboard-panel="overview">
           <div class="panel-header">
             <div>
               <p class="section-kicker">GÜNÜN ODAĞI</p>
@@ -195,7 +200,7 @@
           <div id="focusTaskList" class="focus-list"></div>
         </section>
 
-        <section class="panel demo-examples-panel">
+        <section class="panel demo-examples-panel hidden" data-dashboard-panel="analytics">
           <div class="panel-header">
             <div>
               <p class="section-kicker">ÖRNEKLER</p>
@@ -206,7 +211,7 @@
           <div id="demoExamplesList" class="demo-examples-list"></div>
         </section>
 
-        <section class="panel notification-center-panel">
+        <section class="panel notification-center-panel" data-dashboard-panel="overview">
           <div class="panel-header">
             <div>
               <p class="section-kicker">BİLDİRİM MERKEZİ</p>
@@ -217,7 +222,7 @@
           <div id="notificationList" class="notification-list"></div>
         </section>
 
-        <div class="content-grid">
+        <div class="content-grid" data-dashboard-panel="overview">
           <section class="panel admin-only">
             <div class="panel-header">
               <h3>Kullanıcı başarıları</h3>
@@ -235,7 +240,7 @@
           </section>
         </div>
 
-        <section class="panel manager-analytics admin-only">
+        <section class="panel manager-analytics admin-only hidden" data-dashboard-panel="analytics">
           <div class="panel-header">
             <div>
               <p class="section-kicker">KARAR DESTEĞİ</p>
@@ -246,7 +251,7 @@
           <div id="workloadInsights" class="workload-grid"></div>
         </section>
 
-        <section class="panel history-panel">
+        <section class="panel history-panel hidden" data-dashboard-panel="history">
           <div class="panel-header">
             <h3>Son görev hareketleri</h3>
             <span>TaskHistory kayıtları</span>
@@ -328,7 +333,7 @@
           <p>İşlerinizi size en uygun görünümde yönetin.</p>
         </div>
 
-        <section class="panel filters" aria-label="Görev filtreleri">
+        <section id="taskFilters" class="panel filters" aria-label="Görev filtreleri">
           <input id="searchInput" type="search" placeholder="Görev ara" aria-label="Görev ara" />
           <button id="filterToggleBtn" class="small-button filter-toggle" type="button" aria-expanded="false" aria-controls="advancedFilters">Filtrele <span id="activeFilterCount" class="filter-count hidden">0</span></button>
           <div id="advancedFilters" class="advanced-filters hidden">
