@@ -1,5 +1,5 @@
 (function registerTaskModel(global) {
-  function createTaskModel({ createId, priorityScores, isTaskOverdue }) {
+  function createTaskModel({ createId, priorityScores }) {
     const getAttachments = (task) => Array.isArray(task?.attachments) ? task.attachments : [];
     const getSubtasks = (task) => Array.isArray(task?.subtasks) ? task.subtasks : [];
     const getScore = (task) => priorityScores[task?.priority] || 1;
@@ -26,17 +26,7 @@
       };
     }
 
-    function calculateWorkload(state, userId) {
-      const assignedIds = new Set(state.assignments.filter((assignment) => assignment.userId === userId).map((assignment) => assignment.taskId));
-      const activeTasks = state.tasks.filter((task) => assignedIds.has(task.id) && task.status !== "tamamlandi");
-      const overdueCount = activeTasks.filter(isTaskOverdue).length;
-      const activeMinutes = activeTasks.reduce((sum, task) => sum + (Number(task.estimatedMinutes) || 0), 0);
-      const stats = calculateUserStats(state, userId);
-      const readinessScore = Math.max(0, Math.round((stats.assignedCount ? stats.rate : 50) - activeTasks.length * 12 - overdueCount * 20));
-      return { ...stats, activeCount: activeTasks.length, overdueCount, activeMinutes, readinessScore };
-    }
-
-    return Object.freeze({ getAttachments, getSubtasks, getScore, parseSubtasks, calculateUserStats, calculateWorkload });
+    return Object.freeze({ getAttachments, getSubtasks, getScore, parseSubtasks, calculateUserStats });
   }
 
   global.TODO_PLUS_TASK_MODEL = Object.freeze({ createTaskModel });

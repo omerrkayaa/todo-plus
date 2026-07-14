@@ -2,6 +2,8 @@
 -- Supabase / PostgreSQL veritabani semasi
 
 create extension if not exists "pgcrypto";
+create schema if not exists extensions;
+create extension if not exists "vector" with schema extensions;
 
 create table if not exists public.users (
   id uuid primary key references auth.users(id) on delete cascade,
@@ -107,6 +109,72 @@ create table if not exists public.task_comments (
   created_at timestamp with time zone not null default now()
 );
 
+create table if not exists public.task_attachments (
+  id uuid primary key default gen_random_uuid(),
+  task_id uuid not null references public.tasks(id) on delete cascade,
+  uploaded_by uuid not null references public.users(id) on delete cascade,
+  file_name varchar(255) not null,
+  storage_path text not null unique,
+  mime_type varchar(160) not null,
+  file_size bigint not null check (file_size > 0 and file_size <= 5242880),
+  created_at timestamp with time zone not null default now(),
+  constraint task_attachments_extension_check check (
+    lower(file_name) ~ '\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|jpg|jpeg|png)$'
+  ),
+  constraint task_attachments_mime_check check (mime_type in (
+    'application/pdf', 'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'text/plain', 'image/jpeg', 'image/png'
+  ))
+);
+
+-- Dokuman asistani isleme metadatasi. ALTER ifadeleri mevcut kurulumlari da gunceller.
+alter table public.task_attachments add column if not exists extracted_text text;
+alter table public.task_attachments add column if not exists processing_status varchar(20) not null default 'pending';
+alter table public.task_attachments add column if not exists processing_error text;
+alter table public.task_attachments add column if not exists content_hash varchar(64);
+alter table public.task_attachments add column if not exists character_count integer not null default 0;
+alter table public.task_attachments add column if not exists parsed_at timestamp with time zone;
+alter table public.task_attachments add column if not exists summary text;
+alter table public.task_attachments add column if not exists summary_updated_at timestamp with time zone;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'task_attachments_processing_status_check') then
+    alter table public.task_attachments add constraint task_attachments_processing_status_check
+      check (processing_status in ('pending', 'processing', 'ready', 'failed'));
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'task_attachments_character_count_check') then
+    alter table public.task_attachments add constraint task_attachments_character_count_check
+      check (character_count >= 0);
+  end if;
+end $$;
+
+create table if not exists public.document_chunks (
+  id uuid primary key default gen_random_uuid(),
+  attachment_id uuid not null references public.task_attachments(id) on delete cascade,
+  chunk_index integer not null check (chunk_index >= 0),
+  content text not null,
+  token_count integer not null default 0 check (token_count >= 0),
+  source_label varchar(120),
+  embedding extensions.vector(1024) not null,
+  created_at timestamp with time zone not null default now(),
+  unique (attachment_id, chunk_index)
+);
+
+create table if not exists public.document_chat_messages (
+  id uuid primary key default gen_random_uuid(),
+  attachment_id uuid not null references public.task_attachments(id) on delete cascade,
+  task_id uuid not null references public.tasks(id) on delete cascade,
+  user_id uuid not null references public.users(id) on delete cascade,
+  role varchar(20) not null check (role in ('user', 'assistant')),
+  content text not null check (char_length(content) between 1 and 20000),
+  source_chunks jsonb not null default '[]'::jsonb,
+  created_at timestamp with time zone not null default now()
+);
+
 create table if not exists public.project_members (
   id uuid primary key default gen_random_uuid(),
   project_id uuid not null references public.projects(id) on delete cascade,
@@ -141,6 +209,11 @@ create index if not exists idx_task_givers_user_id on public.task_givers(user_id
 create index if not exists idx_task_history_task_id on public.task_history(task_id);
 create index if not exists idx_task_comments_task_id on public.task_comments(task_id);
 create index if not exists idx_task_comments_user_id on public.task_comments(user_id);
+create index if not exists idx_task_attachments_task_id on public.task_attachments(task_id);
+create index if not exists idx_task_attachments_uploaded_by on public.task_attachments(uploaded_by);
+create index if not exists idx_document_chunks_attachment_id on public.document_chunks(attachment_id, chunk_index);
+create index if not exists idx_document_chat_attachment_created on public.document_chat_messages(attachment_id, created_at);
+create index if not exists idx_document_chat_user_id on public.document_chat_messages(user_id);
 create index if not exists idx_project_members_project_id on public.project_members(project_id);
 create index if not exists idx_project_members_user_id on public.project_members(user_id);
 create index if not exists idx_project_invitations_email on public.project_invitations(lower(email));
@@ -219,7 +292,144 @@ as $$
     select 1 from public.task_givers tg
     where tg.task_id = task_uuid
     and tg.user_id = auth.uid()
+  )
+  or exists (
+    select 1
+    from public.tasks t
+    join public.project_members pm on pm.project_id = t.project_id
+    where t.id = task_uuid and pm.user_id = auth.uid()
   );
+$$;
+
+-- Dosya yetkisi ve saklama yolu istemciden gelse bile sunucuda tekrar doğrulanır.
+create or replace function public.validate_task_attachment()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if coalesce(auth.role(), '') <> 'service_role'
+    and session_user not in ('postgres', 'supabase_admin')
+    and not public.is_admin(auth.uid()) then
+    if new.uploaded_by <> auth.uid() or not public.can_access_task(new.task_id) then
+      raise exception 'Bu goreve dokuman yukleme yetkiniz yok.';
+    end if;
+  end if;
+  if split_part(new.storage_path, '/', 1) <> new.task_id::text
+    or split_part(new.storage_path, '/', 2) <> new.uploaded_by::text then
+    raise exception 'Gecersiz dosya saklama yolu.';
+  end if;
+  if new.mime_type <> case lower(substring(new.file_name from '\.([^.]+)$'))
+    when 'pdf' then 'application/pdf'
+    when 'doc' then 'application/msword'
+    when 'docx' then 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    when 'xls' then 'application/vnd.ms-excel'
+    when 'xlsx' then 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    when 'ppt' then 'application/vnd.ms-powerpoint'
+    when 'pptx' then 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    when 'txt' then 'text/plain'
+    when 'jpg' then 'image/jpeg'
+    when 'jpeg' then 'image/jpeg'
+    when 'png' then 'image/png'
+  end then
+    raise exception 'Dosya uzantisi ve MIME turu uyusmuyor.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists validate_task_attachment_trigger on public.task_attachments;
+create trigger validate_task_attachment_trigger
+before insert or update on public.task_attachments
+for each row execute function public.validate_task_attachment();
+
+create or replace function public.protect_attachment_ai_fields()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if coalesce(auth.role(), '') = 'service_role'
+    or session_user in ('postgres', 'supabase_admin') then
+    return new;
+  end if;
+
+  if new.extracted_text is distinct from old.extracted_text
+    or new.processing_status is distinct from old.processing_status
+    or new.processing_error is distinct from old.processing_error
+    or new.content_hash is distinct from old.content_hash
+    or new.character_count is distinct from old.character_count
+    or new.parsed_at is distinct from old.parsed_at
+    or new.summary is distinct from old.summary
+    or new.summary_updated_at is distinct from old.summary_updated_at then
+    raise exception 'Dokuman isleme alanlari yalnizca sunucu tarafindan guncellenebilir.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_attachment_ai_fields_trigger on public.task_attachments;
+create trigger protect_attachment_ai_fields_trigger
+before update on public.task_attachments
+for each row execute function public.protect_attachment_ai_fields();
+
+create or replace function public.validate_document_chat_message()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+declare
+  attachment_task_id uuid;
+begin
+  select task_id into attachment_task_id
+  from public.task_attachments
+  where id = new.attachment_id;
+
+  if attachment_task_id is null or attachment_task_id <> new.task_id then
+    raise exception 'Mesaj dokumani ile gorev iliskisi gecersiz.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists validate_document_chat_message_trigger on public.document_chat_messages;
+create trigger validate_document_chat_message_trigger
+before insert or update on public.document_chat_messages
+for each row execute function public.validate_document_chat_message();
+
+create or replace function public.match_document_chunks(
+  document_uuid uuid,
+  query_embedding extensions.vector(1024),
+  match_threshold double precision default 0.25,
+  match_count integer default 6
+)
+returns table (
+  id uuid,
+  chunk_index integer,
+  content text,
+  source_label varchar,
+  similarity double precision
+)
+language sql
+stable
+security invoker
+set search_path = public, extensions
+as $$
+  select
+    dc.id,
+    dc.chunk_index,
+    dc.content,
+    dc.source_label,
+    1 - (dc.embedding <=> query_embedding) as similarity
+  from public.document_chunks dc
+  join public.task_attachments ta on ta.id = dc.attachment_id
+  where dc.attachment_id = document_uuid
+    and public.can_access_task(ta.task_id)
+    and 1 - (dc.embedding <=> query_embedding) >= match_threshold
+  order by dc.embedding <=> query_embedding
+  limit greatest(1, least(match_count, 12));
 $$;
 
 create or replace function public.ensure_task_category_matches_project()
@@ -367,6 +577,9 @@ alter table public.task_assignments enable row level security;
 alter table public.task_givers enable row level security;
 alter table public.task_history enable row level security;
 alter table public.task_comments enable row level security;
+alter table public.task_attachments enable row level security;
+alter table public.document_chunks enable row level security;
+alter table public.document_chat_messages enable row level security;
 alter table public.project_members enable row level security;
 alter table public.project_invitations enable row level security;
 
@@ -392,6 +605,12 @@ drop policy if exists "task_history_actor_select" on public.task_history;
 drop policy if exists "task_history_actor_insert" on public.task_history;
 drop policy if exists "task_comments_related_select" on public.task_comments;
 drop policy if exists "task_comments_related_insert" on public.task_comments;
+drop policy if exists "task_attachments_related_select" on public.task_attachments;
+drop policy if exists "task_attachments_related_insert" on public.task_attachments;
+drop policy if exists "task_attachments_owner_update" on public.task_attachments;
+drop policy if exists "task_attachments_owner_delete" on public.task_attachments;
+drop policy if exists "document_chunks_related_select" on public.document_chunks;
+drop policy if exists "document_chat_messages_related_select" on public.document_chat_messages;
 drop policy if exists "project_members_select" on public.project_members;
 drop policy if exists "project_members_manage" on public.project_members;
 drop policy if exists "project_invitations_select" on public.project_invitations;
@@ -509,6 +728,77 @@ create policy "task_comments_related_insert" on public.task_comments
     and public.can_access_task(task_id)
   );
 
+create policy "task_attachments_related_select" on public.task_attachments
+  for select using (public.can_access_task(task_id));
+
+create policy "task_attachments_related_insert" on public.task_attachments
+  for insert with check (
+    auth.uid() = uploaded_by
+    and public.can_access_task(task_id)
+  );
+
+create policy "task_attachments_owner_update" on public.task_attachments
+  for update using (public.is_admin() or auth.uid() = uploaded_by)
+  with check (public.is_admin() or auth.uid() = uploaded_by);
+
+create policy "task_attachments_owner_delete" on public.task_attachments
+  for delete using (public.is_admin() or auth.uid() = uploaded_by);
+
+create policy "document_chunks_related_select" on public.document_chunks
+  for select using (
+    exists (
+      select 1 from public.task_attachments ta
+      where ta.id = document_chunks.attachment_id
+        and public.can_access_task(ta.task_id)
+    )
+  );
+
+create policy "document_chat_messages_related_select" on public.document_chat_messages
+  for select using (public.can_access_task(task_id));
+
+-- Özel bucket: dosyalar yalnızca RLS üzerinden erişilebilir.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'task-documents', 'task-documents', false, 5242880,
+  array[
+    'application/pdf', 'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'text/plain', 'image/jpeg', 'image/png'
+  ]
+)
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "task_documents_select" on storage.objects;
+drop policy if exists "task_documents_insert" on storage.objects;
+drop policy if exists "task_documents_delete" on storage.objects;
+
+create policy "task_documents_select" on storage.objects
+  for select using (
+    bucket_id = 'task-documents'
+    and public.can_access_task(((storage.foldername(name))[1])::uuid)
+  );
+
+create policy "task_documents_insert" on storage.objects
+  for insert with check (
+    bucket_id = 'task-documents'
+    and ((storage.foldername(name))[2]) = auth.uid()::text
+    and public.can_access_task(((storage.foldername(name))[1])::uuid)
+  );
+
+create policy "task_documents_delete" on storage.objects
+  for delete using (
+    bucket_id = 'task-documents'
+    and (
+      public.is_admin()
+      or ((storage.foldername(name))[2]) = auth.uid()::text
+    )
+  );
+
 -- Canli ekran guncellemeleri icin gerekli tablolar Realtime yayınına eklenir.
 do $$
 declare
@@ -516,7 +806,8 @@ declare
 begin
   foreach table_name in array array[
     'projects', 'categories', 'tasks', 'task_assignments', 'task_givers',
-    'task_history', 'task_comments', 'project_members', 'project_invitations'
+    'task_history', 'task_comments', 'task_attachments', 'document_chat_messages',
+    'project_members', 'project_invitations'
   ] loop
     if not exists (
       select 1 from pg_publication_tables

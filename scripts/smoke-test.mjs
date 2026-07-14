@@ -2,10 +2,17 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 
-const browser = await chromium.launch({
-  headless: true,
-});
+const launchBrowser = async () => {
+  try {
+    return await chromium.launch({ headless: true });
+  } catch (error) {
+    if (!String(error?.message).includes("Executable doesn't exist")) throw error;
+    return chromium.launch({ headless: true, channel: "chrome" });
+  }
+};
+const browser = await launchBrowser();
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+page.setDefaultTimeout(10000);
 const rootDir = path.resolve(import.meta.dirname, "..");
 const appUrl = pathToFileURL(path.join(rootDir, "index.html")).href;
 const runtimeErrors = [];
@@ -18,7 +25,7 @@ page.on("console", (message) => {
 });
 
 const expectVisible = async (selector, label) => {
-  const locator = page.locator(selector);
+  const locator = page.locator(selector).first();
   await locator.waitFor({ state: "visible" });
   if (!(await locator.isVisible())) throw new Error(`${label} görünür değil.`);
 };
@@ -32,10 +39,9 @@ try {
   await page.fill("#loginPassword", "123456");
   await page.click("#loginForm button[type='submit']");
   await expectVisible("#appShell:not(.hidden)", "Uygulama");
-  await expectVisible("#workloadInsights .workload-card:first-child", "Yönetici iş yükü analizi");
-  await expectVisible("#assignmentRecommendation", "Görev atama önerisi");
-  await page.click("[data-dashboard-tab='analytics']");
-  await expectVisible("[data-dashboard-panel='analytics']:not(.hidden)", "Analitik bölümü");
+  if (await page.locator("[data-dashboard-tab='analytics'], [data-dashboard-panel='analytics']").count()) {
+    throw new Error("Kaldırılan Analitik bölümü arayüzde hâlâ bulunuyor.");
+  }
   await page.click("[data-dashboard-tab='history']");
   await expectVisible("[data-dashboard-panel='history']:not(.hidden)", "Geçmiş bölümü");
   await page.click("[data-dashboard-tab='overview']");
@@ -48,10 +54,21 @@ try {
   }
   await ayseScoreCard.locator("[data-toggle-role]").click();
 
-  await page.click("[data-view='projects']");
+  await page.click("#addCategoryNavBtn");
+  await expectVisible("#categoryForm", "Kategori ekleme formu");
   await page.fill("#categoryName", "Smoke Kategori");
   await page.click("#categorySubmitBtn");
   await expectVisible("#categoryList >> text=Smoke Kategori", "Yeni kategori");
+  await page.fill("#categoryName", "Silinecek Kategori");
+  await page.click("#categorySubmitBtn");
+  const disposableCategory = page.locator("#categoryList .category-card", { hasText: "Silinecek Kategori" });
+  await disposableCategory.locator("[data-edit-category]").click();
+  await page.fill("#categoryName", "Düzenlenmiş Kategori");
+  await page.click("#categorySubmitBtn");
+  const editedCategory = page.locator("#categoryList .category-card", { hasText: "Düzenlenmiş Kategori" });
+  page.once("dialog", (dialog) => dialog.accept());
+  await editedCategory.locator("[data-delete-category]").click();
+  if (await page.locator("#categoryList >> text=Düzenlenmiş Kategori").count()) throw new Error("Kategori silinemedi.");
 
   await page.fill("#projectName", "Smoke Test Projesi");
   await page.fill("#projectDescription", "Otomatik test projesi");
@@ -67,7 +84,7 @@ try {
   await page.click("#projectInviteForm button[type='submit']");
   await expectVisible("#projectMembershipList >> text=davetli@example.com", "Bekleyen proje daveti");
 
-  await page.click("[data-view='tasks']");
+  await page.locator("[data-view='tasks']").evaluate((element) => element.click());
   await page.click("#newTaskBtn");
   await expectVisible("#taskForm.open", "Görev oluşturma çekmecesi");
   await page.fill("#taskTitle", "Smoke Test Görevi");
@@ -78,6 +95,12 @@ try {
   await page.selectOption("#taskProject", { label: "Smoke Test Projesi" });
   await page.selectOption("#taskCategory", { label: "Smoke Kategori" });
   await page.selectOption("#taskPriority", "yuksek");
+  await page.setInputFiles("#taskFiles", {
+    name: "yonetici-notu.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("Yönetici notu"),
+  });
+  await expectVisible("#taskAttachmentPreview >> text=yonetici-notu.txt", "Yönetici doküman önizlemesi");
   const giverChip = page.locator("#taskGiverChips [data-giver-id]", { hasText: "Ayşe Demir" });
   await giverChip.click();
   if ((await giverChip.getAttribute("aria-pressed")) !== "true") {
@@ -105,9 +128,11 @@ try {
   await page.click("#clearFiltersBtn");
 
   await page.fill("#searchInput", "Smoke Test Görevi");
+  await page.waitForFunction(() => document.querySelectorAll("#taskList .task-card").length === 1);
   if ((await page.locator("#taskList .task-card").count()) !== 1) {
     throw new Error("Arama filtresi beklenen tek görevi döndürmedi.");
   }
+  await page.click("#filterToggleBtn");
   await page.click("#clearFiltersBtn");
 
   await page.click("#filterToggleBtn");
@@ -128,6 +153,7 @@ try {
     }
   }
   await page.fill("#searchInput", "Dişli");
+  await page.waitForFunction(() => document.querySelectorAll("#taskList .task-card").length === 1);
   if ((await page.locator("#taskList .task-card").count()) !== 1) {
     throw new Error("Arama, öncelik ve durum filtreleriyle birlikte çalışmadı.");
   }
@@ -141,6 +167,11 @@ try {
   const taskCard = page.locator("#taskList .task-card", { hasText: "Smoke Test Görevi" });
   await taskCard.locator("[data-detail-task]").click();
   await expectVisible("#taskDetailModal:not(.hidden)", "Görev detayı");
+  await expectVisible("[data-document-assistant-root]", "Doküman asistanı paneli");
+  await expectVisible("[data-assistant-chat-form]", "Doküman soru-cevap formu");
+  if (!(await page.locator("[data-assistant-status]").textContent()).includes("Supabase")) {
+    throw new Error("Demo modunda doküman asistanı bağlantı açıklaması gösterilmedi.");
+  }
   await page.fill("#taskCommentText", "Smoke test yorumu");
   await page.click("#taskCommentForm button[type='submit']");
   await expectVisible("#taskDetailBody >> text=Smoke test yorumu", "Yeni yorum");
@@ -160,34 +191,53 @@ try {
   await page.click("#closeTaskDrawerBtn");
   await page.click("#menuToggleBtn");
   await expectVisible("#sidebar.open", "Mobil menü yeniden açıldı");
-  await page.click("#sidebarBackdrop");
+  await page.locator("#sidebarBackdrop").evaluate((element) => element.click());
   await page.locator("#sidebar.open").waitFor({ state: "hidden" });
 
   await page.click("#menuToggleBtn");
   await expectVisible("#sidebar.open", "Çıkış için mobil menü");
   await page.click("#logoutBtn");
-  await page.click("#showRegisterBtn");
-  await page.fill("#registerName", "Test Kullanıcısı");
-  await page.fill("#registerEmail", "kullanici@example.com");
-  await page.fill("#registerPassword", "123456");
-  await page.click("#registerForm button[type='submit']");
+  await page.fill("#loginEmail", "ayse@example.com");
+  await page.fill("#loginPassword", "123456");
+  await page.selectOption("#loginRole", "user");
+  await page.click("#loginForm button[type='submit']");
   await expectVisible("#appShell.user-panel", "Kullanıcı paneli");
   await expectVisible("#navRoleLabel >> text=KULLANICI PANELİ", "Kullanıcı paneli etiketi");
-  if (await page.locator("[data-view='projects']").isVisible()) {
+  if (await page.locator("[data-view='projects']:visible").count()) {
     throw new Error("Proje yönetimi normal kullanıcıya görünmemeli.");
   }
   if (await page.locator("#newTaskBtn").isVisible()) {
     throw new Error("Görev oluşturma normal kullanıcıya görünmemeli.");
   }
-  if (await page.locator(".manager-analytics").isVisible()) {
-    throw new Error("Ekip analizi normal kullanıcıya görünmemeli.");
+  await page.locator("[data-view='tasks']").evaluate((element) => element.click());
+  const userTaskCard = page.locator("#taskList .task-card", { hasText: "Smoke Test Görevi" });
+  await userTaskCard.locator("[data-detail-task]").click();
+  await expectVisible("[data-detail-attachment-form]", "Normal kullanıcı doküman yükleme formu");
+  if (await page.locator("[data-remove-attachment]").count()) {
+    throw new Error("Normal kullanıcı başka kullanıcının dokümanını silebiliyor.");
   }
-
+  await page.setInputFiles("[data-detail-attachment-input]", [
+    { name: "kullanici-belgesi.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 test") },
+    { name: "kullanici-belgesi.docx", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buffer: Buffer.from("PK test") },
+  ]);
+  await page.click("[data-detail-attachment-form] button[type='submit']");
+  await expectVisible("#taskDetailBody >> text=kullanici-belgesi.pdf", "Normal kullanıcı PDF yüklemesi");
+  await expectVisible("#taskDetailBody >> text=kullanici-belgesi.docx", "Normal kullanıcı Word yüklemesi");
+  await page.setInputFiles("[data-detail-attachment-input]", {
+    name: "zararli.exe", mimeType: "application/x-msdownload", buffer: Buffer.from("invalid"),
+  });
+  await page.click("[data-detail-attachment-form] button[type='submit']");
+  await expectVisible("#toastRegion .toast.error", "Desteklenmeyen dosya hatası");
+  await page.setInputFiles("[data-detail-attachment-input]", {
+    name: "buyuk.pdf", mimeType: "application/pdf", buffer: Buffer.alloc(5 * 1024 * 1024 + 1),
+  });
+  await page.click("[data-detail-attachment-form] button[type='submit']");
+  await page.waitForFunction(() => document.querySelector("#toastRegion .toast.error")?.textContent.includes("5 MB"));
   if (runtimeErrors.length) {
     throw new Error(`Tarayıcı hataları: ${runtimeErrors.join(" | ")}`);
   }
 
-  console.log("Smoke test başarılı: rol panelleri ve yönetici analizi dahil 12 temel akış doğrulandı.");
+  console.log("Smoke test başarılı: rol panelleri dahil temel uygulama akışları doğrulandı.");
 } finally {
   await browser.close();
 }

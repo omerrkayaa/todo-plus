@@ -13,4 +13,5 @@ window.TODO_PLUS_APP = Object.freeze({
     tamamlandi: "Tamamlandı",
   }),
   roleLabels: Object.freeze({ admin: "Yönetici", user: "Kullanıcı" }),
+  documentAssistantApiUrl: "http://127.0.0.1:3000/api",
 });

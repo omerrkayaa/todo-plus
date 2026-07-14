@@ -1,12 +1,30 @@
-const { storageKeys, priorityScores, priorityLabels, statusLabels, roleLabels } = window.TODO_PLUS_APP;
+const { storageKeys, priorityScores, priorityLabels, statusLabels, roleLabels, documentAssistantApiUrl } = window.TODO_PLUS_APP;
 const { createId, escapeHtml, today, formatDate, getDueDateMeta, isTaskOverdue, isUuid, formatFileSize, readFileAsDataURL, getAttachmentLabel, getAttachmentGroupLabel, getAttachmentGroupIcon } = window.TODO_PLUS_UTILS;
 const localStore = window.TODO_PLUS_STORAGE.createStorage(window.localStorage, storageKeys);
-const taskModel = window.TODO_PLUS_TASK_MODEL.createTaskModel({ createId, priorityScores, isTaskOverdue });
+const taskModel = window.TODO_PLUS_TASK_MODEL.createTaskModel({ createId, priorityScores });
 const supabaseMapper = window.TODO_PLUS_SUPABASE_MAPPER;
 const getTaskAttachments = taskModel.getAttachments;
 const getTaskSubtasks = taskModel.getSubtasks;
 const parseTaskSubtasks = taskModel.parseSubtasks;
 const getTaskScore = taskModel.getScore;
+
+const attachmentRules = Object.freeze({
+  maxFiles: 5,
+  maxFileSize: 5 * 1024 * 1024,
+  extensions: new Set(["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "jpg", "jpeg", "png"]),
+  mimeTypes: new Set([
+    "application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint", "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "text/plain", "image/jpeg", "image/png",
+  ]),
+});
+const attachmentMimeByExtension = Object.freeze({
+  pdf: "application/pdf", doc: "application/msword", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ppt: "application/vnd.ms-powerpoint", pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  txt: "text/plain", jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
+});
 
 const sampleAttachmentDataUrl =
   "data:image/svg+xml;charset=utf-8," +
@@ -327,6 +345,8 @@ let activeDetailTaskId = null;
 let draggedTaskId = null;
 let taskDraftAttachments = [];
 let activeAttachmentPreview = null;
+let activeAssistantDocumentId = null;
+const assistantProcessingDocuments = new Set();
 let userModalMode = "create";
 let supabaseReady = false;
 let isLoadingRemoteData = false;
@@ -391,8 +411,6 @@ const elements = {
   notificationCount: document.querySelector("#notificationCount"),
   notificationList: document.querySelector("#notificationList"),
   userScores: document.querySelector("#userScores"),
-  workloadInsights: document.querySelector("#workloadInsights"),
-  assignmentRecommendation: document.querySelector("#assignmentRecommendation"),
   upcomingTasks: document.querySelector("#upcomingTasks"),
   historyList: document.querySelector("#historyList"),
   projectForm: document.querySelector("#projectForm"),
@@ -413,6 +431,7 @@ const elements = {
   categoryCount: document.querySelector("#categoryCount"),
   categoryList: document.querySelector("#categoryList"),
   categorySearchInput: document.querySelector("#categorySearchInput"),
+  addCategoryNavBtn: document.querySelector("#addCategoryNavBtn"),
   projectInviteForm: document.querySelector("#projectInviteForm"),
   inviteProject: document.querySelector("#inviteProject"),
   inviteEmail: document.querySelector("#inviteEmail"),
@@ -480,7 +499,6 @@ const elements = {
   cancelUserBtn: document.querySelector("#cancelUserBtn"),
   taskCommentForm: document.querySelector("#taskCommentForm"),
   taskCommentText: document.querySelector("#taskCommentText"),
-  demoExamplesList: document.querySelector("#demoExamplesList"),
 };
 
 function loadState() {
@@ -504,7 +522,13 @@ function migrateState(nextState, parsedState) {
   }));
   nextState.tasks = (nextState.tasks || []).map((task) => ({
     ...task,
-    attachments: Array.isArray(task.attachments) ? task.attachments : [],
+    attachments: Array.isArray(task.attachments)
+      ? task.attachments.map((attachment) => ({
+          ...attachment,
+          uploadedBy: attachment.uploadedBy || task.createdBy,
+          uploadedAt: attachment.uploadedAt || task.createdAt || today(),
+        }))
+      : [],
     subtasks: Array.isArray(task.subtasks)
       ? task.subtasks.map((subtask) => ({
           id: subtask.id || createId("subtask"),
@@ -604,6 +628,7 @@ const supabaseGateway = window.TODO_PLUS_SUPABASE_GATEWAY.createGateway({
       tasks: "Görevlerde yeni bir değişiklik var.",
       task_comments: "Bir göreve yeni yorum eklendi.",
       task_assignments: "Görev atamalarında değişiklik var.",
+      document_chat_messages: "Doküman asistanında yeni bir mesaj var.",
       project_invitations: "Proje davetlerinde yeni bir hareket var.",
       project_members: "Proje üyeleri güncellendi.",
     };
@@ -618,6 +643,15 @@ const isSupabaseConfigured = () => supabaseGateway.isConfigured();
 const getSupabaseClient = () => supabaseGateway.getClient();
 const startRealtimeUpdates = (userId) => supabaseGateway.startRealtime(userId);
 const stopRealtimeUpdates = () => supabaseGateway.stopRealtime();
+const documentAssistantClient = window.TODO_PLUS_DOCUMENT_ASSISTANT.createClient({
+  apiBaseUrl: documentAssistantApiUrl,
+  getAccessToken: async () => {
+    const client = getSupabaseClient();
+    if (!client) return "";
+    const { data } = await client.auth.getSession();
+    return data.session?.access_token || "";
+  },
+});
 
 function toSupabaseRows() {
   const allUsers = state.users.filter((user) => isUuid(user.id));
@@ -738,6 +772,7 @@ async function syncStateToSupabase() {
       await upsertRows("categories", rows.categories);
       await upsertRows("projects", rows.projects);
       await upsertRows("tasks", rows.tasks);
+      await upsertRows("task_attachments", rows.task_attachments);
       await upsertRows("task_assignments", rows.task_assignments);
       await upsertRows("task_givers", rows.task_givers);
       await upsertRows("task_history", rows.task_history, { ignoreDuplicates: true });
@@ -750,6 +785,10 @@ async function syncStateToSupabase() {
       );
       await upsertRows("users", rows.users.filter((user) => user.id === sessionUserId));
       await upsertRows("tasks", rows.tasks.filter((task) => ownTaskIds.has(task.id)));
+      await upsertRows(
+        "task_attachments",
+        rows.task_attachments.filter((attachment) => attachment.uploaded_by === sessionUserId && ownTaskIds.has(attachment.task_id)),
+      );
       await upsertRows(
         "task_assignments",
         rows.task_assignments.filter((assignment) => assignment.user_id === sessionUserId),
@@ -810,6 +849,7 @@ async function loadSupabaseData(userId) {
       projectsResult,
       categoriesResult,
       tasksResult,
+      attachmentsResult,
       assignmentsResult,
       giversResult,
       historyResult,
@@ -821,6 +861,7 @@ async function loadSupabaseData(userId) {
       client.from("projects").select("*"),
       client.from("categories").select("*"),
       client.from("tasks").select("*"),
+      client.from("task_attachments").select("*"),
       client.from("task_assignments").select("*"),
       client.from("task_givers").select("*"),
       client.from("task_history").select("*"),
@@ -834,6 +875,7 @@ async function loadSupabaseData(userId) {
       projectsResult,
       categoriesResult,
       tasksResult,
+      attachmentsResult,
       assignmentsResult,
       giversResult,
       historyResult,
@@ -849,6 +891,7 @@ async function loadSupabaseData(userId) {
       projects: projectsResult.data,
       categories: categoriesResult.data,
       tasks: tasksResult.data,
+      task_attachments: attachmentsResult.data,
       task_assignments: assignmentsResult.data,
       task_givers: giversResult.data,
       task_history: historyResult.data,
@@ -975,23 +1018,39 @@ function setTaskAttachmentError(message) {
   elements.taskAttachmentDropzone.setAttribute("aria-invalid", String(Boolean(message)));
 }
 
+function getFileExtension(fileName) {
+  return String(fileName || "").split(".").pop().toLocaleLowerCase("tr-TR");
+}
+
+function validateAttachment(file) {
+  const extension = getFileExtension(file.name);
+  if (!attachmentRules.extensions.has(extension)) {
+    return `“${file.name}” desteklenmeyen bir dosya türü.`;
+  }
+  if (file.type && (!attachmentRules.mimeTypes.has(file.type) || file.type !== attachmentMimeByExtension[extension])) {
+    return `“${file.name}” dosyasının MIME türü (${file.type}) desteklenmiyor.`;
+  }
+  if (file.size > attachmentRules.maxFileSize) {
+    return `“${file.name}” 5 MB sınırını aştığı için eklenmedi.`;
+  }
+  return "";
+}
+
 async function addAttachmentsToDraft(fileList) {
   const files = [...(fileList || [])];
   if (files.length === 0) return;
 
-  const maxFiles = 5;
-  const maxFileSize = 3 * 1024 * 1024;
-  const remainingSlots = Math.max(0, maxFiles - taskDraftAttachments.length);
+  const remainingSlots = Math.max(0, attachmentRules.maxFiles - taskDraftAttachments.length);
   const safeFiles = files.slice(0, remainingSlots);
   const errors = [];
 
   if (files.length > remainingSlots) {
-    errors.push(`En fazla ${maxFiles} dosya eklenebilir; ${files.length - remainingSlots} dosya eklenmedi.`);
+    errors.push(`En fazla ${attachmentRules.maxFiles} dosya eklenebilir; ${files.length - remainingSlots} dosya eklenmedi.`);
   }
   const validFiles = safeFiles.filter((file) => {
-    if (file.size <= maxFileSize) return true;
-    errors.push(`“${file.name}” 3 MB sınırını aştığı için eklenmedi.`);
-    return false;
+    const error = validateAttachment(file);
+    if (error) errors.push(error);
+    return !error;
   });
   setTaskAttachmentError(errors.join(" "));
   if (errors.length) showToast(errors.join(" "), "error");
@@ -1010,9 +1069,10 @@ async function addAttachmentsToDraft(fileList) {
     taskDraftAttachments.push({
       id: createId("attachment"),
       name: file.name,
-      type: file.type || "application/octet-stream",
+      type: file.type || attachmentMimeByExtension[getFileExtension(file.name)],
       size: file.size,
       dataUrl,
+      uploadedBy: getSessionUser()?.id,
       uploadedAt: today(),
     });
     loadedCount += 1;
@@ -1275,11 +1335,7 @@ function calculateUserStats(userId) {
   return taskModel.calculateUserStats(state, userId);
 }
 
-function calculateWorkload(userId) {
-  return taskModel.calculateWorkload(state, userId);
-}
-
-function setView(viewName) {
+function setView(viewName, activeNavItem = null) {
   if (!isAdmin() && viewName === "projects") viewName = "dashboard";
   const titles = {
     dashboard: isAdmin() ? "Yönetici paneli" : "Kullanıcı paneli",
@@ -1287,7 +1343,7 @@ function setView(viewName) {
     tasks: "Görevler",
   };
   const subtitles = {
-    dashboard: isAdmin() ? "Ekibin iş yükünü ve performansını yönetin." : "Size atanan işleri ve kişisel ilerlemenizi görün.",
+    dashboard: isAdmin() ? "Ekibin görevlerini ve genel ilerlemesini yönetin." : "Size atanan işleri ve kişisel ilerlemenizi görün.",
     projects: "Projelerinizi ve kategorilerinizi tek yerden yönetin.",
     tasks: "Önceliklerinizi düzenleyin ve işi akışta tutun.",
   };
@@ -1301,9 +1357,10 @@ function setView(viewName) {
 
   document.querySelector(`#${viewName}View`).classList.add("active-view");
 
+  const selectedNavItem = activeNavItem || [...elements.navItems].find((item) => item.dataset.view === viewName);
   elements.navItems.forEach((item) => {
-    item.classList.toggle("active", item.dataset.view === viewName);
-    if (item.dataset.view === viewName) {
+    item.classList.toggle("active", item === selectedNavItem);
+    if (item === selectedNavItem) {
       item.setAttribute("aria-current", "page");
     } else {
       item.removeAttribute("aria-current");
@@ -1594,7 +1651,7 @@ function getFilteredTasks() {
   const filteredTasks = state.tasks.filter((task) => {
     const assignment = getTaskAssignment(task.id);
     const taskCategory = getTaskCategory(task);
-    const isVisibleToRole = isAdmin() || assignment?.userId === getSessionUser()?.id;
+    const isVisibleToRole = isAdmin() || assignment?.userId === getSessionUser()?.id || canUploadTaskAttachments(task);
     const matchesText =
       !query ||
       (task.title || "").toLocaleLowerCase("tr-TR").includes(query) ||
@@ -1810,6 +1867,46 @@ function getTaskHistoryItems(taskId) {
     .reverse();
 }
 
+function isAssistantAttachment(attachment) {
+  return ["pdf", "docx", "txt"].includes(getFileExtension(attachment?.name));
+}
+
+function renderDocumentAssistantPanel(task, attachments) {
+  const supported = attachments.filter(isAssistantAttachment);
+  if (supported.length === 0) return "";
+  if (!supported.some((attachment) => attachment.id === activeAssistantDocumentId)) {
+    activeAssistantDocumentId = supported[0].id;
+  }
+  return `
+    <section class="detail-block document-assistant" data-document-assistant-root data-task-id="${task.id}">
+      <div class="panel-header detail-section-header">
+        <div><p class="section-kicker">YAPAY ZEKA</p><h3>Doküman Asistanı</h3></div>
+        <span>PDF · DOCX · TXT</span>
+      </div>
+      <label class="assistant-document-picker">Doküman
+        <select data-assistant-document>
+          ${supported.map((attachment) => `<option value="${attachment.id}" ${attachment.id === activeAssistantDocumentId ? "selected" : ""}>${escapeHtml(attachment.name)}</option>`).join("")}
+        </select>
+      </label>
+      <div class="assistant-status" data-assistant-status>${supabaseReady ? "Doküman durumu kontrol ediliyor…" : "Doküman asistanı Supabase bağlantısı etkinleştirildiğinde kullanılabilir."}</div>
+      <div class="assistant-actions">
+        <button class="small-button" type="button" data-process-assistant-document ${supabaseReady ? "" : "disabled"}>Metni işle</button>
+        <button class="primary-button" type="button" data-summarize-assistant-document disabled>Dokümanı özetle</button>
+      </div>
+      <div class="assistant-summary hidden" data-assistant-summary></div>
+      <div class="assistant-messages" data-assistant-messages aria-live="polite">
+        <div class="empty-state">Henüz soru sorulmadı.</div>
+      </div>
+      <form class="assistant-chat-form" data-assistant-chat-form>
+        <label>Dokümanla ilgili sorun
+          <textarea rows="2" maxlength="2000" required data-assistant-question placeholder="Örn. Bu dokümanda benden beklenen işler neler?"></textarea>
+        </label>
+        <button class="primary-button" type="submit" disabled>Gönder</button>
+      </form>
+      <p class="attachment-limits">Asistan yalnızca seçili dokümanın içeriğine göre cevap verir.</p>
+    </section>`;
+}
+
 function renderTaskDetail() {
   if (!activeDetailTaskId) return;
 
@@ -1927,6 +2024,17 @@ function renderTaskDetail() {
         <h3>Dosyalar</h3>
         <span>${attachments.length} ek</span>
       </div>
+      ${
+        canUploadTaskAttachments(task)
+          ? `<form class="detail-attachment-form" data-detail-attachment-form="${task.id}" enctype="multipart/form-data">
+               <label>Doküman yükle
+                 <input name="documents" type="file" multiple required accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png" data-detail-attachment-input />
+               </label>
+               <p class="attachment-limits">PDF, Office, TXT, JPG veya PNG · Dosya başına en fazla 5 MB.</p>
+               <button class="primary-button" type="submit">Seçilenleri yükle</button>
+             </form>`
+          : `<p class="attachment-limits">Bu göreve doküman yükleme yetkiniz bulunmuyor.</p>`
+      }
       <div class="attachment-groups">
         ${
           attachments.length === 0
@@ -1945,18 +2053,18 @@ function renderTaskDetail() {
                             (attachment) => `
                               <article class="attachment-item" data-preview-attachment="${attachment.id}" data-task-id="${task.id}" role="button" tabindex="0" aria-label="${escapeHtml(attachment.name)} dosyasını aç">
                                 ${
-                                  attachment.type?.startsWith("image/")
+                                  attachment.type?.startsWith("image/") && attachment.dataUrl
                                     ? `<img class="attachment-item-thumb" src="${attachment.dataUrl}" alt="${escapeHtml(attachment.name)}" />`
                                     : `<div class="attachment-item-icon">${escapeHtml(getAttachmentGroupIcon(attachment))}</div>`
                                 }
                                 <div class="attachment-item-body">
                                   <strong>${escapeHtml(attachment.name)}</strong>
-                                  <p>${escapeHtml(attachment.type || "Dosya")} · ${formatFileSize(attachment.size)} · ${formatDate(attachment.uploadedAt)}</p>
+                                  <p>${escapeHtml(attachment.type || "Dosya")} · ${formatFileSize(attachment.size)} · ${escapeHtml(getUserName(attachment.uploadedBy))} · ${formatDate(attachment.uploadedAt)}</p>
                                 </div>
                                 <div class="attachment-item-actions">
-                                  <a class="small-button" href="${attachment.dataUrl}" download="${escapeHtml(attachment.name)}">İndir</a>
+                                  <button class="small-button" type="button" data-download-attachment="${attachment.id}" data-task-id="${task.id}">İndir</button>
                                   ${
-                                    canManageTaskAttachments(task)
+                                    canManageTaskAttachments(task, attachment)
                                       ? `<button class="danger-button" type="button" data-remove-attachment="${attachment.id}" data-task-id="${task.id}">Sil</button>`
                                       : ""
                                   }
@@ -1973,6 +2081,8 @@ function renderTaskDetail() {
         }
       </div>
     </section>
+
+    ${renderDocumentAssistantPanel(task, attachments)}
 
     <section class="detail-block">
       <h3>Geçmiş</h3>
@@ -2004,6 +2114,154 @@ function renderTaskDetail() {
       </div>
     </section>
   `;
+  if (activeAssistantDocumentId) queueMicrotask(() => initializeDocumentAssistant(activeAssistantDocumentId));
+}
+
+function getDocumentAssistantRoot(documentId = activeAssistantDocumentId) {
+  const root = elements.taskDetailBody.querySelector("[data-document-assistant-root]");
+  const selected = root?.querySelector("[data-assistant-document]")?.value;
+  return root && selected === documentId ? root : null;
+}
+
+function renderAssistantMessages(root, messages) {
+  const container = root.querySelector("[data-assistant-messages]");
+  if (!messages.length) {
+    container.innerHTML = `<div class="empty-state">Henüz soru sorulmadı.</div>`;
+    return;
+  }
+  container.innerHTML = messages.map((message) => {
+    const sources = Array.isArray(message.source_chunks) ? message.source_chunks : [];
+    return `<article class="assistant-message ${message.role}">
+      <span>${message.role === "assistant" ? "Doküman Asistanı" : "Sen"}</span>
+      <p>${escapeHtml(message.content).replaceAll("\n", "<br>")}</p>
+      ${sources.length ? `<small>Kaynak: ${sources.map((source) => escapeHtml(source.label)).join(", ")}</small>` : ""}
+    </article>`;
+  }).join("");
+  container.scrollTop = container.scrollHeight;
+}
+
+function applyAssistantStatus(root, document) {
+  const status = root.querySelector("[data-assistant-status]");
+  const processButton = root.querySelector("[data-process-assistant-document]");
+  const summaryButton = root.querySelector("[data-summarize-assistant-document]");
+  const submitButton = root.querySelector("[data-assistant-chat-form] button[type='submit']");
+  const labels = {
+    pending: "Doküman işlenmeyi bekliyor.",
+    processing: "Dokümanın metni çıkarılıyor ve arama indeksi hazırlanıyor…",
+    ready: `${document.characterCount || 0} karakter işlendi. Asistan hazır.`,
+    failed: `Doküman işlenemedi: ${document.error || "Bilinmeyen hata"}`,
+  };
+  status.textContent = labels[document.status] || "Doküman durumu bilinmiyor.";
+  status.dataset.state = document.status || "unknown";
+  processButton.disabled = document.status === "processing";
+  processButton.textContent = document.status === "failed" ? "Tekrar işle" : "Metni işle";
+  summaryButton.disabled = document.status !== "ready";
+  submitButton.disabled = document.status !== "ready";
+}
+
+async function initializeDocumentAssistant(documentId) {
+  if (!supabaseReady || !documentId || documentId !== activeAssistantDocumentId) return;
+  const root = getDocumentAssistantRoot(documentId);
+  if (!root) return;
+  try {
+    const [statusPayload, messagePayload] = await Promise.all([
+      documentAssistantClient.status(documentId),
+      documentAssistantClient.messages(documentId),
+    ]);
+    const currentRoot = getDocumentAssistantRoot(documentId);
+    if (!currentRoot) return;
+    applyAssistantStatus(currentRoot, statusPayload.document);
+    renderAssistantMessages(currentRoot, messagePayload.messages || []);
+    if (statusPayload.document.status === "pending") {
+      processDocumentAssistant(documentId, true);
+    } else if (statusPayload.document.status === "processing") {
+      setTimeout(() => initializeDocumentAssistant(documentId), 1800);
+    }
+  } catch (error) {
+    const currentRoot = getDocumentAssistantRoot(documentId);
+    if (currentRoot) currentRoot.querySelector("[data-assistant-status]").textContent = error.message;
+  }
+}
+
+async function processDocumentAssistant(documentId, silent = false) {
+  if (!supabaseReady || assistantProcessingDocuments.has(documentId)) return;
+  assistantProcessingDocuments.add(documentId);
+  const root = getDocumentAssistantRoot(documentId);
+  if (root) {
+    root.querySelector("[data-assistant-status]").textContent = "Doküman işleniyor…";
+    root.querySelectorAll("button").forEach((button) => { button.disabled = true; });
+  }
+  try {
+    await documentAssistantClient.process(documentId);
+    if (!silent) showToast("Doküman metni işlendi; asistan hazır.");
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    assistantProcessingDocuments.delete(documentId);
+    initializeDocumentAssistant(documentId);
+  }
+}
+
+async function summarizeAssistantDocument(documentId) {
+  const root = getDocumentAssistantRoot(documentId);
+  if (!root) return;
+  const button = root.querySelector("[data-summarize-assistant-document]");
+  const summary = root.querySelector("[data-assistant-summary]");
+  button.disabled = true;
+  button.textContent = "Özetleniyor…";
+  summary.classList.remove("hidden");
+  summary.textContent = "Doküman özeti hazırlanıyor…";
+  try {
+    const payload = await documentAssistantClient.summary(documentId);
+    summary.innerHTML = `<h4>Kısa özet</h4><p>${escapeHtml(payload.summary).replaceAll("\n", "<br>")}</p>`;
+  } catch (error) {
+    summary.textContent = error.message;
+    showToast(error.message, "error");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Dokümanı özetle";
+  }
+}
+
+async function submitAssistantQuestion(form) {
+  const documentId = activeAssistantDocumentId;
+  const root = getDocumentAssistantRoot(documentId);
+  const input = form.querySelector("[data-assistant-question]");
+  const question = input.value.trim();
+  if (!root || !question) return;
+  const button = form.querySelector("button[type='submit']");
+  button.disabled = true;
+  button.textContent = "Yanıtlanıyor…";
+  try {
+    const payload = await documentAssistantClient.chat(documentId, question);
+    input.value = "";
+    const messagesPayload = await documentAssistantClient.messages(documentId);
+    renderAssistantMessages(root, messagesPayload.messages || [payload.userMessage, payload.assistantMessage]);
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Gönder";
+  }
+}
+
+function handleDocumentAssistantClick(event) {
+  if (event.target.closest("[data-process-assistant-document]")) processDocumentAssistant(activeAssistantDocumentId);
+  if (event.target.closest("[data-summarize-assistant-document]")) summarizeAssistantDocument(activeAssistantDocumentId);
+}
+
+function handleDocumentAssistantChange(event) {
+  const select = event.target.closest("[data-assistant-document]");
+  if (!select) return;
+  activeAssistantDocumentId = select.value;
+  initializeDocumentAssistant(activeAssistantDocumentId);
+}
+
+function handleDocumentAssistantSubmit(event) {
+  const form = event.target.closest("[data-assistant-chat-form]");
+  if (!form) return;
+  event.preventDefault();
+  submitAssistantQuestion(form);
 }
 
 const modalFocusableSelector = [
@@ -2063,6 +2321,10 @@ function getTopmostOpenModal() {
 }
 
 function openTaskDetail(taskId) {
+  const task = state.tasks.find((item) => item.id === taskId);
+  if (!task || (!isAdmin() && !canUploadTaskAttachments(task))) {
+    return showToast("Bu görevi görüntüleme yetkiniz yok.", "error");
+  }
   activeDetailTaskId = taskId;
   renderTaskDetail();
   elements.taskCommentText.value = "";
@@ -2071,6 +2333,7 @@ function openTaskDetail(taskId) {
 
 function closeTaskDetail() {
   activeDetailTaskId = null;
+  activeAssistantDocumentId = null;
   deactivateModal(elements.taskDetailModal);
   elements.taskCommentText.value = "";
 }
@@ -2143,40 +2406,6 @@ function renderDashboard() {
     })
     .join("");
 
-  if (isAdmin()) {
-    const workloadRows = state.users
-      .filter((user) => user.role !== "admin" || state.users.every((item) => item.role === "admin"))
-      .map((user) => ({ user, workload: calculateWorkload(user.id) }))
-      .sort((a, b) => b.workload.readinessScore - a.workload.readinessScore);
-    const recommended = workloadRows[0];
-
-    elements.assignmentRecommendation.textContent = recommended
-      ? `Önerilen: ${recommended.user.fullName}`
-      : "Uygun kullanıcı yok";
-    elements.workloadInsights.innerHTML = workloadRows.length
-      ? workloadRows
-          .map(({ user, workload }, index) => `
-            <article class="workload-card ${index === 0 ? "recommended" : ""}">
-              <div class="workload-person">
-                <span class="avatar">${escapeHtml(getInitials(user.fullName))}</span>
-                <div><strong>${escapeHtml(user.fullName)}</strong><small>${index === 0 ? "Görev için önerilen kişi" : roleLabels[user.role] || roleLabels.user}</small></div>
-              </div>
-              <div class="workload-metrics">
-                <span><strong>${workload.activeCount}</strong> aktif</span>
-                <span class="${workload.overdueCount ? "metric-danger" : ""}"><strong>${workload.overdueCount}</strong> geciken</span>
-                <span><strong>${workload.activeMinutes}</strong> dk yük</span>
-                <span><strong>${workload.rate}%</strong> başarı</span>
-              </div>
-              <div class="readiness-bar" aria-label="${escapeHtml(user.fullName)} görev uygunluk puanı">
-                <span style="width:${workload.readinessScore}%"></span>
-              </div>
-              <small class="readiness-label">Uygunluk puanı ${workload.readinessScore}/100</small>
-            </article>
-          `)
-          .join("")
-      : `<div class="empty-state">Analiz edilecek ekip üyesi bulunmuyor.</div>`;
-  }
-
   const notifications = getDashboardNotifications(visibleTasks);
   elements.notificationCount.textContent = `${notifications.length} bildirim`;
   elements.notificationList.innerHTML =
@@ -2247,75 +2476,6 @@ function renderDashboard() {
           .join("");
 }
 
-function renderDemoExamples() {
-  if (!elements.demoExamplesList) return;
-
-  const dueSoonTasks = [...state.tasks]
-    .filter((task) => task.dueDate && task.status !== "tamamlandi")
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
-    .slice(0, 2);
-  const overdueTasks = state.tasks.filter(isTaskOverdue).slice(0, 2);
-  const priorityExample = state.tasks.find((task) => task.priority === "yuksek" && task.status === "devam_ediyor");
-  const examples = [
-    {
-      title: "Takvim görünümü",
-      eyebrow: "Tarihe göre akış",
-      text: "Teslim tarihlerini gün bazında göster ve yaklaşan işleri öne çıkar.",
-      items: dueSoonTasks.length
-        ? dueSoonTasks.map((task) => `${task.title} · ${formatDate(task.dueDate)}`)
-        : ["Bugün teslim", "Bu hafta teslim", "Geciken görev"],
-    },
-    {
-      title: "Bildirim merkezi",
-      eyebrow: "Anlık uyarılar",
-      text: "Geciken görev, yeni yorum ve durum değişikliği tek yerde toplansın.",
-      items: overdueTasks.length
-        ? overdueTasks.map((task) => `Gecikti: ${task.title}`)
-        : ["Yeni yorum geldi", "Durum değişti", "Görev atandı"],
-    },
-    {
-      title: "Kaydedilmiş filtre",
-      eyebrow: "Tek tıkla aç",
-      text: "Öncelik Yüksek + Durum Devam Ediyor + Kategori Güvenlik filtresini sakla.",
-      items: ["Öncelik: Yüksek", "Durum: Devam Ediyor", "Kategori: Güvenlik"],
-    },
-    {
-      title: "Alt görevler",
-      eyebrow: "Parçalayarak ilerle",
-      text: "Büyük işi analiz, kontrol ve yayın gibi küçük adımlara böl.",
-      items: priorityExample
-        ? [`Ana görev: ${priorityExample.title}`, "Alt adım: veri kontrolü", "Alt adım: sonuç onayı"]
-        : ["Analiz", "Kontrol", "Yayın"],
-    },
-    {
-      title: "Dosya ekleri",
-      eyebrow: "Göreve bağlı belgeler",
-      text: "PDF, görsel, tablo veya teknik notları doğrudan görevle ilişkilendir.",
-      items: ["toplanti-notu.pdf", "ekran-goruntusu.png", "kontrol-listesi.xlsx"],
-    },
-  ];
-
-  elements.demoExamplesList.innerHTML = examples
-    .map(
-      (example) => `
-        <article class="demo-example-card">
-          <div class="demo-example-top">
-            <div>
-              <p class="demo-example-eyebrow">${escapeHtml(example.eyebrow)}</p>
-              <h4>${escapeHtml(example.title)}</h4>
-            </div>
-            <span class="badge">Örnek</span>
-          </div>
-          <p>${escapeHtml(example.text)}</p>
-          <ul class="demo-example-list">
-            ${example.items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
-          </ul>
-        </article>
-      `,
-    )
-    .join("");
-}
-
 function renderAll() {
   renderUsers();
   renderProjectOptions();
@@ -2325,7 +2485,6 @@ function renderAll() {
   renderCategories();
   renderTaskViews();
   renderDashboard();
-  renderDemoExamples();
   renderTaskDetail();
   const currentView = [...elements.navItems].find((item) => item.classList.contains("active"))?.dataset.view;
   setView(currentView || "dashboard");
@@ -2725,10 +2884,14 @@ function addCategory(event) {
     return;
   }
 
+  const categoryName = elements.categoryName.value.trim();
+  if (state.categories.some((category) => category.name.toLocaleLowerCase("tr-TR") === categoryName.toLocaleLowerCase("tr-TR"))) {
+    return showToast("Bu adla bir kategori zaten var.", "error");
+  }
   state.categories.push({
     id: createId("category"),
     userId: getSessionUser().id,
-    name: elements.categoryName.value.trim(),
+    name: categoryName,
     color: elements.categoryColor.value || "#2563eb",
     createdAt: today(),
   });
@@ -2743,12 +2906,17 @@ function updateCategoryFromForm(categoryId) {
   const category = state.categories.find((item) => item.id === categoryId);
   if (!category) return;
 
-  category.name = elements.categoryName.value.trim();
+  const categoryName = elements.categoryName.value.trim();
+  if (state.categories.some((item) => item.id !== categoryId && item.name.toLocaleLowerCase("tr-TR") === categoryName.toLocaleLowerCase("tr-TR"))) {
+    return showToast("Bu adla bir kategori zaten var.", "error");
+  }
+  category.name = categoryName;
   category.color = elements.categoryColor.value || "#2563eb";
 
   resetCategoryForm();
   saveState();
   renderAll();
+  showToast("Kategori güncellendi.");
 }
 
 function editCategory(categoryId) {
@@ -3015,6 +3183,7 @@ function deleteTask(taskId) {
   }
   saveState();
   renderAll();
+  showToast("Görev silindi.");
 }
 
 function deleteProject(projectId) {
@@ -3055,6 +3224,7 @@ function deleteCategory(categoryId) {
   state.categories = state.categories.filter((category) => category.id !== categoryId);
   saveState();
   renderAll();
+  showToast("Kategori silindi.");
 }
 
 function openUserModal() {
@@ -3160,11 +3330,126 @@ function addTaskComment(event) {
   showToast("Yorum eklendi.");
 }
 
-function canManageTaskAttachments(task) {
+function canUploadTaskAttachments(task) {
   if (isAdmin()) return true;
   const sessionUserId = getSessionUser()?.id;
   const assignment = getTaskAssignment(task.id);
-  return task.createdBy === sessionUserId || assignment?.userId === sessionUserId;
+  const isGiver = getTaskGivers(task.id).some((giver) => giver.userId === sessionUserId);
+  const isProjectMember = state.projectMembers.some((member) => member.projectId === task.projectId && member.userId === sessionUserId);
+  return task.createdBy === sessionUserId || assignment?.userId === sessionUserId || isGiver || isProjectMember;
+}
+
+function canManageTaskAttachments(task, attachment) {
+  return isAdmin() || (canUploadTaskAttachments(task) && attachment?.uploadedBy === getSessionUser()?.id);
+}
+
+function safeStorageFileName(fileName) {
+  return String(fileName || "document")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "document";
+}
+
+async function createTaskAttachment(task, file) {
+  const validationError = validateAttachment(file);
+  if (validationError) throw new Error(validationError);
+  if (!canUploadTaskAttachments(task)) throw new Error("Bu göreve doküman yükleme yetkiniz yok.");
+
+  const attachment = {
+    id: createId("attachment"),
+    name: file.name,
+    type: file.type || attachmentMimeByExtension[getFileExtension(file.name)],
+    size: file.size,
+    uploadedBy: getSessionUser().id,
+    uploadedAt: today(),
+  };
+
+  const client = getSupabaseClient();
+  if (supabaseReady && client && isUuid(task.id)) {
+    attachment.storagePath = `${task.id}/${attachment.uploadedBy}/${attachment.id}-${safeStorageFileName(file.name)}`;
+    const { error: uploadError } = await client.storage
+      .from("task-documents")
+      .upload(attachment.storagePath, file, { contentType: attachment.type, upsert: false });
+    if (uploadError) throw new Error(`Dosya saklama alanına yüklenemedi: ${uploadError.message}`);
+
+    const { error: metadataError } = await client.from("task_attachments").insert({
+      id: attachment.id,
+      task_id: task.id,
+      uploaded_by: attachment.uploadedBy,
+      file_name: attachment.name,
+      storage_path: attachment.storagePath,
+      mime_type: attachment.type,
+      file_size: attachment.size,
+    });
+    if (metadataError) {
+      await client.storage.from("task-documents").remove([attachment.storagePath]);
+      throw new Error(`Dosya bilgileri kaydedilemedi: ${metadataError.message}`);
+    }
+  } else {
+    attachment.dataUrl = await readFileAsDataURL(file);
+  }
+  return attachment;
+}
+
+async function uploadTaskAttachments(event) {
+  const form = event.target.closest("[data-detail-attachment-form]");
+  if (!form) return;
+  event.preventDefault();
+  const task = state.tasks.find((item) => item.id === form.dataset.detailAttachmentForm);
+  const input = form.querySelector("[data-detail-attachment-input]");
+  const files = [...(input?.files || [])];
+  if (!task || files.length === 0) return showToast("Yüklenecek en az bir dosya seçin.", "error");
+  if (!canUploadTaskAttachments(task)) return showToast("Bu göreve doküman yükleme yetkiniz yok.", "error");
+  if (getTaskAttachments(task).length + files.length > attachmentRules.maxFiles) {
+    return showToast(`Bir görevde en fazla ${attachmentRules.maxFiles} dosya bulunabilir.`, "error");
+  }
+
+  const button = form.querySelector("button[type='submit']");
+  button.disabled = true;
+  button.textContent = "Yükleniyor…";
+  try {
+    const uploadedAttachments = [];
+    for (const file of files) {
+      const attachment = await createTaskAttachment(task, file);
+      task.attachments.push(attachment);
+      uploadedAttachments.push(attachment);
+    }
+    task.updatedAt = today();
+    saveState();
+    renderTaskDetail();
+    renderTaskViews();
+    showToast(`${files.length} doküman başarıyla yüklendi.`);
+    if (supabaseReady) {
+      uploadedAttachments
+        .filter(isAssistantAttachment)
+        .forEach((attachment) => processDocumentAssistant(attachment.id, true));
+    }
+  } catch (error) {
+    showToast(error.message || "Dosya yüklenirken bir hata oluştu.", "error");
+  } finally {
+    if (button.isConnected) {
+      button.disabled = false;
+      button.textContent = "Seçilenleri yükle";
+    }
+  }
+}
+
+async function downloadTaskAttachment(taskId, attachmentId) {
+  const task = state.tasks.find((item) => item.id === taskId);
+  const attachment = getTaskAttachments(task).find((item) => item.id === attachmentId);
+  if (!task || !attachment || !canUploadTaskAttachments(task)) return showToast("Bu dosyaya erişim yetkiniz yok.", "error");
+  let href = attachment.dataUrl;
+  if (!href && attachment.storagePath) {
+    const { data, error } = await getSupabaseClient()?.storage.from("task-documents").download(attachment.storagePath) || {};
+    if (error || !data) return showToast("Dosya indirilemedi.", "error");
+    href = URL.createObjectURL(data);
+  }
+  const link = document.createElement("a");
+  link.href = href;
+  link.download = attachment.name;
+  link.click();
+  if (href?.startsWith("blob:")) setTimeout(() => URL.revokeObjectURL(href), 1000);
 }
 
 function openAttachmentPreview(taskId, attachmentId) {
@@ -3178,7 +3463,7 @@ function openAttachmentPreview(taskId, attachmentId) {
   elements.attachmentPreviewBody.innerHTML = `
     <div class="attachment-preview-view">
       ${
-        attachment.type?.startsWith("image/")
+        attachment.type?.startsWith("image/") && attachment.dataUrl
           ? `<img class="attachment-preview-hero" src="${attachment.dataUrl}" alt="${escapeHtml(attachment.name)}" />`
           : `<div class="attachment-preview-hero attachment-preview-icon">${escapeHtml(getAttachmentGroupIcon(attachment))}</div>`
       }
@@ -3186,9 +3471,9 @@ function openAttachmentPreview(taskId, attachmentId) {
         <strong>${escapeHtml(attachment.name)}</strong>
         <p>${escapeHtml(getAttachmentLabel(attachment))} · ${formatFileSize(attachment.size)} · ${formatDate(attachment.uploadedAt)}</p>
         <div class="attachment-preview-actions">
-          <a class="primary-button" href="${attachment.dataUrl}" download="${escapeHtml(attachment.name)}">İndir</a>
+          <button class="primary-button" type="button" data-download-attachment="${attachment.id}" data-task-id="${task.id}">İndir</button>
           ${
-            canManageTaskAttachments(task)
+            canManageTaskAttachments(task, attachment)
               ? `<button class="danger-button" type="button" data-preview-remove-attachment="${attachment.id}">Sil</button>`
               : ""
           }
@@ -3204,16 +3489,22 @@ function closeAttachmentPreview() {
   deactivateModal(elements.attachmentPreviewModal);
 }
 
-function deleteTaskAttachment(taskId, attachmentId) {
+async function deleteTaskAttachment(taskId, attachmentId) {
   const task = state.tasks.find((item) => item.id === taskId);
   if (!task) return;
-  if (!canManageTaskAttachments(task)) {
+  const attachment = getTaskAttachments(task).find((item) => item.id === attachmentId);
+  if (!attachment || !canManageTaskAttachments(task, attachment)) {
     return showToast("Dosya düzenleme için yetki yok.", "error");
   }
 
   if (!confirm("Bu dosya silinsin mi?")) return;
 
-  task.attachments = getTaskAttachments(task).filter((attachment) => attachment.id !== attachmentId);
+  if (attachment.storagePath && getSupabaseClient()) {
+    const { error: storageError } = await getSupabaseClient().storage.from("task-documents").remove([attachment.storagePath]);
+    if (storageError) return showToast(`Dosya silinemedi: ${storageError.message}`, "error");
+    await deleteSupabaseRow("task_attachments", attachment.id);
+  }
+  task.attachments = getTaskAttachments(task).filter((item) => item.id !== attachmentId);
   saveState();
   renderTaskDetail();
   renderTaskViews();
@@ -3261,6 +3552,7 @@ function handleTaskActionClick(event) {
   const removeAttachmentButton = event.target.closest("[data-remove-attachment]");
   const removeDraftAttachmentButton = event.target.closest("[data-remove-draft-attachment]");
   const previewAttachmentButton = event.target.closest("[data-preview-attachment]");
+  const downloadAttachmentButton = event.target.closest("[data-download-attachment]");
   const previewRemoveButton = event.target.closest("[data-preview-remove-attachment]");
   const subtaskToggle = event.target.closest("[data-toggle-subtask]");
 
@@ -3288,6 +3580,10 @@ function handleTaskActionClick(event) {
     taskDraftAttachments = taskDraftAttachments.filter((attachment) => attachment.id !== removeDraftAttachmentButton.dataset.removeDraftAttachment);
     setTaskAttachmentError("");
     renderTaskAttachmentPreview();
+  }
+
+  if (downloadAttachmentButton) {
+    downloadTaskAttachment(downloadAttachmentButton.dataset.taskId, downloadAttachmentButton.dataset.downloadAttachment);
   }
 
   if (
@@ -3425,7 +3721,14 @@ function bindEvents() {
 
   elements.navItems.forEach((item) => {
     item.addEventListener("click", () => {
-      setView(item.dataset.view);
+      setView(item.dataset.view, item);
+      if (item === elements.addCategoryNavBtn) {
+        resetCategoryForm();
+        requestAnimationFrame(() => {
+          elements.categoryForm.scrollIntoView({ behavior: "smooth", block: "start" });
+          elements.categoryName.focus();
+        });
+      }
       closeSidebar();
     });
   });
@@ -3484,9 +3787,13 @@ function bindEvents() {
   });
   elements.taskAttachmentPreview.addEventListener("click", handleTaskActionClick);
   elements.taskDetailBody.addEventListener("click", handleTaskActionClick);
+  elements.taskDetailBody.addEventListener("click", handleDocumentAssistantClick);
+  elements.taskDetailBody.addEventListener("submit", uploadTaskAttachments);
+  elements.taskDetailBody.addEventListener("submit", handleDocumentAssistantSubmit);
   elements.taskDetailBody.addEventListener("change", (event) => {
     const statusSelect = event.target.closest("[data-detail-status]");
     if (statusSelect) updateTaskStatus(statusSelect.dataset.detailStatus, statusSelect.value);
+    handleDocumentAssistantChange(event);
   });
   elements.taskForm.addEventListener("dragover", handleTaskAttachmentDragOver);
   elements.taskForm.addEventListener("drop", handleTaskAttachmentDrop);

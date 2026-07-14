@@ -8,9 +8,15 @@ const outDir = path.join(rootDir, "screenshots");
 const appUrl = pathToFileURL(path.join(rootDir, "index.html")).href;
 fs.mkdirSync(outDir, { recursive: true });
 
-const browser = await chromium.launch({
-  headless: true,
-});
+const launchBrowser = async () => {
+  try {
+    return await chromium.launch({ headless: true });
+  } catch (error) {
+    if (!String(error?.message).includes("Executable doesn't exist")) throw error;
+    return chromium.launch({ headless: true, channel: "chrome" });
+  }
+};
+const browser = await launchBrowser();
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 
 await page.goto(appUrl, { waitUntil: "networkidle" });
@@ -22,9 +28,6 @@ await page.click("button[type='submit']");
 await page.waitForSelector("#appShell:not(.hidden)");
 await page.screenshot({ path: path.join(outDir, "02-istatistik-ekrani.png"), fullPage: true });
 
-await page.click("[data-dashboard-tab='analytics']");
-await page.waitForSelector("[data-dashboard-panel='analytics']:not(.hidden)");
-await page.screenshot({ path: path.join(outDir, "10-analitik-ekrani.png"), fullPage: true });
 await page.click("[data-dashboard-tab='history']");
 await page.waitForSelector("[data-dashboard-panel='history']:not(.hidden)");
 await page.screenshot({ path: path.join(outDir, "11-gecmis-ekrani.png"), fullPage: true });

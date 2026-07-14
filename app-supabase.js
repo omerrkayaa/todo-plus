@@ -1,7 +1,7 @@
 (function registerSupabaseGateway(global) {
   const realtimeTables = [
     "projects", "categories", "tasks", "task_assignments", "task_givers",
-    "task_history", "task_comments", "project_members", "project_invitations",
+    "task_history", "task_comments", "task_attachments", "document_chat_messages", "project_members", "project_invitations",
   ];
 
   function createGateway({ onRemoteChange, onStatusChange } = {}) {

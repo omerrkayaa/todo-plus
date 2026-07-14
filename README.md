@@ -61,7 +61,6 @@ Temel hedefler:
 - Bir veya birden fazla görevi veren kullanıcı seçimi
 - Yönetici için ekip ve rol görünümü
 - Ayrı yönetici paneli: ekip özeti, proje/kategori yönetimi, görev oluşturma, atama ve performans takibi
-- Yönetici karar desteği: aktif iş yükü, geciken görev, tahmini dakika ve başarı oranına göre görev atama önerisi
 - Çoklu yönetici desteği ve ekip listesinden güvenli rol değiştirme
 - Ayrı kullanıcı paneli: yalnızca kişiye atanmış görevler, kişisel istatistikler, durum güncelleme ve yorum
 - Arayüz ve işlem seviyesinde rol tabanlı yetki kontrolü
@@ -434,3 +433,36 @@ ToDo+, kullanıcıların proje oluşturabildiği, görevleri kategorilere ayıra
 ## 16. Lisans ve Kullanım
 
 Bu proje eğitim, portföy ve proje teslimi amacıyla hazırlanmıştır. Gerçek kullanıcı verileriyle canlıya alınmadan önce güvenlik politikaları, Supabase entegrasyon testleri, gizlilik gereksinimleri ve hata izleme altyapısı ayrıca değerlendirilmelidir.
+# Doküman Asistanı
+
+Görev detayındaki PDF, DOCX ve TXT ekleri Supabase modunda otomatik işlenir. Kısa dokümanlar doğrudan bağlam olarak kullanılır; uzun dokümanlar parçalara ayrılır, Voyage AI ile vektörleştirilir ve Supabase `pgvector` üzerinden yalnızca soruyla ilgili bölümler alınır. Yanıt ve özet üretimi Anthropic API ile sunucu tarafında yapılır.
+
+## Doküman asistanı kurulumu
+
+1. Güncel `supabase-schema.sql` dosyasını Supabase SQL Editor içinde çalıştırın. Bu işlem `vector` eklentisini, `document_chunks`, `document_chat_messages`, benzerlik fonksiyonunu ve RLS politikalarını ekler.
+2. `.env.example` dosyasını `.env` adıyla kopyalayın ve gerçek Supabase, Anthropic ve Voyage anahtarlarını girin. `SUPABASE_SERVICE_ROLE_KEY` hiçbir zaman frontend dosyalarına yazılmamalıdır.
+3. Bağımlılıkları ve API'yi başlatın:
+
+```bash
+npm install
+npm start
+```
+
+4. Frontend'i `http://127.0.0.1:4173` üzerinde çalıştırın. Farklı bir adres kullanılıyorsa `.env` içindeki `CORS_ORIGIN` ve `app-config.js` içindeki `documentAssistantApiUrl` değerlerini güncelleyin.
+
+API rotaları:
+
+- `POST /api/documents/:id/process`
+- `GET /api/documents/:id/status`
+- `GET /api/documents/:id/messages`
+- `POST /api/documents/:id/chat`
+- `POST /api/documents/:id/summary`
+
+Tüm doküman rotaları Supabase erişim belirteci ister. Backend, dokümanın bağlı olduğu görev için RLS erişimi bulunmayan kullanıcıya dokümanın varlığını dahi açıklamaz. Asistan LocalStorage demo modunda dış API'ye bağlanmaz.
+
+Testler:
+
+```bash
+npm run test:server
+npm test
+```
