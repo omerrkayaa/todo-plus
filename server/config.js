@@ -15,8 +15,8 @@ export function getConfig({ requireAi = true } = {}) {
     supabaseUrl: process.env.SUPABASE_URL || "",
     supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "",
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-    anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
-    anthropicModel: process.env.ANTHROPIC_MODEL || "claude-sonnet-5",
+    geminiApiKey: process.env.GEMINI_API_KEY || "",
+    geminiModel: process.env.GEMINI_MODEL || "gemini-flash-latest",
     voyageApiKey: process.env.VOYAGE_API_KEY || "",
     voyageModel: process.env.VOYAGE_MODEL || "voyage-4-lite",
     shortDocumentCharLimit: integer(process.env.SHORT_DOCUMENT_CHAR_LIMIT, 12000),
@@ -26,7 +26,7 @@ export function getConfig({ requireAi = true } = {}) {
   };
 
   const required = ["supabaseUrl", "supabaseAnonKey", "supabaseServiceRoleKey"];
-  if (requireAi) required.push("anthropicApiKey", "voyageApiKey");
+  if (requireAi) required.push("geminiApiKey", "voyageApiKey");
   const missing = required.filter((key) => !config[key]);
   if (missing.length) throw new Error(`Eksik sunucu ayarları: ${missing.join(", ")}`);
   if (config.chunkOverlap >= config.chunkSize) throw new Error("DOCUMENT_CHUNK_OVERLAP, DOCUMENT_CHUNK_SIZE değerinden küçük olmalıdır.");

@@ -1,35 +1,39 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { getConfig } from "../config.js";
 import { HttpError } from "../errors.js";
 
-let client;
-const getClient = () => {
-  if (!client) client = new Anthropic({ apiKey: getConfig().anthropicApiKey });
-  return client;
-};
-
-const extractText = (message) => message.content
-  .filter((block) => block.type === "text")
-  .map((block) => block.text)
-  .join("\n")
-  .trim();
-
 async function createMessage({ system, messages, maxTokens = 900 }) {
+  const config = getConfig();
   try {
-    const response = await getClient().messages.create({
-      model: getConfig().anthropicModel,
-      max_tokens: maxTokens,
-      temperature: 0,
-      system,
-      messages,
-    });
-    const text = extractText(response);
-    if (!text) throw new Error("Model boş cevap döndürdü.");
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiModel}:generateContent?key=${config.geminiApiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: system }] },
+          contents: messages.map((message) => ({
+            role: message.role === "assistant" ? "model" : "user",
+            parts: [{ text: message.content }],
+          })),
+          generationConfig: { temperature: 0, maxOutputTokens: maxTokens },
+        }),
+      },
+    );
+    if (!response.ok) {
+      const detail = await response.text();
+      throw new HttpError(502, "Doküman asistanı şu anda cevap üretemiyor.", "gemini_provider_error", detail.slice(0, 500));
+    }
+    const payload = await response.json();
+    const text = (payload.candidates?.[0]?.content?.parts || [])
+      .map((part) => part.text || "")
+      .join("\n")
+      .trim();
+    if (!text) throw new HttpError(502, "Model boş cevap döndürdü.", "gemini_empty_response");
     return text;
   } catch (error) {
     if (error instanceof HttpError) throw error;
-    console.error("Anthropic API hatası:", error);
-    throw new HttpError(502, "Doküman asistanı şu anda cevap üretemiyor.", "anthropic_provider_error");
+    console.error("Gemini API hatası:", error);
+    throw new HttpError(502, "Doküman asistanı şu anda cevap üretemiyor.", "gemini_provider_error");
   }
 }
 

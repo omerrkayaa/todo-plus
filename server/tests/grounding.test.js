@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { assistantSystemPrompt, buildDocumentQuestion } from "../services/anthropic-service.js";
+import { assistantSystemPrompt, buildDocumentQuestion } from "../services/llm-service.js";
 
 test("asistan istemi dış bilgi ve doküman içi talimatları yasaklar", () => {
   assert.match(assistantSystemPrompt, /Yalnızca/);

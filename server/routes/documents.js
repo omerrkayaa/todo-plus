@@ -4,7 +4,7 @@ import { HttpError } from "../errors.js";
 import { requireAuth } from "../middleware/auth.js";
 import { aiRateLimit } from "../middleware/rate-limit.js";
 import { getAdminClient } from "../supabase.js";
-import { answerFromDocument, summarizeDocument } from "../services/anthropic-service.js";
+import { answerFromDocument, summarizeDocument } from "../services/llm-service.js";
 import { processDocument } from "../services/document-processor.js";
 import { getAuthorizedDocument, getDocumentMessages, getRecentMessages } from "../services/document-service.js";
 import { getSummaryChunks, retrieveDocumentContext } from "../services/retrieval-service.js";

@@ -435,12 +435,12 @@ ToDo+, kullanıcıların proje oluşturabildiği, görevleri kategorilere ayıra
 Bu proje eğitim, portföy ve proje teslimi amacıyla hazırlanmıştır. Gerçek kullanıcı verileriyle canlıya alınmadan önce güvenlik politikaları, Supabase entegrasyon testleri, gizlilik gereksinimleri ve hata izleme altyapısı ayrıca değerlendirilmelidir.
 # Doküman Asistanı
 
-Görev detayındaki PDF, DOCX ve TXT ekleri Supabase modunda otomatik işlenir. Kısa dokümanlar doğrudan bağlam olarak kullanılır; uzun dokümanlar parçalara ayrılır, Voyage AI ile vektörleştirilir ve Supabase `pgvector` üzerinden yalnızca soruyla ilgili bölümler alınır. Yanıt ve özet üretimi Anthropic API ile sunucu tarafında yapılır.
+Görev detayındaki PDF, DOCX ve TXT ekleri Supabase modunda otomatik işlenir. Kısa dokümanlar doğrudan bağlam olarak kullanılır; uzun dokümanlar parçalara ayrılır, Voyage AI ile vektörleştirilir ve Supabase `pgvector` üzerinden yalnızca soruyla ilgili bölümler alınır. Yanıt ve özet üretimi Google Gemini API ile sunucu tarafında yapılır.
 
 ## Doküman asistanı kurulumu
 
 1. Güncel `supabase-schema.sql` dosyasını Supabase SQL Editor içinde çalıştırın. Bu işlem `vector` eklentisini, `document_chunks`, `document_chat_messages`, benzerlik fonksiyonunu ve RLS politikalarını ekler.
-2. `.env.example` dosyasını `.env` adıyla kopyalayın ve gerçek Supabase, Anthropic ve Voyage anahtarlarını girin. `SUPABASE_SERVICE_ROLE_KEY` hiçbir zaman frontend dosyalarına yazılmamalıdır.
+2. `.env.example` dosyasını `.env` adıyla kopyalayın ve gerçek Supabase, Gemini ve Voyage anahtarlarını girin (Gemini API key'i [aistudio.google.com](https://aistudio.google.com) üzerinden ücretsiz alınabilir). `SUPABASE_SERVICE_ROLE_KEY` hiçbir zaman frontend dosyalarına yazılmamalıdır.
 3. Bağımlılıkları ve API'yi başlatın:
 
 ```bash
