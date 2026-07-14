@@ -320,7 +320,7 @@ begin
     or split_part(new.storage_path, '/', 2) <> new.uploaded_by::text then
     raise exception 'Gecersiz dosya saklama yolu.';
   end if;
-  if new.mime_type <> case lower(substring(new.file_name from '\.([^.]+)$'))
+  if new.mime_type <> (case lower(substring(new.file_name from '\.([^.]+)$'))
     when 'pdf' then 'application/pdf'
     when 'doc' then 'application/msword'
     when 'docx' then 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
@@ -332,7 +332,7 @@ begin
     when 'jpg' then 'image/jpeg'
     when 'jpeg' then 'image/jpeg'
     when 'png' then 'image/png'
-  end then
+  end) then
     raise exception 'Dosya uzantisi ve MIME turu uyusmuyor.';
   end if;
   return new;
