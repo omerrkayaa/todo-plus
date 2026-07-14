@@ -1433,7 +1433,7 @@ function renderCategoryOptions() {
   if (state.categories.length === 0) {
     elements.taskCategory.innerHTML = `<option value="">Kategori yok</option>`;
     elements.categoryFilter.innerHTML = `<option value="all">Tüm kategoriler</option>`;
-    elements.projectCategory.innerHTML = `<option value="">Önce kategori ekleyin</option>`;
+    elements.projectCategory.innerHTML = `<option value="">Kategorisiz</option>`;
     return;
   }
 
@@ -1450,9 +1450,9 @@ function renderCategoryOptions() {
       .map((category) => `<option value="${category.id}">${escapeHtml(category.name)}</option>`)
       .join("")}
   `;
-  elements.projectCategory.innerHTML = state.categories
+  elements.projectCategory.innerHTML = `<option value="">Kategorisiz</option>${state.categories
     .map((category) => `<option value="${category.id}">${escapeHtml(category.name)}</option>`)
-    .join("");
+    .join("")}`;
   elements.categoryFilter.value = state.categories.some((category) => category.id === currentCategoryFilter)
     ? currentCategoryFilter
     : "all";

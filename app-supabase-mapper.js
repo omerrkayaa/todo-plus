@@ -35,7 +35,7 @@
     const userIds = new Set(users.map((x) => x.id));
     const categories = state.categories.filter((x) => isUuid(x.id) && userIds.has(x.userId));
     const categoryIds = new Set(categories.map((x) => x.id));
-    const projects = state.projects.filter((x) => isUuid(x.id) && userIds.has(x.userId) && categoryIds.has(x.categoryId));
+    const projects = state.projects.filter((x) => isUuid(x.id) && userIds.has(x.userId) && (!x.categoryId || categoryIds.has(x.categoryId)));
     const projectIds = new Set(projects.map((x) => x.id));
     const tasks = state.tasks.filter((x) => isUuid(x.id) && projectIds.has(x.projectId) && (!x.categoryId || categoryIds.has(x.categoryId)) && userIds.has(x.createdBy));
     const taskIds = new Set(tasks.map((x) => x.id));
