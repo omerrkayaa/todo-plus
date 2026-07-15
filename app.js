@@ -1891,11 +1891,9 @@ function renderDocumentAssistantPanel(task, attachments) {
       <div class="assistant-status" data-assistant-status>${supabaseReady ? "Doküman durumu kontrol ediliyor…" : "Doküman asistanı Supabase bağlantısı etkinleştirildiğinde kullanılabilir."}</div>
       <div class="assistant-actions">
         <button class="small-button" type="button" data-process-assistant-document ${supabaseReady ? "" : "disabled"}>Metni işle</button>
-        <button class="primary-button" type="button" data-summarize-assistant-document disabled>Dokümanı özetle</button>
       </div>
-      <div class="assistant-summary hidden" data-assistant-summary></div>
       <div class="assistant-messages" data-assistant-messages aria-live="polite">
-        <div class="empty-state">Henüz soru sorulmadı.</div>
+        <div class="empty-state">Merhaba! Yüklediğiniz doküman hakkında merak ettiğiniz her şeyi bana sorabilirsiniz.</div>
       </div>
       <form class="assistant-chat-form" data-assistant-chat-form>
         <label>Dokümanla ilgili sorun
@@ -2126,7 +2124,7 @@ function getDocumentAssistantRoot(documentId = activeAssistantDocumentId) {
 function renderAssistantMessages(root, messages) {
   const container = root.querySelector("[data-assistant-messages]");
   if (!messages.length) {
-    container.innerHTML = `<div class="empty-state">Henüz soru sorulmadı.</div>`;
+    container.innerHTML = `<div class="empty-state">Merhaba! Yüklediğiniz doküman hakkında merak ettiğiniz her şeyi bana sorabilirsiniz.</div>`;
     return;
   }
   container.innerHTML = messages.map((message) => {
@@ -2143,7 +2141,6 @@ function renderAssistantMessages(root, messages) {
 function applyAssistantStatus(root, document) {
   const status = root.querySelector("[data-assistant-status]");
   const processButton = root.querySelector("[data-process-assistant-document]");
-  const summaryButton = root.querySelector("[data-summarize-assistant-document]");
   const submitButton = root.querySelector("[data-assistant-chat-form] button[type='submit']");
   const labels = {
     pending: "Doküman işlenmeyi bekliyor.",
@@ -2155,7 +2152,6 @@ function applyAssistantStatus(root, document) {
   status.dataset.state = document.status || "unknown";
   processButton.disabled = document.status === "processing";
   processButton.textContent = document.status === "failed" ? "Tekrar işle" : "Metni işle";
-  summaryButton.disabled = document.status !== "ready";
   submitButton.disabled = document.status !== "ready";
 }
 
@@ -2202,27 +2198,6 @@ async function processDocumentAssistant(documentId, silent = false) {
   }
 }
 
-async function summarizeAssistantDocument(documentId) {
-  const root = getDocumentAssistantRoot(documentId);
-  if (!root) return;
-  const button = root.querySelector("[data-summarize-assistant-document]");
-  const summary = root.querySelector("[data-assistant-summary]");
-  button.disabled = true;
-  button.textContent = "Özetleniyor…";
-  summary.classList.remove("hidden");
-  summary.textContent = "Doküman özeti hazırlanıyor…";
-  try {
-    const payload = await documentAssistantClient.summary(documentId);
-    summary.innerHTML = `<h4>Kısa özet</h4><p>${escapeHtml(payload.summary).replaceAll("\n", "<br>")}</p>`;
-  } catch (error) {
-    summary.textContent = error.message;
-    showToast(error.message, "error");
-  } finally {
-    button.disabled = false;
-    button.textContent = "Dokümanı özetle";
-  }
-}
-
 async function submitAssistantQuestion(form) {
   const documentId = activeAssistantDocumentId;
   const root = getDocumentAssistantRoot(documentId);
@@ -2247,7 +2222,6 @@ async function submitAssistantQuestion(form) {
 
 function handleDocumentAssistantClick(event) {
   if (event.target.closest("[data-process-assistant-document]")) processDocumentAssistant(activeAssistantDocumentId);
-  if (event.target.closest("[data-summarize-assistant-document]")) summarizeAssistantDocument(activeAssistantDocumentId);
 }
 
 function handleDocumentAssistantChange(event) {

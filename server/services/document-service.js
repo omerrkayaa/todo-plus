@@ -11,6 +11,16 @@ export async function getAuthorizedDocument(documentId, userSupabase) {
   return data;
 }
 
+export async function getTaskContext(taskId, userSupabase) {
+  const { data, error } = await userSupabase
+    .from("tasks")
+    .select("title, description")
+    .eq("id", taskId)
+    .maybeSingle();
+  if (error) throw new HttpError(500, "Görev bilgisi alınamadı.", "task_query_failed", error.message);
+  return data;
+}
+
 export async function getDocumentMessages(documentId, userSupabase, limit = 100) {
   const { data, error } = await userSupabase
     .from("document_chat_messages")

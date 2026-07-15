@@ -6,7 +6,7 @@ import { aiRateLimit } from "../middleware/rate-limit.js";
 import { getAdminClient } from "../supabase.js";
 import { answerFromDocument, summarizeDocument } from "../services/llm-service.js";
 import { processDocument } from "../services/document-processor.js";
-import { getAuthorizedDocument, getDocumentMessages, getRecentMessages } from "../services/document-service.js";
+import { getAuthorizedDocument, getDocumentMessages, getRecentMessages, getTaskContext } from "../services/document-service.js";
 import { getSummaryChunks, retrieveDocumentContext } from "../services/retrieval-service.js";
 
 const router = Router();
@@ -69,6 +69,7 @@ router.post("/:id/chat", limiter, async (request, response) => {
 
   const history = await getRecentMessages(documentId, request.supabase);
   const context = await retrieveDocumentContext(document, input.data.question, request.supabase);
+  const task = await getTaskContext(document.task_id, request.supabase);
   const admin = getAdminClient();
   const messageBase = { attachment_id: document.id, task_id: document.task_id, user_id: request.user.id };
   const { data: userMessage, error: userError } = await admin.from("document_chat_messages").insert({
@@ -83,6 +84,8 @@ router.post("/:id/chat", limiter, async (request, response) => {
     contextChunks: context,
     history,
     documentName: document.file_name,
+    taskTitle: task?.title,
+    taskDescription: task?.description,
   });
   const sources = context.map((item) => ({
     id: item.id,
