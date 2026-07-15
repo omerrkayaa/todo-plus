@@ -723,15 +723,18 @@ create policy "task_history_actor_select" on public.task_history
   for select using (auth.uid() = changed_by or public.can_access_task(task_id));
 
 create policy "task_history_actor_insert" on public.task_history
-  for insert with check (auth.uid() = changed_by and public.can_access_task(task_id));
+  for insert with check (
+    public.is_admin()
+    or (auth.uid() = changed_by and public.can_access_task(task_id))
+  );
 
 create policy "task_comments_related_select" on public.task_comments
   for select using (auth.uid() = user_id or public.can_access_task(task_id));
 
 create policy "task_comments_related_insert" on public.task_comments
   for insert with check (
-    auth.uid() = user_id
-    and public.can_access_task(task_id)
+    public.is_admin()
+    or (auth.uid() = user_id and public.can_access_task(task_id))
   );
 
 create policy "task_attachments_related_select" on public.task_attachments
@@ -739,8 +742,8 @@ create policy "task_attachments_related_select" on public.task_attachments
 
 create policy "task_attachments_related_insert" on public.task_attachments
   for insert with check (
-    auth.uid() = uploaded_by
-    and public.can_access_task(task_id)
+    public.is_admin()
+    or (auth.uid() = uploaded_by and public.can_access_task(task_id))
   );
 
 create policy "task_attachments_owner_update" on public.task_attachments
