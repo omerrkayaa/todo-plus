@@ -5,7 +5,6 @@ const taskModel = window.TODO_PLUS_TASK_MODEL.createTaskModel({ createId, priori
 const supabaseMapper = window.TODO_PLUS_SUPABASE_MAPPER;
 const getTaskAttachments = taskModel.getAttachments;
 const getTaskSubtasks = taskModel.getSubtasks;
-const parseTaskSubtasks = taskModel.parseSubtasks;
 const getTaskScore = taskModel.getScore;
 
 const attachmentRules = Object.freeze({
@@ -344,6 +343,7 @@ let editingTaskId = null;
 let activeDetailTaskId = null;
 let draggedTaskId = null;
 let taskDraftAttachments = [];
+let taskDraftSubtasks = [];
 let activeAttachmentPreview = null;
 let activeAssistantDocumentId = null;
 const assistantProcessingDocuments = new Set();
@@ -435,6 +435,7 @@ const elements = {
   projectDescription: document.querySelector("#projectDescription"),
   projectCategory: document.querySelector("#projectCategory"),
   projectCount: document.querySelector("#projectCount"),
+  projectSearchInput: document.querySelector("#projectSearchInput"),
   projectList: document.querySelector("#projectList"),
   categoryForm: document.querySelector("#categoryForm"),
   categoryFormTitle: document.querySelector("#categoryFormTitle"),
@@ -475,7 +476,9 @@ const elements = {
   taskDrawerBackdrop: document.querySelector("#taskDrawerBackdrop"),
   taskTitle: document.querySelector("#taskTitle"),
   taskDescription: document.querySelector("#taskDescription"),
-  taskSubtasks: document.querySelector("#taskSubtasks"),
+  taskSubtaskList: document.querySelector("#taskSubtaskList"),
+  taskSubtaskInput: document.querySelector("#taskSubtaskInput"),
+  taskSubtaskAddBtn: document.querySelector("#taskSubtaskAddBtn"),
   taskProject: document.querySelector("#taskProject"),
   taskCategory: document.querySelector("#taskCategory"),
   taskAssignee: document.querySelector("#taskAssignee"),
@@ -1024,6 +1027,42 @@ function clearTaskDraftAttachments() {
   renderTaskAttachmentPreview();
 }
 
+function renderTaskSubtaskDraftList() {
+  if (!elements.taskSubtaskList) return;
+
+  if (taskDraftSubtasks.length === 0) {
+    elements.taskSubtaskList.innerHTML = `<div class="empty-state subtask-empty">Henüz alt görev eklenmedi.</div>`;
+    return;
+  }
+
+  elements.taskSubtaskList.innerHTML = taskDraftSubtasks
+    .map(
+      (subtask) => `
+        <div class="subtask-draft-row ${subtask.completed ? "completed" : ""}" data-subtask-row="${subtask.id}">
+          ${subtask.completed ? `<span class="subtask-done-badge" title="Tamamlandı">✓</span>` : ""}
+          <input type="text" class="subtask-title-input" data-subtask-title="${subtask.id}" value="${escapeHtml(subtask.title)}" placeholder="Alt görev başlığı" aria-label="Alt görev başlığı" />
+          <button type="button" class="icon-button" data-remove-subtask-row="${subtask.id}" aria-label="Alt görevi kaldır">×</button>
+        </div>
+      `,
+    )
+    .join("");
+}
+
+function addSubtaskFromInput() {
+  const title = elements.taskSubtaskInput.value.trim();
+  if (!title) return;
+  taskDraftSubtasks.push({ id: createId("subtask"), title, completed: false });
+  elements.taskSubtaskInput.value = "";
+  renderTaskSubtaskDraftList();
+  elements.taskSubtaskInput.focus();
+}
+
+function clearTaskDraftSubtasks() {
+  taskDraftSubtasks = [];
+  if (elements.taskSubtaskInput) elements.taskSubtaskInput.value = "";
+  renderTaskSubtaskDraftList();
+}
+
 function setTaskAttachmentError(message) {
   if (!elements.taskAttachmentError) return;
   elements.taskAttachmentError.textContent = message;
@@ -1501,7 +1540,24 @@ function renderProjects() {
     return;
   }
 
-  elements.projectList.innerHTML = state.projects
+  const query = elements.projectSearchInput.value.trim().toLocaleLowerCase("tr-TR");
+  const visibleProjects = state.projects.filter((project) => {
+    if (!query) return true;
+    const category = getCategory(project.categoryId);
+    const haystack = `${project.name} ${project.description || ""} ${category?.name || ""}`.toLocaleLowerCase("tr-TR");
+    return haystack.includes(query);
+  });
+
+  elements.projectCount.textContent = query
+    ? `${visibleProjects.length} / ${state.projects.length} proje`
+    : `${state.projects.length} proje`;
+
+  if (visibleProjects.length === 0) {
+    elements.projectList.innerHTML = `<div class="empty-state">Aramayla eşleşen proje bulunamadı.</div>`;
+    return;
+  }
+
+  elements.projectList.innerHTML = visibleProjects
     .map((project) => {
       const projectTasks = state.tasks.filter((task) => task.projectId === project.id);
       const taskCount = projectTasks.length;
@@ -1523,12 +1579,13 @@ function renderProjects() {
             </div>
           </div>
           <div class="task-meta">
-            <span class="badge">${escapeHtml(category?.name || "Kategorisiz")}</span>
+            <span class="badge badge-category">${category ? `<span class="badge-color-dot" style="background: ${category.color}"></span>` : ""}${escapeHtml(category?.name || "Kategorisiz")}</span>
             <span class="badge">${taskCount} görev</span>
             <span class="badge">${completedCount} tamamlandı</span>
             <span class="badge">${formatDate(project.createdAt)}</span>
           </div>
           <div class="card-actions">
+            <button class="small-button" type="button" data-add-task-to-project="${project.id}">+ Görev ekle</button>
             <button class="small-button" type="button" data-edit-project="${project.id}">Düzenle</button>
             <button class="danger-button" type="button" data-delete-project="${project.id}">Sil</button>
           </div>
@@ -2777,7 +2834,7 @@ function resetTaskForm() {
   elements.taskPriority.value = "orta";
   elements.taskStatus.value = "bekliyor";
   elements.taskMinutes.value = "60";
-  elements.taskSubtasks.value = "";
+  clearTaskDraftSubtasks();
   elements.taskFiles.value = "";
   clearTaskDraftAttachments();
   [...elements.taskGivers.options].forEach((option) => {
@@ -2815,13 +2872,18 @@ function addProject(event) {
     return;
   }
 
+  const projectName = elements.projectName.value.trim();
+  if (state.projects.some((project) => project.name.toLocaleLowerCase("tr-TR") === projectName.toLocaleLowerCase("tr-TR"))) {
+    return showToast("Bu adla bir proje zaten var.", "error");
+  }
+
   const activeUser = getSessionUser();
 
   state.projects.push({
     id: createId("project"),
     userId: activeUser.id,
     categoryId: elements.projectCategory.value,
-    name: elements.projectName.value.trim(),
+    name: projectName,
     description: elements.projectDescription.value.trim(),
     createdAt: today(),
     updatedAt: today(),
@@ -2837,7 +2899,12 @@ function updateProjectFromForm(projectId) {
   const project = state.projects.find((item) => item.id === projectId);
   if (!project) return;
 
-  project.name = elements.projectName.value.trim();
+  const projectName = elements.projectName.value.trim();
+  if (state.projects.some((item) => item.id !== projectId && item.name.toLocaleLowerCase("tr-TR") === projectName.toLocaleLowerCase("tr-TR"))) {
+    return showToast("Bu adla bir proje zaten var.", "error");
+  }
+
+  project.name = projectName;
   project.categoryId = elements.projectCategory.value;
   project.description = elements.projectDescription.value.trim();
   project.updatedAt = today();
@@ -2861,6 +2928,19 @@ function editProject(projectId) {
   elements.projectDescription.value = project.description || "";
   elements.projectCategory.value = project.categoryId || state.categories[0]?.id || "";
   elements.projectName.focus();
+}
+
+function addTaskToProject(projectId) {
+  if (!isAdmin()) return showToast("Görev oluşturma yalnızca yöneticilere açıktır.", "error");
+  const project = state.projects.find((item) => item.id === projectId);
+  if (!project) return;
+
+  setView("tasks");
+  resetTaskForm();
+  elements.taskProject.value = projectId;
+  renderCategoryOptions();
+  setTaskDetailsExpanded(true);
+  openTaskDrawer();
 }
 
 function addCategory(event) {
@@ -2939,7 +3019,7 @@ async function addTask(event) {
   const selectedGiverIds = giverIds.length > 0 ? giverIds : [getSessionUser().id];
   const selectedCategory = state.categories.find((category) => category.id === elements.taskCategory.value);
   const selectedProject = state.projects.find((project) => project.id === elements.taskProject.value);
-  const subtasks = parseTaskSubtasks(elements.taskSubtasks.value);
+  const subtasks = taskDraftSubtasks.filter((subtask) => subtask.title.trim());
   if (selectedCategory?.id !== selectedProject?.categoryId) {
     showToast("Görev, projenin üst kategorisini kullanmalıdır.", "error");
     return;
@@ -3108,9 +3188,8 @@ function editTask(taskId) {
   elements.taskStatus.value = task.status;
   elements.taskMinutes.value = task.estimatedMinutes;
   elements.taskDueDate.value = task.dueDate || "";
-  elements.taskSubtasks.value = getTaskSubtasks(task)
-    .map((subtask) => subtask.title)
-    .join("\n");
+  taskDraftSubtasks = getTaskSubtasks(task).map((subtask) => ({ ...subtask }));
+  renderTaskSubtaskDraftList();
   elements.taskFiles.value = "";
   clearTaskDraftAttachments();
   [...elements.taskGivers.options].forEach((option) => {
@@ -3646,6 +3725,12 @@ function handleTaskActionClick(event) {
     renderTaskAttachmentPreview();
   }
 
+  const removeSubtaskRowButton = event.target.closest("[data-remove-subtask-row]");
+  if (removeSubtaskRowButton) {
+    taskDraftSubtasks = taskDraftSubtasks.filter((subtask) => subtask.id !== removeSubtaskRowButton.dataset.removeSubtaskRow);
+    renderTaskSubtaskDraftList();
+  }
+
   if (downloadAttachmentButton) {
     downloadTaskAttachment(downloadAttachmentButton.dataset.taskId, downloadAttachmentButton.dataset.downloadAttachment);
   }
@@ -3851,6 +3936,20 @@ function bindEvents() {
     }
   });
   elements.taskAttachmentPreview.addEventListener("click", handleTaskActionClick);
+  elements.taskSubtaskList.addEventListener("click", handleTaskActionClick);
+  elements.taskSubtaskList.addEventListener("input", (event) => {
+    const input = event.target.closest("[data-subtask-title]");
+    if (!input) return;
+    const subtask = taskDraftSubtasks.find((item) => item.id === input.dataset.subtaskTitle);
+    if (subtask) subtask.title = input.value;
+  });
+  elements.taskSubtaskAddBtn.addEventListener("click", addSubtaskFromInput);
+  elements.taskSubtaskInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      addSubtaskFromInput();
+    }
+  });
   elements.taskDetailBody.addEventListener("click", handleTaskActionClick);
   elements.taskDetailBody.addEventListener("click", handleDocumentAssistantClick);
   elements.taskDetailBody.addEventListener("submit", uploadTaskAttachments);
@@ -3980,6 +4079,7 @@ function bindEvents() {
   elements.projectList.addEventListener("click", (event) => {
     const editButton = event.target.closest("[data-edit-project]");
     const deleteButton = event.target.closest("[data-delete-project]");
+    const addTaskButton = event.target.closest("[data-add-task-to-project]");
 
     if (editButton) {
       editProject(editButton.dataset.editProject);
@@ -3988,7 +4088,12 @@ function bindEvents() {
     if (deleteButton) {
       deleteProject(deleteButton.dataset.deleteProject);
     }
+
+    if (addTaskButton) {
+      addTaskToProject(addTaskButton.dataset.addTaskToProject);
+    }
   });
+  elements.projectSearchInput.addEventListener("input", debounce(renderProjects, 250));
 
   elements.categoryList.addEventListener("click", (event) => {
     const editButton = event.target.closest("[data-edit-category]");

@@ -1,13 +1,8 @@
 (function registerTaskModel(global) {
-  function createTaskModel({ createId, priorityScores }) {
+  function createTaskModel({ priorityScores }) {
     const getAttachments = (task) => Array.isArray(task?.attachments) ? task.attachments : [];
     const getSubtasks = (task) => Array.isArray(task?.subtasks) ? task.subtasks : [];
     const getScore = (task) => priorityScores[task?.priority] || 1;
-
-    function parseSubtasks(value) {
-      return String(value || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
-        .map((title) => ({ id: createId("subtask"), title, completed: false }));
-    }
 
     function calculateUserStats(state, userId) {
       const assignments = state.assignments.filter((assignment) => assignment.userId === userId);
@@ -26,7 +21,7 @@
       };
     }
 
-    return Object.freeze({ getAttachments, getSubtasks, getScore, parseSubtasks, calculateUserStats });
+    return Object.freeze({ getAttachments, getSubtasks, getScore, calculateUserStats });
   }
 
   global.TODO_PLUS_TASK_MODEL = Object.freeze({ createTaskModel });

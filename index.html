@@ -298,6 +298,10 @@
                 <h3>Projeler</h3>
                 <span id="projectCount">0 proje</span>
               </div>
+              <label class="filter-field">
+                Proje ara
+                <input id="projectSearchInput" type="search" placeholder="Örn. Mobil uygulama" />
+              </label>
               <div id="projectList" class="project-list"></div>
             </section>
 
@@ -400,11 +404,15 @@
               Açıklama
               <textarea id="taskDescription" rows="3" placeholder="Görev notu"></textarea>
             </label>
-            <label>
-              Alt görevler
-              <textarea id="taskSubtasks" rows="4" placeholder="Her satıra bir alt görev yaz.&#10;Örn. Veri kontrolü&#10;Örn. Ekran testi&#10;Örn. Onay"></textarea>
+            <div class="subtask-field">
+              <span class="subtask-field-label">Alt görevler</span>
+              <div id="taskSubtaskList" class="subtask-draft-list"></div>
+              <div class="subtask-add-row">
+                <input id="taskSubtaskInput" type="text" placeholder="Yeni alt görev yaz ve Enter'a bas" aria-label="Yeni alt görev başlığı" />
+                <button id="taskSubtaskAddBtn" class="small-button" type="button">+ Ekle</button>
+              </div>
               <small>Alt görevler görev detayında checklist olarak gösterilir.</small>
-            </label>
+            </div>
             <div class="form-row">
               <label>
                 Proje
