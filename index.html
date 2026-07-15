@@ -393,14 +393,16 @@
             </label>
             <div class="form-row quick-task-fields">
               <label>
-                Atanan kişi
-                <select id="taskAssignee" required aria-label="Görevi atanan kişi"></select>
-              </label>
-              <label>
                 Son teslim
                 <input id="taskDueDate" type="date" />
               </label>
             </div>
+            <label class="giver-field">
+              Atanan kişi(ler)
+              <select id="taskAssignee" class="visually-hidden" multiple required aria-label="Görevi atanan kişiler"></select>
+              <div id="taskAssigneeChips" class="chip-picker" role="group" aria-label="Görevi atanan kişileri seç"></div>
+              <small>Bir veya daha fazla kişiyi seçebilirsin.</small>
+            </label>
             <button id="taskDetailsToggle" class="details-toggle" type="button" aria-expanded="false" aria-controls="taskAdvancedFields">Detayları göster <span>⌄</span></button>
             <div id="taskAdvancedFields" class="task-advanced-fields hidden">
             <label>
@@ -430,12 +432,6 @@
                 Proje
                 <select id="taskProject" required aria-label="Görev projesi"></select>
               </label>
-              <label>
-                Kategori
-                <select id="taskCategory" aria-label="Görev kategorisi"></select>
-              </label>
-            </div>
-            <div class="form-row">
               <label>
                 Süre (dakika)
                 <input id="taskMinutes" type="number" min="5" step="5" value="60" />

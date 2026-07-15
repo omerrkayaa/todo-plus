@@ -485,8 +485,8 @@ const elements = {
   taskTagInput: document.querySelector("#taskTagInput"),
   taskTagAddBtn: document.querySelector("#taskTagAddBtn"),
   taskProject: document.querySelector("#taskProject"),
-  taskCategory: document.querySelector("#taskCategory"),
   taskAssignee: document.querySelector("#taskAssignee"),
+  taskAssigneeChips: document.querySelector("#taskAssigneeChips"),
   taskGivers: document.querySelector("#taskGivers"),
   taskGiverChips: document.querySelector("#taskGiverChips"),
   taskDetailsToggle: document.querySelector("#taskDetailsToggle"),
@@ -1214,7 +1214,8 @@ function isWithinDays(value, base, maxDays) {
 }
 
 function getTaskAssignmentDate(task) {
-  return getTaskAssignment(task.id)?.assignedAt || task.createdAt || today();
+  const assignedDates = getTaskAssignments(task.id).map((assignment) => assignment.assignedAt).filter(Boolean);
+  return (assignedDates.length ? assignedDates.sort()[0] : "") || task.createdAt || today();
 }
 
 function getDashboardFocusBuckets(tasks) {
@@ -1416,8 +1417,8 @@ function getTaskCategory(task) {
   return getCategory(task.categoryId || project?.categoryId);
 }
 
-function getTaskAssignment(taskId) {
-  return state.assignments.find((assignment) => assignment.taskId === taskId);
+function getTaskAssignments(taskId) {
+  return state.assignments.filter((assignment) => assignment.taskId === taskId);
 }
 
 function getTaskGivers(taskId) {
@@ -1494,6 +1495,7 @@ function renderUsers() {
   elements.taskAssignee.innerHTML = state.users
     .map((user) => `<option value="${user.id}">${escapeHtml(user.fullName)}</option>`)
     .join("");
+  renderTaskAssigneeChips();
 
   elements.taskGivers.innerHTML = state.users
     .map((user) => `<option value="${user.id}">${escapeHtml(user.fullName)}</option>`)
@@ -1528,18 +1530,10 @@ function renderCategoryOptions() {
   const currentCategoryFilter = elements.categoryFilter.value || "all";
 
   if (state.categories.length === 0) {
-    elements.taskCategory.innerHTML = `<option value="">Kategori yok</option>`;
     elements.categoryFilter.innerHTML = `<option value="all">Tüm kategoriler</option>`;
     elements.projectCategory.innerHTML = `<option value="">Kategorisiz</option>`;
     return;
   }
-
-  const selectedProjectId = elements.taskProject.value;
-  const selectedProject = state.projects.find((project) => project.id === selectedProjectId);
-  const projectCategories = state.categories.filter((category) => category.id === selectedProject?.categoryId);
-  elements.taskCategory.innerHTML = `<option value="">Kategorisiz</option>${projectCategories
-    .map((category) => `<option value="${category.id}">${escapeHtml(category.name)}</option>`)
-    .join("")}`;
 
   elements.categoryFilter.innerHTML = `
     <option value="all">Tüm kategoriler</option>
@@ -1777,22 +1771,22 @@ function getFilteredTasks() {
   const sort = elements.sortFilter.value;
 
   const filteredTasks = state.tasks.filter((task) => {
-    const assignment = getTaskAssignment(task.id);
+    const assignments = getTaskAssignments(task.id);
     const taskCategory = getTaskCategory(task);
-    const isVisibleToRole = isAdmin() || assignment?.userId === getSessionUser()?.id || canUploadTaskAttachments(task);
+    const isVisibleToRole = isAdmin() || assignments.some((assignment) => assignment.userId === getSessionUser()?.id) || canUploadTaskAttachments(task);
     const matchesText =
       !query ||
       (task.title || "").toLocaleLowerCase("tr-TR").includes(query) ||
       (task.description || "").toLocaleLowerCase("tr-TR").includes(query) ||
       getProjectName(task.projectId).toLocaleLowerCase("tr-TR").includes(query) ||
       (taskCategory?.name || "").toLocaleLowerCase("tr-TR").includes(query) ||
-      (assignment ? getUserName(assignment.userId) : "").toLocaleLowerCase("tr-TR").includes(query) ||
+      assignments.some((assignment) => getUserName(assignment.userId).toLocaleLowerCase("tr-TR").includes(query)) ||
       (task.tags || []).some((taskTag) => taskTag.toLocaleLowerCase("tr-TR").includes(query));
     const matchesStatus = status === "all" || task.status === status;
     const matchesPriority = priority === "all" || task.priority === priority;
     const matchesCategory = category === "all" || taskCategory?.id === category;
     const matchesProject = projectId === "all" || task.projectId === projectId;
-    const matchesAssignee = assignee === "all" || assignment?.userId === assignee;
+    const matchesAssignee = assignee === "all" || assignments.some((assignment) => assignment.userId === assignee);
     const matchesTag = tag === "all" || (task.tags || []).includes(tag);
 
     return isVisibleToRole && matchesText && matchesStatus && matchesPriority && matchesCategory && matchesProject && matchesAssignee && matchesTag;
@@ -1812,8 +1806,10 @@ function getFilteredTasks() {
 }
 
 function renderTaskCard(task, options = {}) {
-  const assignment = getTaskAssignment(task.id);
-  const assigneeName = assignment ? getUserName(assignment.userId) : "Atanmamış";
+  const assignments = getTaskAssignments(task.id);
+  const assigneeNames = assignments.map((assignment) => getUserName(assignment.userId));
+  const assigneeName = assigneeNames.length ? assigneeNames.join(", ") : "Atanmamış";
+  const assigneeDisplay = assigneeNames.length > 1 ? `${assigneeNames[0]} +${assigneeNames.length - 1}` : assigneeName;
   const giverNames = getTaskGivers(task.id)
     .map((giver) => getUserName(giver.userId))
     .join(", ");
@@ -1824,7 +1820,7 @@ function renderTaskCard(task, options = {}) {
   const attachmentCount = getTaskAttachments(task).length;
   const compactClass = options.compact ? " task-card-compact" : "";
   const draggableAttribute = options.compact && isAdmin() ? ' draggable="true"' : "";
-  const assigneeInitials = getInitials(assigneeName);
+  const assigneeInitials = getInitials(assigneeNames[0] || "?");
 
   return `
     <article class="task-card${compactClass}"${draggableAttribute} data-task-card data-task-id="${task.id}">
@@ -1845,7 +1841,7 @@ function renderTaskCard(task, options = {}) {
       <div class="task-card-footer">
         <div class="task-assignee" title="Atanan: ${escapeHtml(assigneeName)}">
           <span class="avatar avatar-sm">${escapeHtml(assigneeInitials)}</span>
-          <span>${escapeHtml(assigneeName)}</span>
+          <span>${escapeHtml(assigneeDisplay)}</span>
         </div>
         <div class="task-signals">
           <span class="due-signal ${dueDate.className}">${escapeHtml(dueDate.label)}</span>
@@ -1938,6 +1934,16 @@ function renderTaskGiverChips() {
   const selectedIds = new Set([...elements.taskGivers.selectedOptions].map((option) => option.value));
   elements.taskGiverChips.innerHTML = state.users.map((user) => `
     <button class="selection-chip ${selectedIds.has(user.id) ? "selected" : ""}" type="button" data-giver-id="${user.id}" aria-pressed="${selectedIds.has(user.id)}">
+      <span>${escapeHtml(user.fullName)}</span><span aria-hidden="true">${selectedIds.has(user.id) ? "✓" : "+"}</span>
+    </button>
+  `).join("");
+}
+
+function renderTaskAssigneeChips() {
+  if (!elements.taskAssigneeChips) return;
+  const selectedIds = new Set([...elements.taskAssignee.selectedOptions].map((option) => option.value));
+  elements.taskAssigneeChips.innerHTML = state.users.map((user) => `
+    <button class="selection-chip ${selectedIds.has(user.id) ? "selected" : ""}" type="button" data-assignee-id="${user.id}" aria-pressed="${selectedIds.has(user.id)}">
       <span>${escapeHtml(user.fullName)}</span><span aria-hidden="true">${selectedIds.has(user.id) ? "✓" : "+"}</span>
     </button>
   `).join("");
@@ -2048,7 +2054,8 @@ function renderTaskDetail() {
     return;
   }
 
-  const assignment = getTaskAssignment(task.id);
+  const assignments = getTaskAssignments(task.id);
+  const assigneeNames = assignments.map((assignment) => getUserName(assignment.userId)).join(", ");
   const category = getCategory(task.categoryId);
   const giverNames = getTaskGivers(task.id)
     .map((giver) => getUserName(giver.userId))
@@ -2094,7 +2101,7 @@ function renderTaskDetail() {
         <dl class="detail-list">
           <div>
             <dt>Atanan</dt>
-            <dd>${escapeHtml(assignment ? getUserName(assignment.userId) : "Atanmamış")}</dd>
+            <dd>${escapeHtml(assigneeNames || "Atanmamış")}</dd>
           </div>
           <div>
             <dt>Veren</dt>
@@ -2451,7 +2458,7 @@ function renderDashboard() {
   const dashboardUserId = isAdmin() ? state.activeUserId : getSessionUser()?.id;
   const visibleTasks = isAdmin()
     ? state.tasks
-    : state.tasks.filter((task) => getTaskAssignment(task.id)?.userId === dashboardUserId);
+    : state.tasks.filter((task) => getTaskAssignments(task.id).some((assignment) => assignment.userId === dashboardUserId));
   const totalTasks = visibleTasks.length;
   const completedTasks = visibleTasks.filter((task) => task.status === "tamamlandi").length;
   const inProgressTasks = visibleTasks.filter((task) => task.status === "devam_ediyor").length;
@@ -2477,8 +2484,8 @@ function renderDashboard() {
       : focus.items
           .slice(0, 6)
           .map(({ task, tags }) => {
-            const assignee = getTaskAssignment(task.id);
-            const assigneeName = assignee ? getUserName(assignee.userId) : "Atanmamış";
+            const assigneeNames = getTaskAssignments(task.id).map((assignment) => getUserName(assignment.userId));
+            const assigneeName = assigneeNames.length ? assigneeNames.join(", ") : "Atanmamış";
             return `
               <article class="focus-card">
                 <div class="focus-card-top">
@@ -2902,6 +2909,7 @@ function resetTaskForm() {
   clearTaskDraftTags();
   elements.taskFiles.value = "";
   clearTaskDraftAttachments();
+  renderTaskAssigneeChips();
   [...elements.taskGivers.options].forEach((option) => {
     option.selected = option.value === getSessionUser().id;
   });
@@ -3003,7 +3011,6 @@ function addTaskToProject(projectId) {
   setView("tasks");
   resetTaskForm();
   elements.taskProject.value = projectId;
-  renderCategoryOptions();
   setTaskDetailsExpanded(true);
   openTaskDrawer();
 }
@@ -3079,29 +3086,28 @@ async function addTask(event) {
   const taskId = createId("task");
   const priority = elements.taskPriority.value;
   const status = elements.taskStatus.value;
-  const assigneeId = elements.taskAssignee.value;
+  const assigneeIds = [...elements.taskAssignee.selectedOptions].map((option) => option.value);
   const giverIds = [...elements.taskGivers.selectedOptions].map((option) => option.value);
   const selectedGiverIds = giverIds.length > 0 ? giverIds : [getSessionUser().id];
-  const selectedCategory = state.categories.find((category) => category.id === elements.taskCategory.value);
   const selectedProject = state.projects.find((project) => project.id === elements.taskProject.value);
   const subtasks = taskDraftSubtasks.filter((subtask) => subtask.title.trim());
   const tags = [...taskDraftTags];
-  if (selectedCategory?.id !== selectedProject?.categoryId) {
-    showToast("Görev, projenin üst kategorisini kullanmalıdır.", "error");
+  if (assigneeIds.length === 0) {
+    showToast("En az bir kişi atamalısın.", "error");
     return;
   }
 
   if (editingTaskId) {
     await updateTaskFromForm(editingTaskId, {
       projectId: elements.taskProject.value,
-      categoryId: elements.taskCategory.value || "",
+      categoryId: selectedProject?.categoryId || "",
       title: elements.taskTitle.value.trim(),
       description: elements.taskDescription.value.trim(),
       priority,
       status,
       estimatedMinutes: Number(elements.taskMinutes.value) || 60,
       dueDate: elements.taskDueDate.value,
-      assigneeId,
+      assigneeIds,
       giverIds: selectedGiverIds,
       attachments: [...taskDraftAttachments],
       subtasks,
@@ -3113,7 +3119,7 @@ async function addTask(event) {
   const task = {
     id: taskId,
     projectId: elements.taskProject.value,
-    categoryId: elements.taskCategory.value || "",
+    categoryId: selectedProject?.categoryId || "",
     createdBy: getSessionUser().id,
     title: elements.taskTitle.value.trim(),
     description: elements.taskDescription.value.trim(),
@@ -3129,14 +3135,16 @@ async function addTask(event) {
   };
 
   state.tasks.push(task);
-  state.assignments.push({
-    id: createId("assignment"),
-    taskId,
-    userId: assigneeId,
-    isCompleted: status === "tamamlandi",
-    completedAt: status === "tamamlandi" ? today() : "",
-    earnedScore: status === "tamamlandi" ? priorityScores[priority] : 0,
-    assignedAt: today(),
+  assigneeIds.forEach((userId) => {
+    state.assignments.push({
+      id: createId("assignment"),
+      taskId,
+      userId,
+      isCompleted: status === "tamamlandi",
+      completedAt: status === "tamamlandi" ? today() : "",
+      earnedScore: status === "tamamlandi" ? priorityScores[priority] : 0,
+      assignedAt: today(),
+    });
   });
 
   selectedGiverIds.forEach((userId) => {
@@ -3183,24 +3191,24 @@ async function updateTaskFromForm(taskId, formData) {
   task.tags = formData.tags || [];
   task.updatedAt = today();
 
-  let assignment = getTaskAssignment(taskId);
-  if (!assignment) {
-    assignment = {
-      id: createId("assignment"),
+  const existingAssignments = state.assignments.filter((assignment) => assignment.taskId === taskId);
+  const removedAssignmentIds = existingAssignments
+    .filter((assignment) => !formData.assigneeIds.includes(assignment.userId))
+    .map((assignment) => assignment.id);
+  await Promise.all(removedAssignmentIds.map((assignmentId) => deleteSupabaseRow("task_assignments", assignmentId)));
+  state.assignments = state.assignments.filter((assignment) => assignment.taskId !== taskId);
+  formData.assigneeIds.forEach((userId) => {
+    const existingAssignment = existingAssignments.find((assignment) => assignment.userId === userId);
+    state.assignments.push({
+      id: existingAssignment?.id || createId("assignment"),
       taskId,
-      userId: formData.assigneeId,
-      isCompleted: false,
-      completedAt: "",
-      earnedScore: 0,
-      assignedAt: today(),
-    };
-    state.assignments.push(assignment);
-  }
-
-  assignment.userId = formData.assigneeId;
-  assignment.isCompleted = formData.status === "tamamlandi";
-  assignment.completedAt = formData.status === "tamamlandi" ? today() : "";
-  assignment.earnedScore = formData.status === "tamamlandi" ? getTaskScore(task) : 0;
+      userId,
+      isCompleted: formData.status === "tamamlandi",
+      completedAt: formData.status === "tamamlandi" ? today() : "",
+      earnedScore: formData.status === "tamamlandi" ? getTaskScore(task) : 0,
+      assignedAt: existingAssignment?.assignedAt || today(),
+    });
+  });
 
   const existingGivers = state.taskGivers.filter((giver) => giver.taskId === taskId);
   const removedGiverIds = existingGivers
@@ -3240,7 +3248,7 @@ function editTask(taskId) {
   if (!task) return;
 
   editingTaskId = taskId;
-  const assignment = getTaskAssignment(taskId);
+  const assigneeIds = getTaskAssignments(taskId).map((assignment) => assignment.userId);
   const giverIds = getTaskGivers(taskId).map((giver) => giver.userId);
 
   setView("tasks");
@@ -3250,9 +3258,6 @@ function editTask(taskId) {
   elements.taskTitle.value = task.title;
   elements.taskDescription.value = task.description;
   elements.taskProject.value = task.projectId;
-  renderCategoryOptions();
-  elements.taskCategory.value = task.categoryId || "";
-  elements.taskAssignee.value = assignment?.userId || getSessionUser().id;
   elements.taskPriority.value = task.priority;
   elements.taskStatus.value = task.status;
   elements.taskMinutes.value = task.estimatedMinutes;
@@ -3263,6 +3268,10 @@ function editTask(taskId) {
   renderTaskTagChips();
   elements.taskFiles.value = "";
   clearTaskDraftAttachments();
+  [...elements.taskAssignee.options].forEach((option) => {
+    option.selected = assigneeIds.includes(option.value);
+  });
+  renderTaskAssigneeChips();
   [...elements.taskGivers.options].forEach((option) => {
     option.selected = giverIds.length > 0 ? giverIds.includes(option.value) : option.value === task.createdBy;
   });
@@ -3274,8 +3283,8 @@ function editTask(taskId) {
 function updateTaskStatus(taskId, nextStatus) {
   const task = state.tasks.find((item) => item.id === taskId);
   if (!task) return;
-  const assignment = getTaskAssignment(taskId);
-  if (!isAdmin() && assignment?.userId !== getSessionUser()?.id) {
+  const assignments = getTaskAssignments(taskId);
+  if (!isAdmin() && !assignments.some((assignment) => assignment.userId === getSessionUser()?.id)) {
     return showToast("Yalnızca size atanan görevleri güncelleyebilirsiniz.", "error");
   }
   if (task.status === nextStatus) return;
@@ -3284,11 +3293,11 @@ function updateTaskStatus(taskId, nextStatus) {
   task.status = nextStatus;
   task.updatedAt = today();
 
-  if (assignment) {
+  assignments.forEach((assignment) => {
     assignment.isCompleted = nextStatus === "tamamlandi";
     assignment.completedAt = nextStatus === "tamamlandi" ? today() : "";
     assignment.earnedScore = nextStatus === "tamamlandi" ? getTaskScore(task) : 0;
-  }
+  });
 
   state.history.push({
     id: createId("history"),
@@ -3547,10 +3556,10 @@ function addTaskComment(event) {
 function canUploadTaskAttachments(task) {
   if (isAdmin()) return true;
   const sessionUserId = getSessionUser()?.id;
-  const assignment = getTaskAssignment(task.id);
+  const isAssignee = getTaskAssignments(task.id).some((assignment) => assignment.userId === sessionUserId);
   const isGiver = getTaskGivers(task.id).some((giver) => giver.userId === sessionUserId);
   const isProjectMember = state.projectMembers.some((member) => member.projectId === task.projectId && member.userId === sessionUserId);
-  return task.createdBy === sessionUserId || assignment?.userId === sessionUserId || isGiver || isProjectMember;
+  return task.createdBy === sessionUserId || isAssignee || isGiver || isProjectMember;
 }
 
 function canManageTaskAttachments(task, attachment) {
@@ -4068,6 +4077,14 @@ function bindEvents() {
     option.selected = !option.selected;
     renderTaskGiverChips();
   });
+  elements.taskAssigneeChips.addEventListener("click", (event) => {
+    const chip = event.target.closest("[data-assignee-id]");
+    if (!chip) return;
+    const option = [...elements.taskAssignee.options].find((item) => item.value === chip.dataset.assigneeId);
+    if (!option) return;
+    option.selected = !option.selected;
+    renderTaskAssigneeChips();
+  });
   elements.statusFilter.addEventListener("change", renderTaskViews);
   elements.priorityFilter.addEventListener("change", renderTaskViews);
   elements.categoryFilter.addEventListener("change", () => {
@@ -4075,7 +4092,6 @@ function bindEvents() {
     renderTaskViews();
   });
   elements.categorySearchInput.addEventListener("input", debounce(renderCategories, 250));
-  elements.taskProject.addEventListener("change", renderCategoryOptions);
   elements.assigneeFilter.addEventListener("change", renderTaskViews);
   elements.projectFilter.addEventListener("change", renderTaskViews);
   elements.tagFilter.addEventListener("change", renderTaskViews);
