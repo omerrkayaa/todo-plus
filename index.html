@@ -535,6 +535,10 @@
           Ad soyad
           <input id="userName" type="text" required placeholder="Yeni kullanıcı adı" />
         </label>
+        <label id="userEmailFieldWrap" class="hidden">
+          E-posta
+          <input id="userEmailInput" type="email" placeholder="kullanici@example.com" />
+        </label>
         <label>
           Rol
           <select id="userRole">
@@ -542,10 +546,16 @@
             <option value="admin">Yönetici</option>
           </select>
         </label>
-        <div class="user-form-preview">
+        <div id="userDemoPreview" class="user-form-preview">
           <span>Oluşacak e-posta</span>
           <strong id="userEmailPreview">yeni.kullanici@example.com</strong>
           <small>Demo şifre: 123456</small>
+        </div>
+        <div id="userCreatedResult" class="user-form-preview hidden">
+          <span>Kullanıcı oluşturuldu</span>
+          <strong id="createdUserEmailText"></strong>
+          <p>Geçici şifre: <code id="createdUserTempPassword"></code></p>
+          <small>Bu şifreyi kullanıcıya ilet. İlk girişten sonra "Şifre değiştir" ile kendi şifresini belirleyebilir.</small>
         </div>
         <div class="form-actions">
           <button id="userSubmitBtn" class="primary-button" type="submit">Kullanıcıyı ekle</button>

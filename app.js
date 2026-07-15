@@ -385,6 +385,12 @@ const elements = {
   toastRegion: document.querySelector("#toastRegion"),
   activeUser: document.querySelector("#activeUser"),
   addUserBtn: document.querySelector("#addUserBtn"),
+  userEmailFieldWrap: document.querySelector("#userEmailFieldWrap"),
+  userEmailInput: document.querySelector("#userEmailInput"),
+  userDemoPreview: document.querySelector("#userDemoPreview"),
+  userCreatedResult: document.querySelector("#userCreatedResult"),
+  createdUserEmailText: document.querySelector("#createdUserEmailText"),
+  createdUserTempPassword: document.querySelector("#createdUserTempPassword"),
   resetDemoBtn: document.querySelector("#resetDemoBtn"),
   changePasswordBtn: document.querySelector("#changePasswordBtn"),
   changePasswordModal: document.querySelector("#changePasswordModal"),
@@ -1391,7 +1397,7 @@ function renderUsers() {
 
   const sessionUser = getSessionUser();
   elements.roleBadge.textContent = `${roleLabels[sessionUser?.role] || roleLabels.user} · ${sessionUser?.fullName || ""}`;
-  elements.addUserBtn.classList.toggle("hidden", !isAdmin() || supabaseReady);
+  elements.addUserBtn.classList.toggle("hidden", !isAdmin());
   elements.resetDemoBtn.classList.toggle("hidden", supabaseReady);
   elements.appShell.classList.toggle("admin-panel", isAdmin());
   elements.appShell.classList.toggle("user-panel", !isAdmin());
@@ -3210,10 +3216,6 @@ function deleteCategory(categoryId) {
 }
 
 function openUserModal() {
-  if (supabaseReady) {
-    showToast("Supabase kullanıcıları güvenli davet veya kayıt akışıyla eklenmelidir.", "error");
-    return;
-  }
   if (!isAdmin()) {
     showToast("Bu işlem yalnızca yöneticiler için açık.", "error");
     return;
@@ -3222,6 +3224,12 @@ function openUserModal() {
   elements.userForm.reset();
   elements.userName.value = "";
   elements.userRole.value = "user";
+  elements.userEmailFieldWrap.classList.toggle("hidden", !supabaseReady);
+  elements.userEmailInput.required = supabaseReady;
+  elements.userDemoPreview.classList.toggle("hidden", supabaseReady);
+  elements.userCreatedResult.classList.add("hidden");
+  elements.userSubmitBtn.disabled = false;
+  elements.userSubmitBtn.textContent = "Kullanıcıyı ekle";
   elements.userEmailPreview.textContent = buildDemoUserEmail("Yeni Kullanıcı");
   activateModal(elements.userModal, elements.userName);
 }
@@ -3229,6 +3237,7 @@ function openUserModal() {
 function closeUserModal() {
   deactivateModal(elements.userModal);
   elements.userForm.reset();
+  elements.userCreatedResult.classList.add("hidden");
 }
 
 function openChangePasswordModal() {
@@ -3275,12 +3284,23 @@ function updateUserEmailPreview() {
   elements.userEmailPreview.textContent = buildDemoUserEmail(elements.userName.value);
 }
 
-function addUser(event) {
+async function createSupabaseUserAsAdmin({ fullName, email, role }) {
+  const client = getSupabaseClient();
+  const { data: sessionData } = await client.auth.getSession();
+  const accessToken = sessionData?.session?.access_token;
+  if (!accessToken) throw new Error("Oturum bulunamadı.");
+  const response = await fetch(`${documentAssistantApiUrl}/users`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ fullName, email, role }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error?.message || "Kullanıcı oluşturulamadı.");
+  return payload;
+}
+
+async function addUser(event) {
   event.preventDefault();
-  if (supabaseReady) {
-    showToast("Supabase kullanıcıları güvenli davet veya kayıt akışıyla eklenmelidir.", "error");
-    return;
-  }
   if (!isAdmin()) {
     showToast("Bu işlem yalnızca yöneticiler için açık.", "error");
     return;
@@ -3288,8 +3308,30 @@ function addUser(event) {
 
   const normalizedName = elements.userName.value.trim();
   if (!normalizedName) return;
-
   const role = elements.userRole.value === "admin" ? "admin" : "user";
+
+  if (supabaseReady) {
+    const email = elements.userEmailInput.value.trim().toLocaleLowerCase("tr-TR");
+    if (!email) return showToast("E-posta gerekli.", "error");
+    elements.userSubmitBtn.disabled = true;
+    elements.userSubmitBtn.textContent = "Oluşturuluyor…";
+    try {
+      const payload = await createSupabaseUserAsAdmin({ fullName: normalizedName, email, role });
+      elements.userCreatedResult.classList.remove("hidden");
+      elements.createdUserEmailText.textContent = payload.user.email;
+      elements.createdUserTempPassword.textContent = payload.tempPassword;
+      showToast("Kullanıcı oluşturuldu. Geçici şifreyi kullanıcıya iletmeyi unutma.");
+      await loadSupabaseData(currentSession?.userId);
+      renderAll();
+    } catch (error) {
+      showToast(error.message, "error");
+    } finally {
+      elements.userSubmitBtn.disabled = false;
+      elements.userSubmitBtn.textContent = "Kullanıcıyı ekle";
+    }
+    return;
+  }
+
   const userId = createId("user");
   const email = buildDemoUserEmail(normalizedName);
 
