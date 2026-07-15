@@ -645,7 +645,7 @@ create policy "users_select_related" on public.users
   for select using (public.can_view_user_profile(id));
 
 create policy "users_insert_own" on public.users
-  for insert with check (auth.uid() = id and role = 'user');
+  for insert with check (public.is_admin() or (auth.uid() = id and role = 'user'));
 
 create policy "users_update_own" on public.users
   for update using (auth.uid() = id or public.is_admin())
@@ -690,11 +690,17 @@ create policy "tasks_related_update" on public.tasks
   for update using (public.can_access_task(id))
   with check (public.can_access_task(id));
 
+create policy "tasks_related_upsert" on public.tasks
+  for insert with check (public.can_access_task(id));
+
 create policy "task_assignments_related_select" on public.task_assignments
   for select using (public.can_access_task(task_id));
 
 create policy "task_assignments_owner_insert" on public.task_assignments
   for insert with check (public.is_admin());
+
+create policy "task_assignments_self_upsert" on public.task_assignments
+  for insert with check (auth.uid() = user_id and public.can_access_task(task_id));
 
 create policy "task_assignments_owner_update" on public.task_assignments
   for update using (public.is_admin() or auth.uid() = user_id)
