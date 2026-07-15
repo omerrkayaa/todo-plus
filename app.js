@@ -344,6 +344,7 @@ let activeDetailTaskId = null;
 let draggedTaskId = null;
 let taskDraftAttachments = [];
 let taskDraftSubtasks = [];
+let taskDraftTags = [];
 let activeAttachmentPreview = null;
 let activeAssistantDocumentId = null;
 const assistantProcessingDocuments = new Set();
@@ -460,6 +461,7 @@ const elements = {
   categoryFilter: document.querySelector("#categoryFilter"),
   projectFilter: document.querySelector("#projectFilter"),
   assigneeFilter: document.querySelector("#assigneeFilter"),
+  tagFilter: document.querySelector("#tagFilter"),
   sortFilter: document.querySelector("#sortFilter"),
   clearFiltersBtn: document.querySelector("#clearFiltersBtn"),
   filterToggleBtn: document.querySelector("#filterToggleBtn"),
@@ -479,6 +481,9 @@ const elements = {
   taskSubtaskList: document.querySelector("#taskSubtaskList"),
   taskSubtaskInput: document.querySelector("#taskSubtaskInput"),
   taskSubtaskAddBtn: document.querySelector("#taskSubtaskAddBtn"),
+  taskTagChips: document.querySelector("#taskTagChips"),
+  taskTagInput: document.querySelector("#taskTagInput"),
+  taskTagAddBtn: document.querySelector("#taskTagAddBtn"),
   taskProject: document.querySelector("#taskProject"),
   taskCategory: document.querySelector("#taskCategory"),
   taskAssignee: document.querySelector("#taskAssignee"),
@@ -553,6 +558,7 @@ function migrateState(nextState, parsedState) {
           completed: Boolean(subtask.completed),
         }))
       : [],
+    tags: Array.isArray(task.tags) ? task.tags : [],
   }));
 
   if (!Array.isArray(parsedState.taskGivers)) {
@@ -1063,6 +1069,44 @@ function clearTaskDraftSubtasks() {
   renderTaskSubtaskDraftList();
 }
 
+function renderTaskTagChips() {
+  if (!elements.taskTagChips) return;
+
+  if (taskDraftTags.length === 0) {
+    elements.taskTagChips.innerHTML = "";
+    return;
+  }
+
+  elements.taskTagChips.innerHTML = taskDraftTags
+    .map(
+      (tag) => `
+        <span class="tag-chip">#${escapeHtml(tag)}<button type="button" data-remove-draft-tag="${escapeHtml(tag)}" aria-label="${escapeHtml(tag)} etiketini kaldır">×</button></span>
+      `,
+    )
+    .join("");
+}
+
+function addTagsFromInput() {
+  const rawValue = elements.taskTagInput.value;
+  const incomingTags = rawValue.split(",").map((tag) => tag.trim()).filter(Boolean);
+  if (incomingTags.length === 0) return;
+
+  incomingTags.forEach((tag) => {
+    const exists = taskDraftTags.some((existing) => existing.toLocaleLowerCase("tr-TR") === tag.toLocaleLowerCase("tr-TR"));
+    if (!exists) taskDraftTags.push(tag);
+  });
+
+  elements.taskTagInput.value = "";
+  renderTaskTagChips();
+  elements.taskTagInput.focus();
+}
+
+function clearTaskDraftTags() {
+  taskDraftTags = [];
+  if (elements.taskTagInput) elements.taskTagInput.value = "";
+  renderTaskTagChips();
+}
+
 function setTaskAttachmentError(message) {
   if (!elements.taskAttachmentError) return;
   elements.taskAttachmentError.textContent = message;
@@ -1527,6 +1571,18 @@ function renderProjectFilterOptions() {
     : "all";
 }
 
+function renderTagFilterOptions() {
+  const currentTag = elements.tagFilter.value || "all";
+  const allTags = [...new Set(state.tasks.flatMap((task) => task.tags || []))].sort((a, b) =>
+    a.localeCompare(b, "tr-TR"),
+  );
+  elements.tagFilter.innerHTML = `
+    <option value="all">Tüm etiketler</option>
+    ${allTags.map((tag) => `<option value="${escapeHtml(tag)}">#${escapeHtml(tag)}</option>`).join("")}
+  `;
+  elements.tagFilter.value = allTags.includes(currentTag) ? currentTag : "all";
+}
+
 function renderProjects() {
   elements.projectCount.textContent = `${state.projects.length} proje`;
   const selectedInviteProject = elements.inviteProject.value;
@@ -1717,6 +1773,7 @@ function getFilteredTasks() {
   const category = elements.categoryFilter.value;
   const projectId = elements.projectFilter.value;
   const assignee = elements.assigneeFilter.value;
+  const tag = elements.tagFilter.value;
   const sort = elements.sortFilter.value;
 
   const filteredTasks = state.tasks.filter((task) => {
@@ -1729,14 +1786,16 @@ function getFilteredTasks() {
       (task.description || "").toLocaleLowerCase("tr-TR").includes(query) ||
       getProjectName(task.projectId).toLocaleLowerCase("tr-TR").includes(query) ||
       (taskCategory?.name || "").toLocaleLowerCase("tr-TR").includes(query) ||
-      (assignment ? getUserName(assignment.userId) : "").toLocaleLowerCase("tr-TR").includes(query);
+      (assignment ? getUserName(assignment.userId) : "").toLocaleLowerCase("tr-TR").includes(query) ||
+      (task.tags || []).some((taskTag) => taskTag.toLocaleLowerCase("tr-TR").includes(query));
     const matchesStatus = status === "all" || task.status === status;
     const matchesPriority = priority === "all" || task.priority === priority;
     const matchesCategory = category === "all" || taskCategory?.id === category;
     const matchesProject = projectId === "all" || task.projectId === projectId;
     const matchesAssignee = assignee === "all" || assignment?.userId === assignee;
+    const matchesTag = tag === "all" || (task.tags || []).includes(tag);
 
-    return isVisibleToRole && matchesText && matchesStatus && matchesPriority && matchesCategory && matchesProject && matchesAssignee;
+    return isVisibleToRole && matchesText && matchesStatus && matchesPriority && matchesCategory && matchesProject && matchesAssignee && matchesTag;
   });
 
   return filteredTasks.sort((a, b) => {
@@ -1782,6 +1841,7 @@ function renderTaskCard(task, options = {}) {
         <span class="context-separator">/</span>
         <span>${escapeHtml(category ? category.name : "Kategori yok")}</span>
       </div>
+      ${(task.tags || []).length ? `<div class="task-tags">${task.tags.map((tag) => `<span class="badge tag-badge">#${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
       <div class="task-card-footer">
         <div class="task-assignee" title="Atanan: ${escapeHtml(assigneeName)}">
           <span class="avatar avatar-sm">${escapeHtml(assigneeInitials)}</span>
@@ -1808,7 +1868,7 @@ function renderTasks() {
   elements.taskCount.textContent = `${tasks.length} görev`;
 
   if (tasks.length === 0) {
-    const hasFilters = elements.searchInput.value.trim() || [elements.statusFilter, elements.priorityFilter, elements.categoryFilter, elements.projectFilter, elements.assigneeFilter].some((control) => control.value !== "all");
+    const hasFilters = elements.searchInput.value.trim() || [elements.statusFilter, elements.priorityFilter, elements.categoryFilter, elements.projectFilter, elements.assigneeFilter, elements.tagFilter].some((control) => control.value !== "all");
     elements.taskList.innerHTML = hasFilters
       ? `<div class="empty-state"><strong>Aradığın görev bulunamadı.</strong><span>Filtreleri temizleyerek tüm görevleri yeniden görebilirsin.</span><button class="small-button" type="button" data-clear-task-filters>Filtreleri temizle</button></div>`
       : `<div class="empty-state"><strong>Henüz görev yok.</strong><span>İlk işini planlamak için yeni bir görev oluştur.</span>${isAdmin() ? `<button class="primary-button" type="button" data-create-first-task>+ Yeni görev</button>` : ""}</div>`;
@@ -1848,6 +1908,7 @@ function renderKanbanBoard() {
 }
 
 function renderTaskViews() {
+  renderTagFilterOptions();
   renderFilterScopeSummary();
   updateActiveFilterCount();
   renderTasks();
@@ -1866,7 +1927,7 @@ function setDashboardSection(section) {
 }
 
 function updateActiveFilterCount() {
-  const count = [elements.statusFilter, elements.priorityFilter, elements.categoryFilter, elements.projectFilter, elements.assigneeFilter]
+  const count = [elements.statusFilter, elements.priorityFilter, elements.categoryFilter, elements.projectFilter, elements.assigneeFilter, elements.tagFilter]
     .filter((control) => control.value !== "all").length + (elements.sortFilter.value !== "created_desc" ? 1 : 0);
   elements.activeFilterCount.textContent = count;
   elements.activeFilterCount.classList.toggle("hidden", count === 0);
@@ -1895,6 +1956,7 @@ function renderFilterScopeSummary() {
   const status = elements.statusFilter.value;
   const priority = elements.priorityFilter.value;
   const assigneeId = elements.assigneeFilter.value;
+  const tag = elements.tagFilter.value;
   const filters = [];
 
   if (query) filters.push(`Arama: ${query}`);
@@ -1903,6 +1965,7 @@ function renderFilterScopeSummary() {
   if (status !== "all") filters.push(`Durum: ${statusLabels[status]}`);
   if (priority !== "all") filters.push(`Öncelik: ${priorityLabels[priority]}`);
   if (assigneeId !== "all") filters.push(`Atanan: ${getUserName(assigneeId)}`);
+  if (tag !== "all") filters.push(`Etiket: #${tag}`);
 
   if (filters.length === 0) {
     elements.filterScopeSummary.classList.add("hidden");
@@ -2025,6 +2088,7 @@ function renderTaskDetail() {
           <span class="badge priority-${task.priority}">${priorityLabels[task.priority]} öncelik</span>
           <span class="badge ${dueDate.className}">${escapeHtml(dueDate.label)}</span>
           <span class="badge">${task.estimatedMinutes} dakika</span>
+          ${(task.tags || []).map((tag) => `<span class="badge tag-badge">#${escapeHtml(tag)}</span>`).join("")}
         </div>
         <p>${escapeHtml(task.description || "Açıklama girilmedi.")}</p>
         <dl class="detail-list">
@@ -2835,6 +2899,7 @@ function resetTaskForm() {
   elements.taskStatus.value = "bekliyor";
   elements.taskMinutes.value = "60";
   clearTaskDraftSubtasks();
+  clearTaskDraftTags();
   elements.taskFiles.value = "";
   clearTaskDraftAttachments();
   [...elements.taskGivers.options].forEach((option) => {
@@ -3020,6 +3085,7 @@ async function addTask(event) {
   const selectedCategory = state.categories.find((category) => category.id === elements.taskCategory.value);
   const selectedProject = state.projects.find((project) => project.id === elements.taskProject.value);
   const subtasks = taskDraftSubtasks.filter((subtask) => subtask.title.trim());
+  const tags = [...taskDraftTags];
   if (selectedCategory?.id !== selectedProject?.categoryId) {
     showToast("Görev, projenin üst kategorisini kullanmalıdır.", "error");
     return;
@@ -3039,6 +3105,7 @@ async function addTask(event) {
       giverIds: selectedGiverIds,
       attachments: [...taskDraftAttachments],
       subtasks,
+      tags,
     });
     return;
   }
@@ -3056,6 +3123,7 @@ async function addTask(event) {
     dueDate: elements.taskDueDate.value,
     attachments: [...taskDraftAttachments],
     subtasks,
+    tags,
     createdAt: today(),
     updatedAt: today(),
   };
@@ -3112,6 +3180,7 @@ async function updateTaskFromForm(taskId, formData) {
   task.dueDate = formData.dueDate;
   task.attachments = [...getTaskAttachments(task), ...(formData.attachments || [])];
   task.subtasks = formData.subtasks || [];
+  task.tags = formData.tags || [];
   task.updatedAt = today();
 
   let assignment = getTaskAssignment(taskId);
@@ -3190,6 +3259,8 @@ function editTask(taskId) {
   elements.taskDueDate.value = task.dueDate || "";
   taskDraftSubtasks = getTaskSubtasks(task).map((subtask) => ({ ...subtask }));
   renderTaskSubtaskDraftList();
+  taskDraftTags = [...(task.tags || [])];
+  renderTaskTagChips();
   elements.taskFiles.value = "";
   clearTaskDraftAttachments();
   [...elements.taskGivers.options].forEach((option) => {
@@ -3731,6 +3802,12 @@ function handleTaskActionClick(event) {
     renderTaskSubtaskDraftList();
   }
 
+  const removeDraftTagButton = event.target.closest("[data-remove-draft-tag]");
+  if (removeDraftTagButton) {
+    taskDraftTags = taskDraftTags.filter((tag) => tag !== removeDraftTagButton.dataset.removeDraftTag);
+    renderTaskTagChips();
+  }
+
   if (downloadAttachmentButton) {
     downloadTaskAttachment(downloadAttachmentButton.dataset.taskId, downloadAttachmentButton.dataset.downloadAttachment);
   }
@@ -3950,6 +4027,14 @@ function bindEvents() {
       addSubtaskFromInput();
     }
   });
+  elements.taskTagChips.addEventListener("click", handleTaskActionClick);
+  elements.taskTagAddBtn.addEventListener("click", addTagsFromInput);
+  elements.taskTagInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === ",") {
+      event.preventDefault();
+      addTagsFromInput();
+    }
+  });
   elements.taskDetailBody.addEventListener("click", handleTaskActionClick);
   elements.taskDetailBody.addEventListener("click", handleDocumentAssistantClick);
   elements.taskDetailBody.addEventListener("submit", uploadTaskAttachments);
@@ -3993,6 +4078,7 @@ function bindEvents() {
   elements.taskProject.addEventListener("change", renderCategoryOptions);
   elements.assigneeFilter.addEventListener("change", renderTaskViews);
   elements.projectFilter.addEventListener("change", renderTaskViews);
+  elements.tagFilter.addEventListener("change", renderTaskViews);
   elements.sortFilter.addEventListener("change", renderTaskViews);
   elements.clearFiltersBtn.addEventListener("click", () => {
     elements.searchInput.value = "";
@@ -4002,6 +4088,7 @@ function bindEvents() {
     renderProjectFilterOptions();
     elements.projectFilter.value = "all";
     elements.assigneeFilter.value = "all";
+    elements.tagFilter.value = "all";
     elements.sortFilter.value = "created_desc";
     elements.advancedFilters.classList.add("hidden");
     elements.filterToggleBtn.setAttribute("aria-expanded", "false");

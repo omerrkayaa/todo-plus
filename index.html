@@ -359,6 +359,9 @@
           <select id="assigneeFilter" aria-label="Atanan kişiye göre filtrele">
             <option value="all">Tüm kullanıcılar</option>
           </select>
+          <select id="tagFilter" aria-label="Etikete göre filtrele">
+            <option value="all">Tüm etiketler</option>
+          </select>
           <select id="sortFilter" aria-label="Sıralama seç">
             <option value="created_desc">Yeni eklenen</option>
             <option value="due_asc">Teslim tarihi yakın</option>
@@ -412,6 +415,15 @@
                 <button id="taskSubtaskAddBtn" class="small-button" type="button">+ Ekle</button>
               </div>
               <small>Alt görevler görev detayında checklist olarak gösterilir.</small>
+            </div>
+            <div class="tag-field">
+              <span class="tag-field-label">Etiketler</span>
+              <div id="taskTagChips" class="chip-list"></div>
+              <div class="tag-add-row">
+                <input id="taskTagInput" type="text" placeholder="Etiket yaz ve Enter'a bas (ör. acil)" aria-label="Yeni etiket" />
+                <button id="taskTagAddBtn" class="small-button" type="button">+ Ekle</button>
+              </div>
+              <small>Serbest etiketler görevleri proje/kategori dışında da gruplamana yardımcı olur. Virgülle ayırarak birden fazla etiket ekleyebilirsin.</small>
             </div>
             <div class="form-row">
               <label>

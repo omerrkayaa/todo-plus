@@ -5,7 +5,7 @@
     if (rows.users) state.users = rows.users.map((x) => ({ id: x.id, fullName: x.full_name, email: x.email, role: x.role || "user" }));
     if (rows.projects) state.projects = rows.projects.map((x) => ({ id: x.id, userId: x.user_id, categoryId: x.category_id || "", name: x.name, description: x.description || "", createdAt: date(x.created_at, today), updatedAt: date(x.updated_at, today) }));
     if (rows.categories) state.categories = rows.categories.map((x) => ({ id: x.id, userId: x.user_id, name: x.name, color: x.color, createdAt: date(x.created_at, today) }));
-    if (rows.tasks) state.tasks = rows.tasks.map((x) => ({ id: x.id, projectId: x.project_id, categoryId: x.category_id || "", createdBy: x.created_by, title: x.title, description: x.description || "", priority: x.priority, status: x.status, estimatedMinutes: x.estimated_minutes, dueDate: x.due_date || "", subtasks: Array.isArray(x.subtasks) ? x.subtasks : [], createdAt: date(x.created_at, today), updatedAt: date(x.updated_at, today) }));
+    if (rows.tasks) state.tasks = rows.tasks.map((x) => ({ id: x.id, projectId: x.project_id, categoryId: x.category_id || "", createdBy: x.created_by, title: x.title, description: x.description || "", priority: x.priority, status: x.status, estimatedMinutes: x.estimated_minutes, dueDate: x.due_date || "", subtasks: Array.isArray(x.subtasks) ? x.subtasks : [], tags: Array.isArray(x.tags) ? x.tags : [], createdAt: date(x.created_at, today), updatedAt: date(x.updated_at, today) }));
     if (rows.task_attachments) {
       const attachmentsByTask = rows.task_attachments.reduce((groups, x) => {
         (groups[x.task_id] ||= []).push({
@@ -43,7 +43,7 @@
       users: users.map((x) => ({ id: x.id, full_name: x.fullName, email: x.email, role: x.role || "user" })),
       projects: projects.map((x) => ({ id: x.id, user_id: x.userId, category_id: x.categoryId || null, name: x.name, description: x.description, created_at: x.createdAt, updated_at: x.updatedAt || x.createdAt })),
       categories: categories.map((x) => ({ id: x.id, user_id: x.userId, name: x.name, color: x.color, created_at: x.createdAt })),
-      tasks: tasks.map((x) => ({ id: x.id, project_id: x.projectId, category_id: x.categoryId || null, created_by: x.createdBy, title: x.title, description: x.description, priority: x.priority, status: x.status, estimated_minutes: x.estimatedMinutes, due_date: x.dueDate || null, subtasks: Array.isArray(x.subtasks) ? x.subtasks : [], created_at: x.createdAt, updated_at: x.updatedAt || x.createdAt })),
+      tasks: tasks.map((x) => ({ id: x.id, project_id: x.projectId, category_id: x.categoryId || null, created_by: x.createdBy, title: x.title, description: x.description, priority: x.priority, status: x.status, estimated_minutes: x.estimatedMinutes, due_date: x.dueDate || null, subtasks: Array.isArray(x.subtasks) ? x.subtasks : [], tags: Array.isArray(x.tags) ? x.tags : [], created_at: x.createdAt, updated_at: x.updatedAt || x.createdAt })),
       task_attachments: tasks.flatMap((task) =>
         (task.attachments || [])
           .filter((x) => isUuid(x.id) && x.storagePath && userIds.has(x.uploadedBy))

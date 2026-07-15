@@ -67,6 +67,7 @@ create table if not exists public.tasks (
 );
 
 alter table public.tasks add column if not exists subtasks jsonb not null default '[]'::jsonb;
+alter table public.tasks add column if not exists tags text[] not null default '{}';
 
 create table if not exists public.task_assignments (
   id uuid primary key default gen_random_uuid(),
