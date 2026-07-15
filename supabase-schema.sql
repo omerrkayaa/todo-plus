@@ -555,8 +555,7 @@ begin
   if old.user_id <> auth.uid()
     or new.id is distinct from old.id
     or new.task_id is distinct from old.task_id
-    or new.user_id is distinct from old.user_id
-    or new.assigned_at is distinct from old.assigned_at then
+    or new.user_id is distinct from old.user_id then
     raise exception 'Calisan gorev atamasini degistiremez.';
   end if;
 

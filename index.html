@@ -107,6 +107,7 @@
         <p id="roleBadge" class="role-badge"></p>
         <button id="addUserBtn" class="ghost-button" type="button">Kullanıcı ekle</button>
         <button id="resetDemoBtn" class="ghost-button" type="button">Demo verileri sıfırla</button>
+        <button id="changePasswordBtn" class="ghost-button" type="button">Şifre değiştir</button>
         <button id="logoutBtn" class="ghost-button" type="button">Çıkış yap</button>
       </section>
 
@@ -549,6 +550,34 @@
         <div class="form-actions">
           <button id="userSubmitBtn" class="primary-button" type="submit">Kullanıcıyı ekle</button>
           <button id="cancelUserBtn" class="small-button" type="button">Vazgeç</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <div id="changePasswordModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="changePasswordModalTitle">
+    <div class="modal-backdrop" data-close-change-password-modal></div>
+    <section class="modal-panel user-modal">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow">Hesap güvenliği</p>
+          <h2 id="changePasswordModalTitle">Şifre değiştir</h2>
+        </div>
+        <button id="closeChangePasswordModalBtn" class="small-button" type="button" aria-label="Şifre değiştirme penceresini kapat">Kapat</button>
+      </div>
+
+      <form id="changePasswordForm" class="user-form">
+        <label>
+          Yeni şifre
+          <input id="newPassword" type="password" required minlength="6" autocomplete="new-password" placeholder="En az 6 karakter" />
+        </label>
+        <label>
+          Yeni şifre (tekrar)
+          <input id="newPasswordConfirm" type="password" required minlength="6" autocomplete="new-password" placeholder="Şifreyi tekrar gir" />
+        </label>
+        <div class="form-actions">
+          <button id="changePasswordSubmitBtn" class="primary-button" type="submit">Şifreyi güncelle</button>
+          <button id="cancelChangePasswordBtn" class="small-button" type="button">Vazgeç</button>
         </div>
       </form>
     </section>

@@ -386,6 +386,14 @@ const elements = {
   activeUser: document.querySelector("#activeUser"),
   addUserBtn: document.querySelector("#addUserBtn"),
   resetDemoBtn: document.querySelector("#resetDemoBtn"),
+  changePasswordBtn: document.querySelector("#changePasswordBtn"),
+  changePasswordModal: document.querySelector("#changePasswordModal"),
+  closeChangePasswordModalBtn: document.querySelector("#closeChangePasswordModalBtn"),
+  cancelChangePasswordBtn: document.querySelector("#cancelChangePasswordBtn"),
+  changePasswordForm: document.querySelector("#changePasswordForm"),
+  newPassword: document.querySelector("#newPassword"),
+  newPasswordConfirm: document.querySelector("#newPasswordConfirm"),
+  changePasswordSubmitBtn: document.querySelector("#changePasswordSubmitBtn"),
   logoutBtn: document.querySelector("#logoutBtn"),
   navItems: document.querySelectorAll(".nav-item"),
   pageTitle: document.querySelector("#pageTitle"),
@@ -3223,6 +3231,46 @@ function closeUserModal() {
   elements.userForm.reset();
 }
 
+function openChangePasswordModal() {
+  elements.changePasswordForm.reset();
+  activateModal(elements.changePasswordModal, elements.newPassword);
+}
+
+function closeChangePasswordModal() {
+  deactivateModal(elements.changePasswordModal);
+  elements.changePasswordForm.reset();
+}
+
+async function submitChangePassword(event) {
+  event.preventDefault();
+  const newPassword = elements.newPassword.value;
+  const confirmPassword = elements.newPasswordConfirm.value;
+  if (newPassword.length < 6) return showToast("Şifre en az 6 karakter olmalıdır.", "error");
+  if (newPassword !== confirmPassword) return showToast("Şifreler eşleşmiyor.", "error");
+
+  const button = elements.changePasswordSubmitBtn;
+  button.disabled = true;
+  button.textContent = "Güncelleniyor…";
+  try {
+    if (supabaseReady) {
+      const { error } = await getSupabaseClient().auth.updateUser({ password: newPassword });
+      if (error) throw new Error(error.message);
+    } else {
+      const account = authAccounts.find((item) => item.id === getSessionUser()?.id);
+      if (!account) throw new Error("Hesap bulunamadı.");
+      account.password = newPassword;
+      saveAuthAccounts();
+    }
+    showToast("Şifreniz güncellendi.");
+    closeChangePasswordModal();
+  } catch (error) {
+    showToast(error.message || "Şifre güncellenemedi.", "error");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Şifreyi güncelle";
+  }
+}
+
 function updateUserEmailPreview() {
   elements.userEmailPreview.textContent = buildDemoUserEmail(elements.userName.value);
 }
@@ -3732,6 +3780,7 @@ function bindEvents() {
   });
 
   elements.addUserBtn.addEventListener("click", openUserModal);
+  elements.changePasswordBtn.addEventListener("click", openChangePasswordModal);
   elements.userScores.addEventListener("click", (event) => {
     const roleButton = event.target.closest("[data-toggle-role]");
     if (roleButton) toggleUserRole(roleButton.dataset.toggleRole);
@@ -3846,6 +3895,14 @@ function bindEvents() {
   elements.userModal.addEventListener("click", (event) => {
     if (event.target.closest("[data-close-user-modal]")) {
       closeUserModal();
+    }
+  });
+  elements.changePasswordForm.addEventListener("submit", submitChangePassword);
+  elements.closeChangePasswordModalBtn.addEventListener("click", closeChangePasswordModal);
+  elements.cancelChangePasswordBtn.addEventListener("click", closeChangePasswordModal);
+  elements.changePasswordModal.addEventListener("click", (event) => {
+    if (event.target.closest("[data-close-change-password-modal]")) {
+      closeChangePasswordModal();
     }
   });
   elements.userName.addEventListener("input", updateUserEmailPreview);
