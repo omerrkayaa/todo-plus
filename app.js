@@ -494,7 +494,6 @@ const elements = {
   taskDetailsToggle: document.querySelector("#taskDetailsToggle"),
   taskAdvancedFields: document.querySelector("#taskAdvancedFields"),
   taskPriority: document.querySelector("#taskPriority"),
-  taskStatus: document.querySelector("#taskStatus"),
   taskRepeatInterval: document.querySelector("#taskRepeatInterval"),
   taskMinutes: document.querySelector("#taskMinutes"),
   taskStartDate: document.querySelector("#taskStartDate"),
@@ -2929,7 +2928,6 @@ function resetTaskForm() {
   elements.taskSubmitBtn.textContent = "Görevi kaydet";
   elements.cancelTaskEditBtn.classList.add("hidden");
   elements.taskPriority.value = "orta";
-  elements.taskStatus.value = "bekliyor";
   elements.taskRepeatInterval.value = "none";
   elements.taskMinutes.value = "60";
   clearTaskDraftSubtasks();
@@ -3128,7 +3126,6 @@ async function addTask(event) {
 
   const taskId = createId("task");
   const priority = elements.taskPriority.value;
-  const status = elements.taskStatus.value;
   const assigneeIds = [...elements.taskAssignee.selectedOptions].map((option) => option.value);
   const giverIds = [...elements.taskGivers.selectedOptions].map((option) => option.value);
   const selectedGiverIds = giverIds.length > 0 ? giverIds : [getSessionUser().id];
@@ -3141,13 +3138,14 @@ async function addTask(event) {
   }
 
   if (editingTaskId) {
+    const existingTask = state.tasks.find((item) => item.id === editingTaskId);
     await updateTaskFromForm(editingTaskId, {
       projectId: elements.taskProject.value,
       categoryId: selectedProject?.categoryId || "",
       title: elements.taskTitle.value.trim(),
       description: elements.taskDescription.value.trim(),
       priority,
-      status,
+      status: existingTask?.status || "bekliyor",
       estimatedMinutes: Number(elements.taskMinutes.value) || 60,
       startDate: elements.taskStartDate.value,
       dueDate: elements.taskDueDate.value,
@@ -3169,7 +3167,7 @@ async function addTask(event) {
     title: elements.taskTitle.value.trim(),
     description: elements.taskDescription.value.trim(),
     priority,
-    status,
+    status: "bekliyor",
     estimatedMinutes: Number(elements.taskMinutes.value) || 60,
     startDate: elements.taskStartDate.value,
     dueDate: elements.taskDueDate.value,
@@ -3187,9 +3185,9 @@ async function addTask(event) {
       id: createId("assignment"),
       taskId,
       userId,
-      isCompleted: status === "tamamlandi",
-      completedAt: status === "tamamlandi" ? today() : "",
-      earnedScore: status === "tamamlandi" ? priorityScores[priority] : 0,
+      isCompleted: false,
+      completedAt: "",
+      earnedScore: 0,
       assignedAt: today(),
     });
   });
@@ -3208,7 +3206,7 @@ async function addTask(event) {
     taskId,
     changedBy: getSessionUser().id,
     oldStatus: "",
-    newStatus: status,
+    newStatus: "bekliyor",
     note: "Görev oluşturuldu.",
     changedAt: today(),
   });
@@ -3387,7 +3385,6 @@ function editTask(taskId) {
   elements.taskDescription.value = task.description;
   elements.taskProject.value = task.projectId;
   elements.taskPriority.value = task.priority;
-  elements.taskStatus.value = task.status;
   elements.taskRepeatInterval.value = task.repeatInterval || "none";
   elements.taskMinutes.value = task.estimatedMinutes;
   elements.taskStartDate.value = task.startDate || "";
