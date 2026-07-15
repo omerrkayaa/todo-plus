@@ -434,9 +434,11 @@ const elements = {
   cancelProjectEditBtn: document.querySelector("#cancelProjectEditBtn"),
   projectName: document.querySelector("#projectName"),
   projectDescription: document.querySelector("#projectDescription"),
+  projectDueDate: document.querySelector("#projectDueDate"),
   projectCategory: document.querySelector("#projectCategory"),
   projectCount: document.querySelector("#projectCount"),
   projectSearchInput: document.querySelector("#projectSearchInput"),
+  showArchivedProjects: document.querySelector("#showArchivedProjects"),
   projectList: document.querySelector("#projectList"),
   categoryForm: document.querySelector("#categoryForm"),
   categoryFormTitle: document.querySelector("#categoryFormTitle"),
@@ -494,6 +496,7 @@ const elements = {
   taskPriority: document.querySelector("#taskPriority"),
   taskStatus: document.querySelector("#taskStatus"),
   taskMinutes: document.querySelector("#taskMinutes"),
+  taskStartDate: document.querySelector("#taskStartDate"),
   taskDueDate: document.querySelector("#taskDueDate"),
   taskFiles: document.querySelector("#taskFiles"),
   taskAttachmentDropzone: document.querySelector("#taskAttachmentDropzone"),
@@ -541,6 +544,8 @@ function migrateState(nextState, parsedState) {
       nextState.tasks?.find((task) => task.projectId === project.id)?.categoryId ||
       nextState.categories?.[0]?.id ||
       "",
+    archived: Boolean(project.archived),
+    dueDate: project.dueDate || "",
   }));
   nextState.tasks = (nextState.tasks || []).map((task) => ({
     ...task,
@@ -559,6 +564,8 @@ function migrateState(nextState, parsedState) {
         }))
       : [],
     tags: Array.isArray(task.tags) ? task.tags : [],
+    startDate: task.startDate || "",
+    repeatInterval: task.repeatInterval || "none",
   }));
 
   if (!Array.isArray(parsedState.taskGivers)) {
@@ -1408,6 +1415,15 @@ function getProjectName(projectId) {
   return state.projects.find((project) => project.id === projectId)?.name || "Proje yok";
 }
 
+function getProjectDueMeta(project, progressRate) {
+  if (!project.dueDate) return null;
+  if (progressRate >= 100) return { label: `Teslim: ${formatDate(project.dueDate)}`, className: "due-complete" };
+  const remainingDays = Math.ceil((new Date(`${project.dueDate}T12:00:00`) - new Date(`${today()}T12:00:00`)) / 86400000);
+  if (remainingDays < 0) return { label: `Teslim: ${formatDate(project.dueDate)} - gecikti`, className: "due-overdue" };
+  if (remainingDays <= 7) return { label: `Teslim: ${formatDate(project.dueDate)} - yaklaşıyor`, className: "due-soon" };
+  return { label: `Teslim: ${formatDate(project.dueDate)}`, className: "" };
+}
+
 function getCategory(categoryId) {
   return state.categories.find((category) => category.id === categoryId);
 }
@@ -1522,7 +1538,7 @@ function renderProjectOptions() {
   }
 
   elements.taskProject.innerHTML = state.projects
-    .map((project) => `<option value="${project.id}">${escapeHtml(project.name)}</option>`)
+    .map((project) => `<option value="${project.id}">${escapeHtml(project.name)}${project.archived ? " (Arşivlendi)" : ""}</option>`)
     .join("");
 }
 
@@ -1591,14 +1607,16 @@ function renderProjects() {
   }
 
   const query = elements.projectSearchInput.value.trim().toLocaleLowerCase("tr-TR");
+  const showArchived = elements.showArchivedProjects.checked;
   const visibleProjects = state.projects.filter((project) => {
+    if (!showArchived && project.archived) return false;
     if (!query) return true;
     const category = getCategory(project.categoryId);
     const haystack = `${project.name} ${project.description || ""} ${category?.name || ""}`.toLocaleLowerCase("tr-TR");
     return haystack.includes(query);
   });
 
-  elements.projectCount.textContent = query
+  elements.projectCount.textContent = query || !showArchived
     ? `${visibleProjects.length} / ${state.projects.length} proje`
     : `${state.projects.length} proje`;
 
@@ -1614,9 +1632,10 @@ function renderProjects() {
       const completedCount = projectTasks.filter((task) => task.status === "tamamlandi").length;
       const progressRate = taskCount === 0 ? 0 : Math.round((completedCount / taskCount) * 100);
       const category = getCategory(project.categoryId);
+      const dueMeta = getProjectDueMeta(project, progressRate);
 
       return `
-        <article class="project-card">
+        <article class="project-card ${project.archived ? "archived" : ""}">
           <h4>${escapeHtml(project.name)}</h4>
           <p>${escapeHtml(project.description || "Açıklama girilmedi.")}</p>
           <div class="project-progress">
@@ -1633,10 +1652,13 @@ function renderProjects() {
             <span class="badge">${taskCount} görev</span>
             <span class="badge">${completedCount} tamamlandı</span>
             <span class="badge">${formatDate(project.createdAt)}</span>
+            ${dueMeta ? `<span class="badge ${dueMeta.className}">${escapeHtml(dueMeta.label)}</span>` : ""}
+            ${project.archived ? `<span class="badge archived-badge">Arşivlendi</span>` : ""}
           </div>
           <div class="card-actions">
             <button class="small-button" type="button" data-add-task-to-project="${project.id}">+ Görev ekle</button>
             <button class="small-button" type="button" data-edit-project="${project.id}">Düzenle</button>
+            <button class="small-button" type="button" data-toggle-archive-project="${project.id}">${project.archived ? "Arşivden çıkar" : "Arşivle"}</button>
             <button class="danger-button" type="button" data-delete-project="${project.id}">Sil</button>
           </div>
         </article>
@@ -2093,6 +2115,7 @@ function renderTaskDetail() {
           <span class="badge">${escapeHtml(category ? category.name : "Kategori yok")}</span>
           <span class="badge status-${task.status}">${statusLabels[task.status]}</span>
           <span class="badge priority-${task.priority}">${priorityLabels[task.priority]} öncelik</span>
+          ${task.startDate ? `<span class="badge">Başlangıç: ${formatDate(task.startDate)}</span>` : ""}
           <span class="badge ${dueDate.className}">${escapeHtml(dueDate.label)}</span>
           <span class="badge">${task.estimatedMinutes} dakika</span>
           ${(task.tags || []).map((tag) => `<span class="badge tag-badge">#${escapeHtml(tag)}</span>`).join("")}
@@ -2958,6 +2981,8 @@ function addProject(event) {
     categoryId: elements.projectCategory.value,
     name: projectName,
     description: elements.projectDescription.value.trim(),
+    dueDate: elements.projectDueDate.value,
+    archived: false,
     createdAt: today(),
     updatedAt: today(),
   });
@@ -2980,6 +3005,7 @@ function updateProjectFromForm(projectId) {
   project.name = projectName;
   project.categoryId = elements.projectCategory.value;
   project.description = elements.projectDescription.value.trim();
+  project.dueDate = elements.projectDueDate.value;
   project.updatedAt = today();
 
   resetProjectForm();
@@ -2999,8 +3025,21 @@ function editProject(projectId) {
   elements.cancelProjectEditBtn.classList.remove("hidden");
   elements.projectName.value = project.name;
   elements.projectDescription.value = project.description || "";
+  elements.projectDueDate.value = project.dueDate || "";
   elements.projectCategory.value = project.categoryId || state.categories[0]?.id || "";
   elements.projectName.focus();
+}
+
+function toggleProjectArchived(projectId) {
+  if (!isAdmin()) return showToast("Bu işlem için yönetici yetkisi gerekir.", "error");
+  const project = state.projects.find((item) => item.id === projectId);
+  if (!project) return;
+
+  project.archived = !project.archived;
+  project.updatedAt = today();
+  saveState();
+  renderAll();
+  showToast(project.archived ? "Proje arşivlendi." : "Proje arşivden çıkarıldı.");
 }
 
 function addTaskToProject(projectId) {
@@ -3106,6 +3145,7 @@ async function addTask(event) {
       priority,
       status,
       estimatedMinutes: Number(elements.taskMinutes.value) || 60,
+      startDate: elements.taskStartDate.value,
       dueDate: elements.taskDueDate.value,
       assigneeIds,
       giverIds: selectedGiverIds,
@@ -3126,6 +3166,7 @@ async function addTask(event) {
     priority,
     status,
     estimatedMinutes: Number(elements.taskMinutes.value) || 60,
+    startDate: elements.taskStartDate.value,
     dueDate: elements.taskDueDate.value,
     attachments: [...taskDraftAttachments],
     subtasks,
@@ -3185,6 +3226,7 @@ async function updateTaskFromForm(taskId, formData) {
   task.priority = formData.priority;
   task.status = formData.status;
   task.estimatedMinutes = formData.estimatedMinutes;
+  task.startDate = formData.startDate;
   task.dueDate = formData.dueDate;
   task.attachments = [...getTaskAttachments(task), ...(formData.attachments || [])];
   task.subtasks = formData.subtasks || [];
@@ -3261,6 +3303,7 @@ function editTask(taskId) {
   elements.taskPriority.value = task.priority;
   elements.taskStatus.value = task.status;
   elements.taskMinutes.value = task.estimatedMinutes;
+  elements.taskStartDate.value = task.startDate || "";
   elements.taskDueDate.value = task.dueDate || "";
   taskDraftSubtasks = getTaskSubtasks(task).map((subtask) => ({ ...subtask }));
   renderTaskSubtaskDraftList();
@@ -4183,6 +4226,7 @@ function bindEvents() {
     const editButton = event.target.closest("[data-edit-project]");
     const deleteButton = event.target.closest("[data-delete-project]");
     const addTaskButton = event.target.closest("[data-add-task-to-project]");
+    const archiveButton = event.target.closest("[data-toggle-archive-project]");
 
     if (editButton) {
       editProject(editButton.dataset.editProject);
@@ -4195,8 +4239,13 @@ function bindEvents() {
     if (addTaskButton) {
       addTaskToProject(addTaskButton.dataset.addTaskToProject);
     }
+
+    if (archiveButton) {
+      toggleProjectArchived(archiveButton.dataset.toggleArchiveProject);
+    }
   });
   elements.projectSearchInput.addEventListener("input", debounce(renderProjects, 250));
+  elements.showArchivedProjects.addEventListener("change", renderProjects);
 
   elements.categoryList.addEventListener("click", (event) => {
     const editButton = event.target.closest("[data-edit-category]");

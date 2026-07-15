@@ -35,6 +35,8 @@ create table if not exists public.projects (
 );
 
 alter table public.projects add column if not exists category_id uuid;
+alter table public.projects add column if not exists archived boolean not null default false;
+alter table public.projects add column if not exists due_date date;
 
 create table if not exists public.categories (
   id uuid primary key default gen_random_uuid(),
@@ -68,6 +70,14 @@ create table if not exists public.tasks (
 
 alter table public.tasks add column if not exists subtasks jsonb not null default '[]'::jsonb;
 alter table public.tasks add column if not exists tags text[] not null default '{}';
+alter table public.tasks add column if not exists start_date date;
+alter table public.tasks add column if not exists repeat_interval varchar(20) not null default 'none';
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'tasks_repeat_interval_check') then
+    alter table public.tasks add constraint tasks_repeat_interval_check check (repeat_interval in ('none', 'daily', 'weekly', 'monthly'));
+  end if;
+end $$;
 
 create table if not exists public.task_assignments (
   id uuid primary key default gen_random_uuid(),
@@ -531,6 +541,8 @@ begin
     or new.priority is distinct from old.priority
     or new.estimated_minutes is distinct from old.estimated_minutes
     or new.due_date is distinct from old.due_date
+    or new.start_date is distinct from old.start_date
+    or new.repeat_interval is distinct from old.repeat_interval
     or new.created_at is distinct from old.created_at then
     raise exception 'Calisan yalnizca gorev durumunu degistirebilir.';
   end if;

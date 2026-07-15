@@ -257,6 +257,10 @@
                 Açıklama
                 <textarea id="projectDescription" rows="4" placeholder="Projenin kısa açıklaması"></textarea>
               </label>
+              <label>
+                Hedef teslim tarihi
+                <input id="projectDueDate" type="date" />
+              </label>
               <div class="form-actions">
                 <button id="projectSubmitBtn" class="primary-button" type="submit">Projeyi kaydet</button>
                 <button id="cancelProjectEditBtn" class="small-button hidden" type="button">Vazgeç</button>
@@ -301,6 +305,10 @@
               <label class="filter-field">
                 Proje ara
                 <input id="projectSearchInput" type="search" placeholder="Örn. Mobil uygulama" />
+              </label>
+              <label class="checkbox-field">
+                <input id="showArchivedProjects" type="checkbox" />
+                Arşivlenenleri de göster
               </label>
               <div id="projectList" class="project-list"></div>
             </section>
@@ -392,6 +400,10 @@
               <input id="taskTitle" type="text" required placeholder="ER diyagramını hazırla" />
             </label>
             <div class="form-row quick-task-fields">
+              <label>
+                Başlangıç
+                <input id="taskStartDate" type="date" />
+              </label>
               <label>
                 Son teslim
                 <input id="taskDueDate" type="date" />
