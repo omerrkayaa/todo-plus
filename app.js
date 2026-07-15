@@ -1,4 +1,4 @@
-const { storageKeys, priorityScores, priorityLabels, statusLabels, roleLabels, documentAssistantApiUrl } = window.TODO_PLUS_APP;
+const { storageKeys, priorityScores, priorityLabels, statusLabels, roleLabels, repeatIntervalLabels, documentAssistantApiUrl } = window.TODO_PLUS_APP;
 const { createId, escapeHtml, today, formatDate, getDueDateMeta, isTaskOverdue, isUuid, formatFileSize, readFileAsDataURL, getAttachmentLabel, getAttachmentGroupLabel, getAttachmentGroupIcon } = window.TODO_PLUS_UTILS;
 const localStore = window.TODO_PLUS_STORAGE.createStorage(window.localStorage, storageKeys);
 const taskModel = window.TODO_PLUS_TASK_MODEL.createTaskModel({ createId, priorityScores });
@@ -495,6 +495,7 @@ const elements = {
   taskAdvancedFields: document.querySelector("#taskAdvancedFields"),
   taskPriority: document.querySelector("#taskPriority"),
   taskStatus: document.querySelector("#taskStatus"),
+  taskRepeatInterval: document.querySelector("#taskRepeatInterval"),
   taskMinutes: document.querySelector("#taskMinutes"),
   taskStartDate: document.querySelector("#taskStartDate"),
   taskDueDate: document.querySelector("#taskDueDate"),
@@ -1859,6 +1860,7 @@ function renderTaskCard(task, options = {}) {
         <span class="context-separator">/</span>
         <span>${escapeHtml(category ? category.name : "Kategori yok")}</span>
       </div>
+      ${task.repeatInterval && task.repeatInterval !== "none" ? `<div class="task-tags"><span class="badge">🔁 ${escapeHtml(repeatIntervalLabels[task.repeatInterval] || task.repeatInterval)}</span></div>` : ""}
       ${(task.tags || []).length ? `<div class="task-tags">${task.tags.map((tag) => `<span class="badge tag-badge">#${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
       <div class="task-card-footer">
         <div class="task-assignee" title="Atanan: ${escapeHtml(assigneeName)}">
@@ -2118,6 +2120,7 @@ function renderTaskDetail() {
           ${task.startDate ? `<span class="badge">Başlangıç: ${formatDate(task.startDate)}</span>` : ""}
           <span class="badge ${dueDate.className}">${escapeHtml(dueDate.label)}</span>
           <span class="badge">${task.estimatedMinutes} dakika</span>
+          ${task.repeatInterval && task.repeatInterval !== "none" ? `<span class="badge">🔁 ${escapeHtml(repeatIntervalLabels[task.repeatInterval] || task.repeatInterval)}</span>` : ""}
           ${(task.tags || []).map((tag) => `<span class="badge tag-badge">#${escapeHtml(tag)}</span>`).join("")}
         </div>
         <p>${escapeHtml(task.description || "Açıklama girilmedi.")}</p>
@@ -2927,6 +2930,7 @@ function resetTaskForm() {
   elements.cancelTaskEditBtn.classList.add("hidden");
   elements.taskPriority.value = "orta";
   elements.taskStatus.value = "bekliyor";
+  elements.taskRepeatInterval.value = "none";
   elements.taskMinutes.value = "60";
   clearTaskDraftSubtasks();
   clearTaskDraftTags();
@@ -3147,6 +3151,7 @@ async function addTask(event) {
       estimatedMinutes: Number(elements.taskMinutes.value) || 60,
       startDate: elements.taskStartDate.value,
       dueDate: elements.taskDueDate.value,
+      repeatInterval: elements.taskRepeatInterval.value,
       assigneeIds,
       giverIds: selectedGiverIds,
       attachments: [...taskDraftAttachments],
@@ -3168,6 +3173,7 @@ async function addTask(event) {
     estimatedMinutes: Number(elements.taskMinutes.value) || 60,
     startDate: elements.taskStartDate.value,
     dueDate: elements.taskDueDate.value,
+    repeatInterval: elements.taskRepeatInterval.value,
     attachments: [...taskDraftAttachments],
     subtasks,
     tags,
@@ -3228,6 +3234,7 @@ async function updateTaskFromForm(taskId, formData) {
   task.estimatedMinutes = formData.estimatedMinutes;
   task.startDate = formData.startDate;
   task.dueDate = formData.dueDate;
+  task.repeatInterval = formData.repeatInterval || "none";
   task.attachments = [...getTaskAttachments(task), ...(formData.attachments || [])];
   task.subtasks = formData.subtasks || [];
   task.tags = formData.tags || [];
@@ -3278,10 +3285,89 @@ async function updateTaskFromForm(taskId, formData) {
     changedAt: today(),
   });
 
+  if (oldStatus !== "tamamlandi" && formData.status === "tamamlandi") {
+    createRecurringTaskInstance(task);
+  }
+
   resetTaskForm();
   saveState();
   renderAll();
   showToast("Görev durumu güncellendi.");
+}
+
+function getNextRecurrenceDate(dateStr, interval) {
+  const base = dateStr ? new Date(`${dateStr}T12:00:00`) : new Date(`${today()}T12:00:00`);
+  if (interval === "daily") {
+    base.setDate(base.getDate() + 1);
+  } else if (interval === "weekly") {
+    base.setDate(base.getDate() + 7);
+  } else if (interval === "monthly") {
+    const originalDate = base.getDate();
+    base.setMonth(base.getMonth() + 1);
+    if (base.getDate() !== originalDate) base.setDate(0);
+  }
+  return base.toISOString().slice(0, 10);
+}
+
+function createRecurringTaskInstance(task) {
+  if (!task.repeatInterval || task.repeatInterval === "none") return;
+
+  const newTaskId = createId("task");
+  const assignments = getTaskAssignments(task.id);
+  const givers = getTaskGivers(task.id);
+
+  state.tasks.push({
+    id: newTaskId,
+    projectId: task.projectId,
+    categoryId: task.categoryId,
+    createdBy: task.createdBy,
+    title: task.title,
+    description: task.description,
+    priority: task.priority,
+    status: "bekliyor",
+    estimatedMinutes: task.estimatedMinutes,
+    startDate: task.startDate ? getNextRecurrenceDate(task.startDate, task.repeatInterval) : "",
+    dueDate: getNextRecurrenceDate(task.dueDate, task.repeatInterval),
+    repeatInterval: task.repeatInterval,
+    attachments: [],
+    subtasks: getTaskSubtasks(task).map((subtask) => ({ id: createId("subtask"), title: subtask.title, completed: false })),
+    tags: [...(task.tags || [])],
+    createdAt: today(),
+    updatedAt: today(),
+  });
+
+  assignments.forEach((assignment) => {
+    state.assignments.push({
+      id: createId("assignment"),
+      taskId: newTaskId,
+      userId: assignment.userId,
+      isCompleted: false,
+      completedAt: "",
+      earnedScore: 0,
+      assignedAt: today(),
+    });
+  });
+
+  givers.forEach((giver) => {
+    state.taskGivers.push({
+      id: createId("giver"),
+      taskId: newTaskId,
+      userId: giver.userId,
+      assignedAt: today(),
+    });
+  });
+
+  state.history.push({
+    id: createId("history"),
+    taskId: newTaskId,
+    changedBy: getSessionUser().id,
+    oldStatus: "",
+    newStatus: "bekliyor",
+    note: `Tekrarlayan görev: "${task.title}" görevinin yeni bir örneği oluşturuldu.`,
+    changedAt: today(),
+  });
+
+  showToast(`Tekrarlayan görev için yeni bir örnek oluşturuldu: "${task.title}".`);
 }
 
 function editTask(taskId) {
@@ -3302,6 +3388,7 @@ function editTask(taskId) {
   elements.taskProject.value = task.projectId;
   elements.taskPriority.value = task.priority;
   elements.taskStatus.value = task.status;
+  elements.taskRepeatInterval.value = task.repeatInterval || "none";
   elements.taskMinutes.value = task.estimatedMinutes;
   elements.taskStartDate.value = task.startDate || "";
   elements.taskDueDate.value = task.dueDate || "";
@@ -3351,6 +3438,10 @@ function updateTaskStatus(taskId, nextStatus) {
     note: "Görev durumu güncellendi.",
     changedAt: today(),
   });
+
+  if (nextStatus === "tamamlandi") {
+    createRecurringTaskInstance(task);
+  }
 
   saveState();
   renderAll();

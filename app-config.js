@@ -13,5 +13,6 @@ window.TODO_PLUS_APP = Object.freeze({
     tamamlandi: "Tamamlandı",
   }),
   roleLabels: Object.freeze({ admin: "Yönetici", user: "Kullanıcı" }),
+  repeatIntervalLabels: Object.freeze({ none: "Tekrar yok", daily: "Her gün", weekly: "Her hafta", monthly: "Her ay" }),
   documentAssistantApiUrl: "http://127.0.0.1:3000/api",
 });
