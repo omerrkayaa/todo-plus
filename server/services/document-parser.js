@@ -42,12 +42,14 @@ export async function parseDocument({ buffer, fileName }) {
   }
 
   let text = "";
+  let pageCount = null;
   if (extension === ".pdf") {
     const { PDFParse } = await getPdfParse();
     const parser = new PDFParse({ data: new Uint8Array(buffer) });
     try {
       const result = await parser.getText();
       text = result.text;
+      pageCount = result.total ?? null;
     } finally {
       await parser.destroy();
     }
@@ -60,7 +62,7 @@ export async function parseDocument({ buffer, fileName }) {
 
   const normalized = normalizeText(text);
   if (!normalized) throw new HttpError(422, "Dokümandan okunabilir metin çıkarılamadı.", "empty_document");
-  return { text: normalized, characterCount: normalized.length, extension };
+  return { text: normalized, characterCount: normalized.length, extension, pageCount };
 }
 
 export { normalizeText, supportedExtensions };

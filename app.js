@@ -2145,7 +2145,7 @@ function applyAssistantStatus(root, document) {
   const labels = {
     pending: "Doküman işlenmeyi bekliyor.",
     processing: "Dokümanın metni çıkarılıyor ve arama indeksi hazırlanıyor…",
-    ready: `${document.characterCount || 0} karakter işlendi. Asistan hazır.`,
+    ready: `${document.characterCount || 0} karakter${document.pageCount ? `, ${document.pageCount} sayfa` : ""} işlendi. Asistan hazır.`,
     failed: `Doküman işlenemedi: ${document.error || "Bilinmeyen hata"}`,
   };
   status.textContent = labels[document.status] || "Doküman durumu bilinmiyor.";

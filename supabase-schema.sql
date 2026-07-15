@@ -139,6 +139,7 @@ alter table public.task_attachments add column if not exists character_count int
 alter table public.task_attachments add column if not exists parsed_at timestamp with time zone;
 alter table public.task_attachments add column if not exists summary text;
 alter table public.task_attachments add column if not exists summary_updated_at timestamp with time zone;
+alter table public.task_attachments add column if not exists page_count integer;
 
 do $$
 begin

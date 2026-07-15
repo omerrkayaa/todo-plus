@@ -67,6 +67,7 @@ export async function processDocument(document) {
       processing_error: null,
       content_hash: hash,
       character_count: parsed.characterCount,
+      page_count: parsed.pageCount,
       parsed_at: processedAt,
       summary: document.content_hash === hash ? document.summary : null,
       summary_updated_at: document.content_hash === hash ? document.summary_updated_at : null,

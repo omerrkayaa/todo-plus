@@ -30,6 +30,7 @@ router.post("/:id/process", limiter, async (request, response) => {
       id: processed.id,
       status: processed.processing_status,
       characterCount: processed.character_count,
+      pageCount: processed.page_count,
       parsedAt: processed.parsed_at,
       isLong: Boolean(processed.is_long ?? processed.character_count > 12000),
       chunkCount: processed.chunk_count,
@@ -46,6 +47,7 @@ router.get("/:id/status", async (request, response) => {
       status: document.processing_status,
       error: document.processing_error,
       characterCount: document.character_count,
+      pageCount: document.page_count,
       parsedAt: document.parsed_at,
       hasSummary: Boolean(document.summary),
     },
@@ -84,6 +86,7 @@ router.post("/:id/chat", limiter, async (request, response) => {
     contextChunks: context,
     history,
     documentName: document.file_name,
+    pageCount: document.page_count,
     taskTitle: task?.title,
     taskDescription: task?.description,
   });
