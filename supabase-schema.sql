@@ -66,6 +66,8 @@ create table if not exists public.tasks (
   constraint tasks_estimated_minutes_check check (estimated_minutes > 0)
 );
 
+alter table public.tasks add column if not exists subtasks jsonb not null default '[]'::jsonb;
+
 create table if not exists public.task_assignments (
   id uuid primary key default gen_random_uuid(),
   task_id uuid not null references public.tasks(id) on delete cascade,
