@@ -406,6 +406,10 @@ const elements = {
   navItems: document.querySelectorAll(".nav-item"),
   inboxNavBtn: document.querySelector("#inboxNavBtn"),
   inboxNavCount: document.querySelector("#inboxNavCount"),
+  todayNavBtn: document.querySelector("#todayNavBtn"),
+  todayNavCount: document.querySelector("#todayNavCount"),
+  upcomingNavBtn: document.querySelector("#upcomingNavBtn"),
+  upcomingNavCount: document.querySelector("#upcomingNavCount"),
   pageTitle: document.querySelector("#pageTitle"),
   pageSubtitle: document.querySelector("#pageSubtitle"),
   newTaskBtn: document.querySelector("#newTaskBtn"),
@@ -464,6 +468,7 @@ const elements = {
   projectMembershipList: document.querySelector("#projectMembershipList"),
   searchInput: document.querySelector("#searchInput"),
   taskFilters: document.querySelector("#taskFilters"),
+  dateScopeFilter: document.querySelector("#dateScopeFilter"),
   statusFilter: document.querySelector("#statusFilter"),
   priorityFilter: document.querySelector("#priorityFilter"),
   categoryFilter: document.querySelector("#categoryFilter"),
@@ -1457,19 +1462,24 @@ function calculateUserStats(userId) {
 
 function setView(viewName, activeNavItem = null) {
   if (!isAdmin() && viewName === "projects") viewName = "dashboard";
+  const taskScopeViews = new Set(["inbox", "today", "upcoming"]);
   const titles = {
     dashboard: isAdmin() ? "Yönetici paneli" : "Kullanıcı paneli",
     projects: "Projeler",
     tasks: "Görevler",
     inbox: "Gelen Kutusu",
+    today: "Bugün",
+    upcoming: "Yaklaşan",
   };
   const subtitles = {
     dashboard: isAdmin() ? "Ekibin görevlerini ve genel ilerlemesini yönetin." : "Size atanan işleri ve kişisel ilerlemenizi görün.",
     projects: "Projelerinizi ve kategorilerinizi tek yerden yönetin.",
     tasks: "Önceliklerinizi düzenleyin ve işi akışta tutun.",
     inbox: "Henüz bir projeye bağlanmamış görevler.",
+    today: "Başlangıcı bugün olan ve teslim tarihi bugün/geçmiş olan görevler.",
+    upcoming: "Gelecek tarihli görevler, teslim tarihine göre sıralı.",
   };
-  const displayView = viewName === "inbox" ? "tasks" : viewName;
+  const displayView = taskScopeViews.has(viewName) ? "tasks" : viewName;
 
   elements.pageTitle.textContent = titles[viewName];
   elements.pageSubtitle.textContent = subtitles[viewName];
@@ -1797,6 +1807,22 @@ function getInboxTaskCount() {
   return state.tasks.filter((task) => !task.projectId && task.status !== "tamamlandi" && isTaskVisibleToRole(task)).length;
 }
 
+function isTaskDueToday(task) {
+  return task.status !== "tamamlandi" && Boolean(task.startDate === today() || (task.dueDate && task.dueDate <= today()));
+}
+
+function isTaskUpcoming(task) {
+  return task.status !== "tamamlandi" && Boolean(task.dueDate && task.dueDate > today());
+}
+
+function getTodayTaskCount() {
+  return state.tasks.filter((task) => isTaskDueToday(task) && isTaskVisibleToRole(task)).length;
+}
+
+function getUpcomingTaskCount() {
+  return state.tasks.filter((task) => isTaskUpcoming(task) && isTaskVisibleToRole(task)).length;
+}
+
 function renderInboxNavBadge() {
   if (!elements.inboxNavCount) return;
   const count = getInboxTaskCount();
@@ -1804,21 +1830,56 @@ function renderInboxNavBadge() {
   elements.inboxNavCount.classList.toggle("hidden", count === 0);
 }
 
-function openInboxView() {
+function renderTodayNavBadge() {
+  if (!elements.todayNavCount) return;
+  const count = getTodayTaskCount();
+  elements.todayNavCount.textContent = String(count);
+  elements.todayNavCount.classList.toggle("hidden", count === 0);
+}
+
+function renderUpcomingNavBadge() {
+  if (!elements.upcomingNavCount) return;
+  const count = getUpcomingTaskCount();
+  elements.upcomingNavCount.textContent = String(count);
+  elements.upcomingNavCount.classList.toggle("hidden", count === 0);
+}
+
+function resetTaskFiltersToDefaults() {
   elements.searchInput.value = "";
   elements.statusFilter.value = "all";
   elements.priorityFilter.value = "all";
   elements.categoryFilter.value = "all";
   renderProjectFilterOptions();
-  elements.projectFilter.value = "__inbox__";
+  elements.projectFilter.value = "all";
   elements.assigneeFilter.value = "all";
   elements.tagFilter.value = "all";
+  elements.dateScopeFilter.value = "all";
+}
+
+function openInboxView() {
+  resetTaskFiltersToDefaults();
+  elements.projectFilter.value = "__inbox__";
   elements.sortFilter.value = "created_desc";
+  renderTaskViews();
+}
+
+function openTodayView() {
+  resetTaskFiltersToDefaults();
+  elements.dateScopeFilter.value = "today";
+  elements.sortFilter.value = "due_asc";
+  renderTaskViews();
+}
+
+function openUpcomingView() {
+  resetTaskFiltersToDefaults();
+  elements.dateScopeFilter.value = "upcoming";
+  elements.sortFilter.value = "due_asc";
   renderTaskViews();
 }
 
 function getFilteredTasks() {
   const query = elements.searchInput.value.trim().toLocaleLowerCase("tr-TR");
+  const dateScope = elements.dateScopeFilter.value;
   const status = elements.statusFilter.value;
   const priority = elements.priorityFilter.value;
   const category = elements.categoryFilter.value;
@@ -1839,6 +1900,7 @@ function getFilteredTasks() {
       (taskCategory?.name || "").toLocaleLowerCase("tr-TR").includes(query) ||
       assignments.some((assignment) => getUserName(assignment.userId).toLocaleLowerCase("tr-TR").includes(query)) ||
       (task.tags || []).some((taskTag) => taskTag.toLocaleLowerCase("tr-TR").includes(query));
+    const matchesDateScope = dateScope === "all" || (dateScope === "today" ? isTaskDueToday(task) : isTaskUpcoming(task));
     const matchesStatus = status === "all" || task.status === status;
     const matchesPriority = priority === "all" || task.priority === priority;
     const matchesCategory = category === "all" || taskCategory?.id === category;
@@ -1846,7 +1908,7 @@ function getFilteredTasks() {
     const matchesAssignee = assignee === "all" || assignments.some((assignment) => assignment.userId === assignee);
     const matchesTag = tag === "all" || (task.tags || []).includes(tag);
 
-    return isVisibleToRole && matchesText && matchesStatus && matchesPriority && matchesCategory && matchesProject && matchesAssignee && matchesTag;
+    return isVisibleToRole && matchesText && matchesDateScope && matchesStatus && matchesPriority && matchesCategory && matchesProject && matchesAssignee && matchesTag;
   });
 
   return filteredTasks.sort((a, b) => {
@@ -1923,12 +1985,22 @@ function renderTasks() {
 
   if (tasks.length === 0) {
     const isInboxView = elements.projectFilter.value === "__inbox__";
+    const isTodayView = elements.dateScopeFilter.value === "today";
+    const isUpcomingView = elements.dateScopeFilter.value === "upcoming";
     const hasOtherFilters = elements.searchInput.value.trim() || [elements.statusFilter, elements.priorityFilter, elements.categoryFilter, elements.assigneeFilter, elements.tagFilter].some((control) => control.value !== "all");
-    if (isInboxView && !hasOtherFilters) {
+    if (isInboxView && elements.dateScopeFilter.value === "all" && !hasOtherFilters) {
       elements.taskList.innerHTML = `<div class="empty-state"><strong>Gelen Kutusu boş 🎉</strong><span>Projesiz görevin yok — sıfır sürtünmeli yakalama. Proje seçmeden eklediğin yeni görevler buraya düşer.</span></div>`;
       return;
     }
-    const hasFilters = elements.searchInput.value.trim() || [elements.statusFilter, elements.priorityFilter, elements.categoryFilter, elements.projectFilter, elements.assigneeFilter, elements.tagFilter].some((control) => control.value !== "all");
+    if (isTodayView && elements.projectFilter.value === "all" && !hasOtherFilters) {
+      elements.taskList.innerHTML = `<div class="empty-state"><strong>Bugün için planlanmış iş yok 🌤️</strong><span>Başlangıcı bugün olan ya da teslim tarihi bugün/geçmiş olan görevler burada listelenir.</span></div>`;
+      return;
+    }
+    if (isUpcomingView && elements.projectFilter.value === "all" && !hasOtherFilters) {
+      elements.taskList.innerHTML = `<div class="empty-state"><strong>Yaklaşan teslim yok.</strong><span>Gelecek tarihli görevler, teslim tarihine göre sıralı burada görünür.</span></div>`;
+      return;
+    }
+    const hasFilters = elements.searchInput.value.trim() || [elements.dateScopeFilter, elements.statusFilter, elements.priorityFilter, elements.categoryFilter, elements.projectFilter, elements.assigneeFilter, elements.tagFilter].some((control) => control.value !== "all");
     elements.taskList.innerHTML = hasFilters
       ? `<div class="empty-state"><strong>Aradığın görev bulunamadı.</strong><span>Filtreleri temizleyerek tüm görevleri yeniden görebilirsin.</span><button class="small-button" type="button" data-clear-task-filters>Filtreleri temizle</button></div>`
       : `<div class="empty-state"><strong>Henüz görev yok.</strong><span>İlk işini planlamak için yeni bir görev oluştur.</span>${isAdmin() ? `<button class="primary-button" type="button" data-create-first-task>+ Yeni görev</button>` : ""}</div>`;
@@ -1987,7 +2059,7 @@ function setDashboardSection(section) {
 }
 
 function updateActiveFilterCount() {
-  const count = [elements.statusFilter, elements.priorityFilter, elements.categoryFilter, elements.projectFilter, elements.assigneeFilter, elements.tagFilter]
+  const count = [elements.dateScopeFilter, elements.statusFilter, elements.priorityFilter, elements.categoryFilter, elements.projectFilter, elements.assigneeFilter, elements.tagFilter]
     .filter((control) => control.value !== "all").length + (elements.sortFilter.value !== "created_desc" ? 1 : 0);
   elements.activeFilterCount.textContent = count;
   elements.activeFilterCount.classList.toggle("hidden", count === 0);
@@ -2021,6 +2093,7 @@ function setTaskDetailsExpanded(expanded) {
 
 function renderFilterScopeSummary() {
   const query = elements.searchInput.value.trim();
+  const dateScope = elements.dateScopeFilter.value;
   const categoryId = elements.categoryFilter.value;
   const projectId = elements.projectFilter.value;
   const status = elements.statusFilter.value;
@@ -2030,6 +2103,7 @@ function renderFilterScopeSummary() {
   const filters = [];
 
   if (query) filters.push(`Arama: ${query}`);
+  if (dateScope !== "all") filters.push(`Zaman: ${dateScope === "today" ? "Bugün" : "Yaklaşan"}`);
   if (categoryId !== "all") filters.push(`Kategori: ${getCategory(categoryId)?.name || "Kategori"}`);
   if (projectId !== "all") filters.push(`Proje: ${getProjectName(projectId)}`);
   if (status !== "all") filters.push(`Durum: ${statusLabels[status]}`);
@@ -2670,6 +2744,8 @@ function renderAll() {
   renderDashboard();
   renderTaskDetail();
   renderInboxNavBadge();
+  renderTodayNavBadge();
+  renderUpcomingNavBadge();
   const currentView = [...elements.navItems].find((item) => item.classList.contains("active"))?.dataset.view;
   setView(currentView || "dashboard");
 }
@@ -4315,6 +4391,10 @@ function bindEvents() {
       setView(item.dataset.view, item);
       if (item.dataset.inboxShortcut) {
         openInboxView();
+      } else if (item.dataset.dateScopeShortcut === "today") {
+        openTodayView();
+      } else if (item.dataset.dateScopeShortcut === "upcoming") {
+        openUpcomingView();
       }
       if (item === elements.addCategoryNavBtn) {
         resetCategoryForm();
@@ -4446,6 +4526,7 @@ function bindEvents() {
     option.selected = !option.selected;
     renderTaskAssigneeChips();
   });
+  elements.dateScopeFilter.addEventListener("change", renderTaskViews);
   elements.statusFilter.addEventListener("change", renderTaskViews);
   elements.priorityFilter.addEventListener("change", renderTaskViews);
   elements.categoryFilter.addEventListener("change", () => {
@@ -4458,14 +4539,7 @@ function bindEvents() {
   elements.tagFilter.addEventListener("change", renderTaskViews);
   elements.sortFilter.addEventListener("change", renderTaskViews);
   elements.clearFiltersBtn.addEventListener("click", () => {
-    elements.searchInput.value = "";
-    elements.statusFilter.value = "all";
-    elements.priorityFilter.value = "all";
-    elements.categoryFilter.value = "all";
-    renderProjectFilterOptions();
-    elements.projectFilter.value = "all";
-    elements.assigneeFilter.value = "all";
-    elements.tagFilter.value = "all";
+    resetTaskFiltersToDefaults();
     elements.sortFilter.value = "created_desc";
     elements.advancedFilters.classList.add("hidden");
     elements.filterToggleBtn.setAttribute("aria-expanded", "false");
