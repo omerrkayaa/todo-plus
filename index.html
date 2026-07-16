@@ -116,6 +116,8 @@
         <button id="inboxNavBtn" class="nav-item" data-view="inbox" data-inbox-shortcut="true" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h4l1.5 3h5L16 12h4M4 12l1.6-6.4A2 2 0 0 1 7.53 4h8.94a2 2 0 0 1 1.93 1.6L20 12M4 12v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/></svg><span>Gelen Kutusu</span><span id="inboxNavCount" class="nav-badge hidden">0</span></button>
         <button id="todayNavBtn" class="nav-item" data-view="today" data-date-scope-shortcut="today" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Z"/><path d="M4 9h16M8 3v3M16 3v3"/><circle cx="12" cy="14.5" r="2.5"/></svg><span>Bugün</span><span id="todayNavCount" class="nav-badge hidden">0</span></button>
         <button id="upcomingNavBtn" class="nav-item" data-view="upcoming" data-date-scope-shortcut="upcoming" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Z"/><path d="M4 9h16M8 3v3M16 3v3M8 14h3M8 17h6"/></svg><span>Yaklaşan</span><span id="upcomingNavCount" class="nav-badge hidden">0</span></button>
+        <button id="calendarNavBtn" class="nav-item" data-view="calendar" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M8 3v3M16 3v3"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01"/></svg><span>Takvim</span></button>
+        <button id="archiveNavBtn" class="nav-item" data-view="archive" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3H3V5Z"/><path d="M4 8h16v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z"/><path d="M10 13h4"/></svg><span>Arşiv</span><span id="archiveNavCount" class="nav-badge hidden">0</span></button>
         <button class="nav-item active" data-view="dashboard" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6v-9h-6v9Zm0-16v5h6V4h-6Z"/></svg><span id="dashboardNavText">Ekip özeti</span></button>
         <button class="nav-item admin-only" data-view="projects" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H10l2 2h6.5A2.5 2.5 0 0 1 21 8.5v8A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5v-10Z"/></svg><span>Proje yönetimi</span></button>
         <button id="addCategoryNavBtn" class="nav-item admin-only" data-view="projects" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Kategori Ekle</span></button>
@@ -169,6 +171,11 @@
             <div class="stat-card-top"><span class="stat-icon">!</span><span class="stat-kicker">Dikkat</span></div>
             <span class="stat-label">Geciken görev</span>
             <strong id="overdueTasks">0</strong><small>aksiyon bekliyor</small>
+          </article>
+          <article class="stat-card stat-streak">
+            <div class="stat-card-top"><span class="stat-icon">🔥</span><span class="stat-kicker">Alışkanlık</span></div>
+            <span class="stat-label">Seri</span>
+            <strong id="streakDays">0</strong><small id="streakFreezeHint">gün üst üste</small>
           </article>
         </div>
 
@@ -521,6 +528,43 @@
             <div id="taskList" class="task-list"></div>
           </section>
         </div>
+      </section>
+
+      <section id="calendarView" class="view">
+        <section class="panel calendar-panel">
+          <div class="calendar-toolbar">
+            <div class="calendar-nav">
+              <button id="calendarPrevBtn" class="small-button" type="button" aria-label="Önceki ay">‹</button>
+              <h3 id="calendarMonthLabel">Ay Yıl</h3>
+              <button id="calendarNextBtn" class="small-button" type="button" aria-label="Sonraki ay">›</button>
+              <button id="calendarTodayBtn" class="small-button" type="button">Bugün</button>
+            </div>
+            <button id="calendarExportBtn" class="small-button" type="button">📤 Takvimi indir (.ics)</button>
+          </div>
+          <p class="calendar-hint">Son tarihi olan görevler burada görünür. Yönetici, bir görevi başka bir güne sürükleyerek teslim tarihini değiştirebilir.</p>
+          <div class="calendar-weekdays">
+            <span>Pzt</span><span>Sal</span><span>Çar</span><span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span>
+          </div>
+          <div id="calendarGrid" class="calendar-grid"></div>
+        </section>
+      </section>
+
+      <section id="archiveView" class="view">
+        <section class="panel task-layout-panel">
+          <div class="panel-header">
+            <div>
+              <p class="section-kicker">ARŞİV</p>
+              <h3>Tamamlanan görevler</h3>
+            </div>
+            <span id="archiveCount">0 görev</span>
+          </div>
+          <label class="filter-field">
+            Arşivde ara
+            <input id="archiveSearchInput" type="search" placeholder="Görev, proje veya kişi ara" aria-label="Arşivde ara" />
+          </label>
+          <div id="archiveList" class="task-list"></div>
+          <button id="archiveLoadMoreBtn" class="small-button hidden" type="button">Daha fazla yükle</button>
+        </section>
       </section>
     </main>
   </div>

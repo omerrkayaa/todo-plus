@@ -358,6 +358,10 @@ let syncRetryTimer = null;
 let syncRetryCount = 0;
 let pendingDeletions = loadPendingDeletions();
 let toastTimer = null;
+const ARCHIVE_PAGE_SIZE = 20;
+let archiveVisibleCount = ARCHIVE_PAGE_SIZE;
+let calendarAnchorDate = new Date();
+calendarAnchorDate.setDate(1);
 const modalReturnFocus = new WeakMap();
 
 const elements = {
@@ -410,6 +414,21 @@ const elements = {
   todayNavCount: document.querySelector("#todayNavCount"),
   upcomingNavBtn: document.querySelector("#upcomingNavBtn"),
   upcomingNavCount: document.querySelector("#upcomingNavCount"),
+  calendarNavBtn: document.querySelector("#calendarNavBtn"),
+  calendarView: document.querySelector("#calendarView"),
+  calendarPrevBtn: document.querySelector("#calendarPrevBtn"),
+  calendarNextBtn: document.querySelector("#calendarNextBtn"),
+  calendarTodayBtn: document.querySelector("#calendarTodayBtn"),
+  calendarMonthLabel: document.querySelector("#calendarMonthLabel"),
+  calendarExportBtn: document.querySelector("#calendarExportBtn"),
+  calendarGrid: document.querySelector("#calendarGrid"),
+  archiveNavBtn: document.querySelector("#archiveNavBtn"),
+  archiveNavCount: document.querySelector("#archiveNavCount"),
+  archiveView: document.querySelector("#archiveView"),
+  archiveCount: document.querySelector("#archiveCount"),
+  archiveSearchInput: document.querySelector("#archiveSearchInput"),
+  archiveList: document.querySelector("#archiveList"),
+  archiveLoadMoreBtn: document.querySelector("#archiveLoadMoreBtn"),
   pageTitle: document.querySelector("#pageTitle"),
   pageSubtitle: document.querySelector("#pageSubtitle"),
   newTaskBtn: document.querySelector("#newTaskBtn"),
@@ -424,6 +443,8 @@ const elements = {
   inProgressTasks: document.querySelector("#inProgressTasks"),
   successRate: document.querySelector("#successRate"),
   overdueTasks: document.querySelector("#overdueTasks"),
+  streakDays: document.querySelector("#streakDays"),
+  streakFreezeHint: document.querySelector("#streakFreezeHint"),
   focusTaskCount: document.querySelector("#focusTaskCount"),
   focusDueToday: document.querySelector("#focusDueToday"),
   focusOverdue: document.querySelector("#focusOverdue"),
@@ -1460,6 +1481,129 @@ function calculateUserStats(userId) {
   return taskModel.calculateUserStats(state, userId);
 }
 
+const WEEKDAY_LABELS_TR = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+
+function getIsoWeekKey(dateStr) {
+  const parsed = new Date(`${dateStr}T12:00:00`);
+  const mondayOffset = (parsed.getDay() + 6) % 7;
+  parsed.setDate(parsed.getDate() - mondayOffset);
+  return parsed.toISOString().slice(0, 10);
+}
+
+function getUserCompletionDates(userId) {
+  return state.assignments
+    .filter((assignment) => assignment.userId === userId && assignment.isCompleted && assignment.completedAt)
+    .map((assignment) => assignment.completedAt);
+}
+
+// Duolingo tarzı "seri dondurma": haftada 1 kaçırılan gün seriyi bozmaz.
+function calculateUserStreak(userId) {
+  const completionDates = new Set(getUserCompletionDates(userId));
+  const thisWeekKey = getIsoWeekKey(today());
+  if (completionDates.size === 0) {
+    return { current: 0, freezesLeftThisWeek: 1 };
+  }
+
+  let streak = 0;
+  const freezesUsedByWeek = {};
+  const cursor = new Date(`${today()}T12:00:00`);
+  if (!completionDates.has(today())) cursor.setDate(cursor.getDate() - 1);
+
+  while (true) {
+    const dateStr = cursor.toISOString().slice(0, 10);
+    if (completionDates.has(dateStr)) {
+      streak++;
+      cursor.setDate(cursor.getDate() - 1);
+      continue;
+    }
+    const weekKey = getIsoWeekKey(dateStr);
+    const freezesUsed = freezesUsedByWeek[weekKey] || 0;
+    if (freezesUsed < 1) {
+      freezesUsedByWeek[weekKey] = freezesUsed + 1;
+      streak++;
+      cursor.setDate(cursor.getDate() - 1);
+      continue;
+    }
+    break;
+  }
+
+  return { current: streak, freezesLeftThisWeek: 1 - (freezesUsedByWeek[thisWeekKey] || 0) };
+}
+
+function calculateWeeklyInsights(userId) {
+  const completionDates = getUserCompletionDates(userId);
+  if (completionDates.length === 0) return null;
+
+  const currentWeekKey = getIsoWeekKey(today());
+  const previousWeekCursor = new Date(`${today()}T12:00:00`);
+  previousWeekCursor.setDate(previousWeekCursor.getDate() - 7);
+  const previousWeekKey = getIsoWeekKey(previousWeekCursor.toISOString().slice(0, 10));
+
+  const thisWeekCount = completionDates.filter((date) => getIsoWeekKey(date) === currentWeekKey).length;
+  const lastWeekCount = completionDates.filter((date) => getIsoWeekKey(date) === previousWeekKey).length;
+
+  const dayTally = new Array(7).fill(0);
+  completionDates.forEach((date) => {
+    dayTally[new Date(`${date}T12:00:00`).getDay()]++;
+  });
+  const bestDayIndex = dayTally.indexOf(Math.max(...dayTally));
+  const bestDayLabel = completionDates.length >= 3 && dayTally[bestDayIndex] > 0 ? WEEKDAY_LABELS_TR[bestDayIndex] : null;
+
+  return { thisWeekCount, lastWeekCount, bestDayLabel };
+}
+
+const WEEKLY_SUMMARY_DISMISS_KEY = "todo_plus_dismissed_weekly_summary_v1";
+
+function getDismissedWeeklySummaryWeek(userId) {
+  try {
+    const raw = window.localStorage.getItem(WEEKLY_SUMMARY_DISMISS_KEY);
+    return raw ? JSON.parse(raw)[userId] || null : null;
+  } catch {
+    return null;
+  }
+}
+
+function dismissWeeklySummary(userId, weekKey) {
+  try {
+    const raw = window.localStorage.getItem(WEEKLY_SUMMARY_DISMISS_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    map[userId] = weekKey;
+    window.localStorage.setItem(WEEKLY_SUMMARY_DISMISS_KEY, JSON.stringify(map));
+  } catch {
+    /* localStorage kullanılamıyorsa sessizce yok say. */
+  }
+}
+
+function getWeeklySummaryNotification(userId) {
+  if (!userId) return null;
+  const insights = calculateWeeklyInsights(userId);
+  if (!insights || (insights.thisWeekCount === 0 && insights.lastWeekCount === 0)) return null;
+
+  const currentWeekKey = getIsoWeekKey(today());
+  if (getDismissedWeeklySummaryWeek(userId) === currentWeekKey) return null;
+
+  const diff = insights.thisWeekCount - insights.lastWeekCount;
+  const trendSentence =
+    diff > 0
+      ? `Geçen haftaya göre ${diff} görev daha fazla tamamladın.`
+      : diff < 0
+        ? `Geçen haftaya göre ${Math.abs(diff)} görev daha az tamamladın.`
+        : `Geçen haftayla aynı tempodasın.`;
+  const bestDaySentence = insights.bestDayLabel ? ` En üretken günün ${insights.bestDayLabel}.` : "";
+
+  return {
+    id: `weekly-summary-${currentWeekKey}`,
+    type: "weekly_summary",
+    title: "Haftalık özet",
+    message: `Bu hafta ${insights.thisWeekCount} görev tamamladın. ${trendSentence}${bestDaySentence}`,
+    badge: "Özet",
+    date: today(),
+    dismissible: true,
+    userId,
+    weekKey: currentWeekKey,
+  };
+}
+
 function setView(viewName, activeNavItem = null) {
   if (!isAdmin() && viewName === "projects") viewName = "dashboard";
   const taskScopeViews = new Set(["inbox", "today", "upcoming"]);
@@ -1470,6 +1614,8 @@ function setView(viewName, activeNavItem = null) {
     inbox: "Gelen Kutusu",
     today: "Bugün",
     upcoming: "Yaklaşan",
+    calendar: "Takvim",
+    archive: "Arşiv",
   };
   const subtitles = {
     dashboard: isAdmin() ? "Ekibin görevlerini ve genel ilerlemesini yönetin." : "Size atanan işleri ve kişisel ilerlemenizi görün.",
@@ -1478,6 +1624,8 @@ function setView(viewName, activeNavItem = null) {
     inbox: "Henüz bir projeye bağlanmamış görevler.",
     today: "Başlangıcı bugün olan ve teslim tarihi bugün/geçmiş olan görevler.",
     upcoming: "Gelecek tarihli görevler, teslim tarihine göre sıralı.",
+    calendar: "Son tarihli görevlerin aylık görünümü.",
+    archive: "Tamamlanan görevlerin geçmişi, en yeniden eskiye.",
   };
   const displayView = taskScopeViews.has(viewName) ? "tasks" : viewName;
 
@@ -1980,7 +2128,10 @@ function renderTaskCard(task, options = {}) {
 }
 
 function renderTasks() {
-  const tasks = getFilteredTasks();
+  const allTasks = getFilteredTasks();
+  const hidingCompleted = elements.statusFilter.value === "all";
+  const tasks = hidingCompleted ? allTasks.filter((task) => task.status !== "tamamlandi") : allTasks;
+  const hiddenCompletedCount = allTasks.length - tasks.length;
   elements.taskCount.textContent = `${tasks.length} görev`;
 
   if (tasks.length === 0) {
@@ -2001,6 +2152,10 @@ function renderTasks() {
       return;
     }
     const hasFilters = elements.searchInput.value.trim() || [elements.dateScopeFilter, elements.statusFilter, elements.priorityFilter, elements.categoryFilter, elements.projectFilter, elements.assigneeFilter, elements.tagFilter].some((control) => control.value !== "all");
+    if (!hasFilters && hiddenCompletedCount > 0) {
+      elements.taskList.innerHTML = `<div class="empty-state"><strong>Aktif görev yok 🎉</strong><span>${hiddenCompletedCount} tamamlanan görev Arşiv'de duruyor.</span><button class="small-button" type="button" data-open-archive>Arşivi aç</button></div>`;
+      return;
+    }
     elements.taskList.innerHTML = hasFilters
       ? `<div class="empty-state"><strong>Aradığın görev bulunamadı.</strong><span>Filtreleri temizleyerek tüm görevleri yeniden görebilirsin.</span><button class="small-button" type="button" data-clear-task-filters>Filtreleri temizle</button></div>`
       : `<div class="empty-state"><strong>Henüz görev yok.</strong><span>İlk işini planlamak için yeni bir görev oluştur.</span>${isAdmin() ? `<button class="primary-button" type="button" data-create-first-task>+ Yeni görev</button>` : ""}</div>`;
@@ -2009,7 +2164,208 @@ function renderTasks() {
 
   elements.taskList.innerHTML = tasks
     .map((task) => renderTaskCard(task))
+    .join("") + (hidingCompleted && hiddenCompletedCount > 0
+      ? `<div class="empty-state archive-hint"><span>${hiddenCompletedCount} tamamlanan görev daha var.</span><button class="small-button" type="button" data-open-archive>Arşivde gör</button></div>`
+      : "");
+}
+
+function getArchivedTasks() {
+  const query = elements.archiveSearchInput.value.trim().toLocaleLowerCase("tr-TR");
+  return state.tasks
+    .filter((task) => task.status === "tamamlandi" && isTaskVisibleToRole(task))
+    .filter((task) => {
+      if (!query) return true;
+      const taskCategory = getTaskCategory(task);
+      return (
+        (task.title || "").toLocaleLowerCase("tr-TR").includes(query) ||
+        (task.description || "").toLocaleLowerCase("tr-TR").includes(query) ||
+        getProjectName(task.projectId).toLocaleLowerCase("tr-TR").includes(query) ||
+        (taskCategory?.name || "").toLocaleLowerCase("tr-TR").includes(query) ||
+        getTaskAssignments(task.id).some((assignment) => getUserName(assignment.userId).toLocaleLowerCase("tr-TR").includes(query))
+      );
+    })
+    .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+}
+
+function renderArchiveView() {
+  if (!elements.archiveList) return;
+  const archived = getArchivedTasks();
+  elements.archiveCount.textContent = `${archived.length} görev`;
+  if (elements.archiveNavCount) {
+    elements.archiveNavCount.textContent = String(archived.length);
+    elements.archiveNavCount.classList.toggle("hidden", archived.length === 0);
+  }
+
+  if (archived.length === 0) {
+    elements.archiveList.innerHTML = elements.archiveSearchInput.value.trim()
+      ? `<div class="empty-state"><strong>Aradığın tamamlanan görev bulunamadı.</strong></div>`
+      : `<div class="empty-state"><strong>Arşiv boş.</strong><span>Tamamladığın görevler burada birikir.</span></div>`;
+    elements.archiveLoadMoreBtn.classList.add("hidden");
+    return;
+  }
+
+  const visible = archived.slice(0, archiveVisibleCount);
+  elements.archiveList.innerHTML = visible.map((task) => renderTaskCard(task)).join("");
+  elements.archiveLoadMoreBtn.classList.toggle("hidden", archived.length <= visible.length);
+}
+
+function formatDateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getCalendarMonthCells(anchorDate) {
+  const year = anchorDate.getFullYear();
+  const month = anchorDate.getMonth();
+  const firstOfMonth = new Date(year, month, 1);
+  const firstWeekday = (firstOfMonth.getDay() + 6) % 7;
+  const startDate = new Date(year, month, 1 - firstWeekday);
+  const totalCells = firstWeekday + new Date(year, month + 1, 0).getDate() <= 35 ? 35 : 42;
+
+  return Array.from({ length: totalCells }, (_, index) => {
+    const cellDate = new Date(startDate);
+    cellDate.setDate(startDate.getDate() + index);
+    return cellDate;
+  });
+}
+
+function renderCalendarView() {
+  if (!elements.calendarGrid) return;
+  const month = calendarAnchorDate.getMonth();
+  elements.calendarMonthLabel.textContent = new Intl.DateTimeFormat("tr-TR", { month: "long", year: "numeric" }).format(calendarAnchorDate);
+
+  const tasksByDate = {};
+  state.tasks
+    .filter((task) => task.dueDate && isTaskVisibleToRole(task))
+    .forEach((task) => {
+      (tasksByDate[task.dueDate] ||= []).push(task);
+    });
+
+  const todayKey = today();
+  elements.calendarGrid.innerHTML = getCalendarMonthCells(calendarAnchorDate)
+    .map((cellDate) => {
+      const dateKey = formatDateKey(cellDate);
+      const inMonth = cellDate.getMonth() === month;
+      const dayTasks = (tasksByDate[dateKey] || []).sort((a, b) => getTaskScore(b) - getTaskScore(a));
+      const visibleChips = dayTasks.slice(0, 3);
+      const overflowCount = dayTasks.length - visibleChips.length;
+      const dayClasses = ["calendar-day", !inMonth && "calendar-day-outside", dateKey === todayKey && "calendar-day-today"].filter(Boolean).join(" ");
+
+      return `
+        <div class="${dayClasses}" data-calendar-date="${dateKey}">
+          <span class="calendar-day-number">${cellDate.getDate()}</span>
+          <div class="calendar-day-tasks">
+            ${visibleChips
+              .map(
+                (task) => `
+                  <button type="button" class="calendar-chip priority-${task.priority}${task.status === "tamamlandi" ? " calendar-chip-done" : ""}" data-task-card data-task-id="${task.id}" data-detail-task="${task.id}"${isAdmin() ? ' draggable="true"' : ""} title="${escapeHtml(task.title)}">${escapeHtml(task.title)}</button>
+                `,
+              )
+              .join("")}
+            ${overflowCount > 0 ? `<span class="calendar-chip-more">+${overflowCount} daha</span>` : ""}
+          </div>
+        </div>
+      `;
+    })
     .join("");
+}
+
+function shiftCalendarMonth(offset) {
+  calendarAnchorDate = new Date(calendarAnchorDate.getFullYear(), calendarAnchorDate.getMonth() + offset, 1);
+  renderCalendarView();
+}
+
+function resetCalendarToToday() {
+  calendarAnchorDate = new Date(`${today()}T12:00:00`);
+  renderCalendarView();
+}
+
+function rescheduleTaskDueDate(taskId, newDueDate) {
+  if (!isAdmin()) return showToast("Yalnızca yöneticiler teslim tarihini sürükleyerek değiştirebilir.", "error");
+  const task = state.tasks.find((item) => item.id === taskId);
+  if (!task || task.dueDate === newDueDate) return;
+
+  task.dueDate = newDueDate;
+  task.updatedAt = today();
+  saveState();
+  renderAll();
+  showToast(`Teslim tarihi ${formatDate(newDueDate)} olarak güncellendi.`);
+}
+
+function escapeIcsText(value) {
+  return String(value || "")
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\n/g, "\\n");
+}
+
+function formatIcsTimestamp(date) {
+  return `${date.toISOString().replace(/[-:]/g, "").split(".")[0]}Z`;
+}
+
+function generateIcsContent(tasks) {
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//ToDo+//Takvim//TR", "CALSCALE:GREGORIAN"];
+  const stamp = formatIcsTimestamp(new Date());
+
+  tasks.forEach((task) => {
+    const dateStamp = task.dueDate.replaceAll("-", "");
+    lines.push(
+      "BEGIN:VEVENT",
+      `UID:${task.id}@todoplus`,
+      `DTSTAMP:${stamp}`,
+      `DTSTART;VALUE=DATE:${dateStamp}`,
+      `DTEND;VALUE=DATE:${dateStamp}`,
+      `SUMMARY:${escapeIcsText(task.title)}`,
+      task.description ? `DESCRIPTION:${escapeIcsText(task.description)}` : "",
+      `STATUS:${task.status === "tamamlandi" ? "CONFIRMED" : "TENTATIVE"}`,
+      "END:VEVENT",
+    );
+  });
+
+  lines.push("END:VCALENDAR");
+  return lines.filter(Boolean).join("\r\n");
+}
+
+function downloadCalendarIcs() {
+  const tasks = state.tasks.filter((task) => task.dueDate && isTaskVisibleToRole(task));
+  if (tasks.length === 0) return showToast("Dışa aktarılacak, teslim tarihi olan görev yok.", "error");
+
+  const blob = new Blob([generateIcsContent(tasks)], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "todoplus-takvim.ics";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  showToast("Takvim dosyası indirildi. Google/Outlook Takvim'e içe aktarabilirsin.");
+}
+
+function handleCalendarDragOver(event) {
+  const dropTarget = event.target.closest("[data-calendar-date]");
+  if (!dropTarget) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "move";
+  dropTarget.classList.add("drop-target");
+}
+
+function handleCalendarDragLeave(event) {
+  const dropTarget = event.target.closest("[data-calendar-date]");
+  if (!dropTarget || dropTarget.contains(event.relatedTarget)) return;
+  dropTarget.classList.remove("drop-target");
+}
+
+function handleCalendarDrop(event) {
+  const dropTarget = event.target.closest("[data-calendar-date]");
+  if (!dropTarget) return;
+  event.preventDefault();
+  dropTarget.classList.remove("drop-target");
+  const taskId = event.dataTransfer.getData("text/plain") || draggedTaskId;
+  if (taskId) rescheduleTaskDueDate(taskId, dropTarget.dataset.calendarDate);
 }
 
 function renderKanbanBoard() {
@@ -2045,6 +2401,8 @@ function renderTaskViews() {
   updateActiveFilterCount();
   renderTasks();
   renderKanbanBoard();
+  renderArchiveView();
+  renderCalendarView();
 }
 
 function setDashboardSection(section) {
@@ -2612,6 +2970,11 @@ function renderDashboard() {
   elements.overdueTasks.textContent = overdueTasks;
   elements.successRate.textContent = `${activeStats.rate}%`;
 
+  const streak = calculateUserStreak(dashboardUserId);
+  elements.streakDays.textContent = streak.current;
+  elements.streakFreezeHint.textContent =
+    streak.current === 0 ? "henüz seri yok" : `gün üst üste${streak.freezesLeftThisWeek > 0 ? " · 1 dondurma hakkın var" : ""}`;
+
   const focus = getDashboardFocusBuckets(visibleTasks);
   elements.focusTaskCount.textContent = `${focus.items.length} görev`;
   elements.focusDueToday.textContent = focus.dueToday;
@@ -2663,7 +3026,8 @@ function renderDashboard() {
     })
     .join("");
 
-  const notifications = getDashboardNotifications(visibleTasks);
+  const weeklySummary = getWeeklySummaryNotification(dashboardUserId);
+  const notifications = weeklySummary ? [weeklySummary, ...getDashboardNotifications(visibleTasks)] : getDashboardNotifications(visibleTasks);
   elements.notificationCount.textContent = `${notifications.length} bildirim`;
   elements.notificationList.innerHTML =
     notifications.length === 0
@@ -2678,7 +3042,11 @@ function renderDashboard() {
                 </div>
                 <div class="notification-meta">
                   <span class="badge">${escapeHtml(notification.badge)}</span>
-                  <span>${formatDate(notification.date)}</span>
+                  ${
+                    notification.dismissible
+                      ? `<button class="icon-button" type="button" data-dismiss-notification data-dismiss-user="${escapeHtml(notification.userId)}" data-dismiss-week="${escapeHtml(notification.weekKey)}" aria-label="Bildirimi kapat">×</button>`
+                      : `<span>${formatDate(notification.date)}</span>`
+                  }
                 </div>
               </article>
             `,
@@ -4194,6 +4562,11 @@ function handleTaskActionClick(event) {
     elements.clearFiltersBtn.click();
     return;
   }
+  if (event.target.closest("[data-open-archive]")) {
+    setView("archive", elements.archiveNavBtn);
+    closeSidebar();
+    return;
+  }
   const detailButton = event.target.closest("[data-detail-task]");
   const editButton = event.target.closest("[data-edit-task]");
   const statusButton = event.target.closest("[data-status-task]");
@@ -4286,11 +4659,14 @@ function handleKanbanDragStart(event) {
 
 function handleKanbanDragEnd() {
   draggedTaskId = null;
-  document.querySelectorAll(".task-card.dragging").forEach((card) => {
+  document.querySelectorAll("[data-task-card].dragging").forEach((card) => {
     card.classList.remove("dragging");
   });
   document.querySelectorAll(".kanban-column-body.drop-target").forEach((column) => {
     column.classList.remove("drop-target");
+  });
+  document.querySelectorAll(".calendar-day.drop-target").forEach((day) => {
+    day.classList.remove("drop-target");
   });
 }
 
@@ -4437,6 +4813,12 @@ function bindEvents() {
     const roleButton = event.target.closest("[data-toggle-role]");
     if (roleButton) toggleUserRole(roleButton.dataset.toggleRole);
   });
+  elements.notificationList.addEventListener("click", (event) => {
+    const dismissButton = event.target.closest("[data-dismiss-notification]");
+    if (!dismissButton) return;
+    dismissWeeklySummary(dismissButton.dataset.dismissUser, dismissButton.dataset.dismissWeek);
+    renderDashboard();
+  });
   elements.resetDemoBtn.addEventListener("click", resetDemoData);
   elements.projectForm.addEventListener("submit", addProject);
   elements.projectInviteForm.addEventListener("submit", addProjectInvitation);
@@ -4551,9 +4933,28 @@ function bindEvents() {
   elements.kanbanBoard.addEventListener("click", handleTaskActionClick);
   elements.kanbanBoard.addEventListener("dragstart", handleKanbanDragStart);
   elements.kanbanBoard.addEventListener("dragend", handleKanbanDragEnd);
+  elements.archiveList.addEventListener("click", handleTaskActionClick);
+  elements.archiveSearchInput.addEventListener("input", debounce(() => {
+    archiveVisibleCount = ARCHIVE_PAGE_SIZE;
+    renderArchiveView();
+  }, 200));
+  elements.archiveLoadMoreBtn.addEventListener("click", () => {
+    archiveVisibleCount += ARCHIVE_PAGE_SIZE;
+    renderArchiveView();
+  });
   elements.kanbanBoard.addEventListener("dragover", handleKanbanDragOver);
   elements.kanbanBoard.addEventListener("dragleave", handleKanbanDragLeave);
   elements.kanbanBoard.addEventListener("drop", handleKanbanDrop);
+  elements.calendarPrevBtn.addEventListener("click", () => shiftCalendarMonth(-1));
+  elements.calendarNextBtn.addEventListener("click", () => shiftCalendarMonth(1));
+  elements.calendarTodayBtn.addEventListener("click", resetCalendarToToday);
+  elements.calendarExportBtn.addEventListener("click", downloadCalendarIcs);
+  elements.calendarGrid.addEventListener("click", handleTaskActionClick);
+  elements.calendarGrid.addEventListener("dragstart", handleKanbanDragStart);
+  elements.calendarGrid.addEventListener("dragend", handleKanbanDragEnd);
+  elements.calendarGrid.addEventListener("dragover", handleCalendarDragOver);
+  elements.calendarGrid.addEventListener("dragleave", handleCalendarDragLeave);
+  elements.calendarGrid.addEventListener("drop", handleCalendarDrop);
   elements.taskCommentForm.addEventListener("submit", addTaskComment);
   elements.closeTaskDetailBtn.addEventListener("click", closeTaskDetail);
   elements.taskDetailModal.addEventListener("click", (event) => {

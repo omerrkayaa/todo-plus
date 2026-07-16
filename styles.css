@@ -1340,7 +1340,7 @@ main { padding: 0 36px 48px; }
 .dashboard-section-tab { min-height: 38px; padding: 8px 15px; border: 0; border-radius: 9px; color: var(--muted); background: transparent; font-size: 12px; font-weight: 700; }
 .dashboard-section-tab.active { color: var(--primary); background: var(--surface); box-shadow: 0 3px 10px rgba(24,26,32,.08); }
 [data-dashboard-panel] + [data-dashboard-panel] { margin-top: 16px; }
-.stats-grid { grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 12px; }
+.stats-grid { grid-template-columns: repeat(6, minmax(150px, 1fr)); gap: 12px; }
 .stat-card {
   position: relative;
   overflow: hidden;
@@ -1362,6 +1362,7 @@ main { padding: 0 36px 48px; }
 .stat-progress { --icon-color: var(--primary); --icon-bg: var(--primary-soft); --card-glow: rgba(91,80,214,.06); }
 .stat-rate { --icon-color: var(--success); --icon-bg: var(--success-soft); --card-glow: rgba(22,128,92,.06); }
 .stat-overdue { --icon-color: var(--danger); --icon-bg: var(--danger-soft); --card-glow: rgba(196,61,75,.06); }
+.stat-streak { --icon-color: #d97706; --icon-bg: rgba(217,119,6,.12); --card-glow: rgba(217,119,6,.06); }
 .dashboard-focus-panel {
   margin-top: 16px;
   background:
@@ -1473,6 +1474,10 @@ main { padding: 0 36px 48px; }
 .notification-history {
   border-color: #e2e5eb;
   background: linear-gradient(180deg, #fff, #fbfcfe);
+}
+.notification-weekly_summary {
+  border-color: #fbd9a5;
+  background: linear-gradient(180deg, #fff, #fffaf1);
 }
 .user-modal {
   width: min(620px, 96vw);
@@ -1934,6 +1939,54 @@ main { padding: 0 36px 48px; }
 .icon-button:hover { color: var(--text); background: #f0f1f3; }
 .danger-icon:hover { color: var(--danger); background: var(--danger-soft); }
 
+/* Takvim */
+.calendar-panel { padding: 18px; }
+.calendar-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.calendar-nav { display: flex; align-items: center; gap: 10px; }
+.calendar-nav h3 { min-width: 150px; margin: 0; font-size: 15px; text-align: center; text-transform: capitalize; }
+.calendar-hint { margin: 8px 0 14px; color: var(--muted); font-size: 12px; }
+.calendar-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-bottom: 6px; color: var(--muted); font-size: 11px; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: .04em; }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+.calendar-day {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 92px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  transition: border-color 140ms ease, background 140ms ease;
+}
+.calendar-day.drop-target { border-color: var(--primary); background: var(--primary-soft); }
+.calendar-day-outside { background: var(--surface-soft); opacity: .55; }
+.calendar-day-today { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+.calendar-day-number { font-size: 12px; font-weight: 700; color: var(--muted); }
+.calendar-day-today .calendar-day-number { color: var(--primary); }
+.calendar-day-tasks { display: flex; flex-direction: column; gap: 4px; }
+.calendar-chip {
+  overflow: hidden;
+  width: 100%;
+  padding: 4px 7px;
+  border: 0;
+  border-left: 3px solid var(--primary);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--primary-soft);
+  font-size: 11px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: grab;
+}
+.calendar-chip:hover { filter: brightness(0.97); }
+.calendar-chip.dragging { opacity: .4; }
+.calendar-chip.priority-yuksek { border-left-color: var(--danger); background: var(--danger-soft); }
+.calendar-chip.priority-orta { border-left-color: var(--warning); background: var(--warning-soft); }
+.calendar-chip.priority-dusuk { border-left-color: var(--success); background: var(--success-soft); }
+.calendar-chip-done { color: var(--muted); text-decoration: line-through; }
+.calendar-chip-more { padding: 2px 4px; color: var(--muted); font-size: 10px; font-weight: 700; }
+
 /* Kanban */
 .kanban-panel { margin-top: 14px; padding: 16px; }
 .kanban-board { grid-template-columns: repeat(3,minmax(270px,1fr)); gap: 12px; }
@@ -2068,6 +2121,11 @@ main { padding: 0 36px 48px; }
   .attachment-preview-hero { max-height: 48vh; }
   .checklist-item { align-items: flex-start; }
   .notification-item { align-items: flex-start; flex-direction: column; }
+  .calendar-toolbar { flex-direction: column; align-items: stretch; }
+  .calendar-nav { justify-content: center; }
+  .calendar-weekdays span:nth-child(n) { font-size: 9px; }
+  .calendar-day { min-height: 64px; padding: 5px; }
+  .calendar-chip { font-size: 10px; padding: 3px 5px; }
   .view-toolbar { align-items: flex-start; }
   .view-toolbar p { display: none; }
   .filters { grid-template-columns: 1fr 1fr; }

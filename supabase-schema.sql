@@ -218,6 +218,10 @@ create index if not exists idx_projects_category_id on public.projects(category_
 create index if not exists idx_tasks_project_id on public.tasks(project_id);
 create index if not exists idx_tasks_category_id on public.tasks(category_id);
 create index if not exists idx_tasks_created_by on public.tasks(created_by);
+create index if not exists idx_tasks_status on public.tasks(status);
+create index if not exists idx_tasks_due_date on public.tasks(due_date);
+create index if not exists idx_tasks_project_status on public.tasks(project_id, status);
+create index if not exists idx_task_assignments_completed_at on public.task_assignments(user_id, completed_at) where is_completed = true;
 create index if not exists idx_task_assignments_task_id on public.task_assignments(task_id);
 create index if not exists idx_task_assignments_user_id on public.task_assignments(user_id);
 create index if not exists idx_task_givers_task_id on public.task_givers(task_id);
