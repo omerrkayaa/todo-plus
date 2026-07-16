@@ -556,6 +556,7 @@ const elements = {
   cancelUserBtn: document.querySelector("#cancelUserBtn"),
   taskCommentForm: document.querySelector("#taskCommentForm"),
   taskCommentText: document.querySelector("#taskCommentText"),
+  mentionSuggestions: document.querySelector("#mentionSuggestions"),
 };
 
 function loadState() {
@@ -1362,8 +1363,28 @@ function getDashboardNotifications(tasks) {
     }
   });
 
+  const dashboardUserId = isAdmin() ? state.activeUserId : getSessionUser()?.id;
+  const mentionCommentIds = new Set();
   state.taskComments
-    .filter((comment) => visibleTaskIds.has(comment.taskId))
+    .filter((comment) => visibleTaskIds.has(comment.taskId) && comment.userId !== dashboardUserId)
+    .filter((comment) => getMentionedUserIds(comment.body).includes(dashboardUserId))
+    .slice(-3)
+    .forEach((comment) => {
+      mentionCommentIds.add(comment.id);
+      const excerpt = comment.body.length > 90 ? `${comment.body.slice(0, 90)}…` : comment.body;
+      notifications.push({
+        id: `mention-${comment.id}`,
+        type: "mention",
+        title: "Senden bahsedildi",
+        message: `${getUserName(comment.userId)}, "${getTaskTitle(comment.taskId)}" görevinde: ${excerpt}`,
+        badge: "@Bahsetme",
+        date: comment.createdAt,
+        severity: 4,
+      });
+    });
+
+  state.taskComments
+    .filter((comment) => visibleTaskIds.has(comment.taskId) && !mentionCommentIds.has(comment.id))
     .slice(-4)
     .forEach((comment) => {
       notifications.push({
@@ -1479,6 +1500,52 @@ function getTaskTitle(taskId) {
 
 function calculateUserStats(userId) {
   return taskModel.calculateUserStats(state, userId);
+}
+
+// "@Ömer Kaya" gibi tam ad, "@Ömer" gibi ilk ad eşleşmeleri; uzun adlar önce denenir ki
+// "@Ömer Kaya" tam ad olarak yakalansın, "@Ömer" + "Kaya" diye bölünmesin.
+function getMentionCandidates() {
+  return state.users
+    .flatMap((user) => {
+      const fullName = String(user.fullName || "").trim();
+      const firstName = fullName.split(/\s+/)[0] || "";
+      return [...new Set([fullName, firstName])].filter(Boolean).map((name) => ({ userId: user.id, name }));
+    })
+    .sort((a, b) => b.name.length - a.name.length);
+}
+
+function findCommentMentions(body) {
+  const text = String(body || "");
+  const haystack = text.toLocaleLowerCase("tr-TR");
+  const mentions = [];
+  getMentionCandidates().forEach(({ userId, name }) => {
+    const needle = `@${name}`.toLocaleLowerCase("tr-TR");
+    let index = haystack.indexOf(needle);
+    while (index !== -1) {
+      const end = index + needle.length;
+      const followedByLetter = /[0-9a-zçğıöşü]/i.test(text[end] || "");
+      const overlapsExisting = mentions.some((mention) => index < mention.end && end > mention.start);
+      if (!followedByLetter && !overlapsExisting) mentions.push({ userId, start: index, end });
+      index = haystack.indexOf(needle, end);
+    }
+  });
+  return mentions.sort((a, b) => a.start - b.start);
+}
+
+function getMentionedUserIds(body) {
+  return [...new Set(findCommentMentions(body).map((mention) => mention.userId))];
+}
+
+function renderCommentBody(body) {
+  const text = String(body || "");
+  let cursor = 0;
+  let html = "";
+  findCommentMentions(text).forEach((mention) => {
+    html += escapeHtml(text.slice(cursor, mention.start));
+    html += `<mark class="mention">${escapeHtml(text.slice(mention.start, mention.end))}</mark>`;
+    cursor = mention.end;
+  });
+  return html + escapeHtml(text.slice(cursor));
 }
 
 const WEEKDAY_LABELS_TR = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
@@ -2089,6 +2156,18 @@ function renderTaskCard(task, options = {}) {
   const draggableAttribute = options.compact && isAdmin() ? ' draggable="true"' : "";
   const assigneeInitials = getInitials(assigneeNames[0] || "?");
 
+  // WCAG 2.5.7: sürükle-bırakın klavye alternatifi — panoda kartı ok düğmeleriyle taşı.
+  const statusOrder = ["bekliyor", "devam_ediyor", "tamamlandi"];
+  const statusIndex = statusOrder.indexOf(task.status);
+  const previousStatus = statusOrder[statusIndex - 1];
+  const nextColumnStatus = statusOrder[statusIndex + 1];
+  const moveButtons = options.compact
+    ? `
+      ${previousStatus ? `<button class="icon-button move-button" type="button" data-status-task="${task.id}" data-next-status="${previousStatus}" aria-label="${escapeHtml(task.title)} görevini ${statusLabels[previousStatus]} sütununa taşı" title="${statusLabels[previousStatus]} sütununa taşı">◀</button>` : ""}
+      ${nextColumnStatus ? `<button class="icon-button move-button" type="button" data-status-task="${task.id}" data-next-status="${nextColumnStatus}" aria-label="${escapeHtml(task.title)} görevini ${statusLabels[nextColumnStatus]} sütununa taşı" title="${statusLabels[nextColumnStatus]} sütununa taşı">▶</button>` : ""}
+    `
+    : "";
+
   return `
     <article class="task-card${compactClass}"${draggableAttribute} data-task-card data-task-id="${task.id}">
       <div class="task-card-header">
@@ -2119,7 +2198,8 @@ function renderTaskCard(task, options = {}) {
       </div>
       <div class="card-actions">
         <button class="small-button action-detail" type="button" data-detail-task="${task.id}">Detayı aç</button>
-        <button class="small-button action-status" type="button" data-status-task="${task.id}" data-next-status="${nextStatus}">${actionText}</button>
+        ${options.compact ? "" : `<button class="small-button action-status" type="button" data-status-task="${task.id}" data-next-status="${nextStatus}">${actionText}</button>`}
+        ${moveButtons}
         ${isAdmin() ? `<button class="icon-button" type="button" data-edit-task="${task.id}" aria-label="${escapeHtml(task.title)} görevini düzenle">✎</button>` : ""}
         ${isAdmin() ? `<button class="icon-button danger-icon" type="button" data-delete-task="${task.id}" aria-label="${escapeHtml(task.title)} görevini sil">×</button>` : ""}
       </div>
@@ -2258,11 +2338,13 @@ function renderCalendarView() {
           <span class="calendar-day-number">${cellDate.getDate()}</span>
           <div class="calendar-day-tasks">
             ${visibleChips
-              .map(
-                (task) => `
-                  <button type="button" class="calendar-chip priority-${task.priority}${task.status === "tamamlandi" ? " calendar-chip-done" : ""}" data-task-card data-task-id="${task.id}" data-detail-task="${task.id}"${isAdmin() ? ' draggable="true"' : ""} title="${escapeHtml(task.title)}">${escapeHtml(task.title)}</button>
-                `,
-              )
+              .map((task) => {
+                const priorityMark = { dusuk: "!", orta: "!!", yuksek: "!!!" }[task.priority] || "!";
+                const chipLabel = `${task.title} — ${priorityLabels[task.priority]} öncelik${task.status === "tamamlandi" ? ", tamamlandı" : ""}`;
+                return `
+                  <button type="button" class="calendar-chip priority-${task.priority}${task.status === "tamamlandi" ? " calendar-chip-done" : ""}" data-task-card data-task-id="${task.id}" data-detail-task="${task.id}"${isAdmin() ? ' draggable="true"' : ""} title="${escapeHtml(chipLabel)}" aria-label="${escapeHtml(chipLabel)}"><span class="calendar-chip-mark" aria-hidden="true">${priorityMark}</span>${escapeHtml(task.title)}</button>
+                `;
+              })
               .join("")}
             ${overflowCount > 0 ? `<span class="calendar-chip-more">+${overflowCount} daha</span>` : ""}
           </div>
@@ -2377,12 +2459,12 @@ function renderKanbanBoard() {
       const columnTasks = tasks.filter((task) => task.status === status);
 
       return `
-        <section class="kanban-column">
+        <section class="kanban-column" aria-label="${statusLabels[status]} sütunu, ${columnTasks.length} görev">
           <div class="kanban-column-header">
             <h4>${statusLabels[status]}</h4>
-            <span>${columnTasks.length}</span>
+            <span aria-hidden="true">${columnTasks.length}</span>
           </div>
-          <div class="kanban-column-body" data-kanban-status="${status}">
+          <div class="kanban-column-body" role="group" data-kanban-status="${status}">
             ${
               columnTasks.length === 0
                 ? `<div class="empty-state kanban-empty">Görev yok.</div>`
@@ -2647,7 +2729,7 @@ function renderTaskDetail() {
                     (comment) => `
                       <article class="comment-item">
                         <strong>${escapeHtml(getUserName(comment.userId))}</strong>
-                        <p>${escapeHtml(comment.body)}</p>
+                        <p>${renderCommentBody(comment.body)}</p>
                         <span>${formatDate(comment.createdAt)}</span>
                       </article>
                     `,
@@ -2951,6 +3033,7 @@ function closeTaskDetail() {
   activeAssistantDocumentId = null;
   deactivateModal(elements.taskDetailModal);
   elements.taskCommentText.value = "";
+  hideMentionSuggestions();
 }
 
 function renderDashboard() {
@@ -4013,7 +4096,7 @@ function updateTaskStatus(taskId, nextStatus) {
 
   saveState();
   renderAll();
-  showToast("Görev durumu güncellendi.");
+  showToast(`"${task.title}" görevi ${statusLabels[nextStatus]} durumuna alındı.`);
 }
 
 function deleteTask(taskId) {
@@ -4327,6 +4410,83 @@ function toggleUserRole(userId) {
   showToast(`${user.fullName} artık ${roleLabels[user.role].toLocaleLowerCase("tr-TR")}.`);
 }
 
+let mentionSuggestionIndex = 0;
+
+function getMentionTokenBeforeCaret() {
+  const textarea = elements.taskCommentText;
+  const beforeCaret = textarea.value.slice(0, textarea.selectionStart ?? textarea.value.length);
+  const match = beforeCaret.match(/(?:^|\s)@([^@\n]{0,40})$/);
+  if (!match) return null;
+  return { query: match[1], start: beforeCaret.length - match[1].length - 1 };
+}
+
+function getMentionMatches(query) {
+  const normalized = query.trim().toLocaleLowerCase("tr-TR");
+  return state.users
+    .filter((user) => {
+      const fullName = String(user.fullName || "").toLocaleLowerCase("tr-TR");
+      return !normalized || fullName.startsWith(normalized) || fullName.split(/\s+/).some((part) => part.startsWith(normalized));
+    })
+    .slice(0, 5);
+}
+
+function hideMentionSuggestions() {
+  if (!elements.mentionSuggestions) return;
+  elements.mentionSuggestions.classList.add("hidden");
+  elements.mentionSuggestions.innerHTML = "";
+  mentionSuggestionIndex = 0;
+}
+
+function renderMentionSuggestions() {
+  const token = getMentionTokenBeforeCaret();
+  if (!token) return hideMentionSuggestions();
+  const matches = getMentionMatches(token.query);
+  if (matches.length === 0) return hideMentionSuggestions();
+  mentionSuggestionIndex = Math.min(mentionSuggestionIndex, matches.length - 1);
+  elements.mentionSuggestions.innerHTML = matches
+    .map(
+      (user, index) => `
+        <button type="button" role="option" aria-selected="${index === mentionSuggestionIndex}" class="mention-suggestion${index === mentionSuggestionIndex ? " active" : ""}" data-mention-user="${user.id}">
+          <span class="avatar avatar-sm">${escapeHtml(getInitials(user.fullName))}</span>
+          <span>${escapeHtml(user.fullName)}</span>
+        </button>
+      `,
+    )
+    .join("");
+  elements.mentionSuggestions.classList.remove("hidden");
+}
+
+function applyMentionSuggestion(userId) {
+  const token = getMentionTokenBeforeCaret();
+  const user = state.users.find((item) => item.id === userId);
+  if (!token || !user) return hideMentionSuggestions();
+  const textarea = elements.taskCommentText;
+  const caret = textarea.selectionStart ?? textarea.value.length;
+  const inserted = `@${user.fullName} `;
+  textarea.value = textarea.value.slice(0, token.start) + inserted + textarea.value.slice(caret);
+  const nextCaret = token.start + inserted.length;
+  textarea.focus();
+  textarea.setSelectionRange(nextCaret, nextCaret);
+  hideMentionSuggestions();
+}
+
+function handleMentionKeydown(event) {
+  if (elements.mentionSuggestions.classList.contains("hidden")) return;
+  const options = [...elements.mentionSuggestions.querySelectorAll("[data-mention-user]")];
+  if (options.length === 0) return;
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    mentionSuggestionIndex = (mentionSuggestionIndex + (event.key === "ArrowDown" ? 1 : options.length - 1)) % options.length;
+    renderMentionSuggestions();
+  } else if (event.key === "Enter" || event.key === "Tab") {
+    event.preventDefault();
+    applyMentionSuggestion(options[mentionSuggestionIndex]?.dataset.mentionUser);
+  } else if (event.key === "Escape") {
+    event.stopPropagation();
+    hideMentionSuggestions();
+  }
+}
+
 function addTaskComment(event) {
   event.preventDefault();
 
@@ -4342,9 +4502,13 @@ function addTaskComment(event) {
   });
 
   elements.taskCommentText.value = "";
+  hideMentionSuggestions();
   saveState();
   renderTaskDetail();
-  showToast("Yorum eklendi.");
+  const mentionedNames = getMentionedUserIds(body)
+    .filter((userId) => userId !== getSessionUser().id)
+    .map((userId) => getUserName(userId));
+  showToast(mentionedNames.length ? `Yorum eklendi · ${mentionedNames.join(", ")} bilgilendirilecek.` : "Yorum eklendi.");
 }
 
 function canUploadTaskAttachments(task) {
@@ -4771,6 +4935,12 @@ function bindEvents() {
         openTodayView();
       } else if (item.dataset.dateScopeShortcut === "upcoming") {
         openUpcomingView();
+      } else if (item.dataset.view === "tasks") {
+        // Gelen Kutusu/Bugün/Yaklaşan kısayollarının kurduğu filtreler burada kalmasın:
+        // "Görev yönetimi" her zaman tüm görevleri gösterir.
+        resetTaskFiltersToDefaults();
+        elements.sortFilter.value = "created_desc";
+        renderTaskViews();
       }
       if (item === elements.addCategoryNavBtn) {
         resetCategoryForm();
@@ -4956,6 +5126,16 @@ function bindEvents() {
   elements.calendarGrid.addEventListener("dragleave", handleCalendarDragLeave);
   elements.calendarGrid.addEventListener("drop", handleCalendarDrop);
   elements.taskCommentForm.addEventListener("submit", addTaskComment);
+  elements.taskCommentText.addEventListener("input", renderMentionSuggestions);
+  elements.taskCommentText.addEventListener("click", renderMentionSuggestions);
+  elements.taskCommentText.addEventListener("keydown", handleMentionKeydown);
+  elements.taskCommentText.addEventListener("blur", () => setTimeout(hideMentionSuggestions, 150));
+  elements.mentionSuggestions.addEventListener("mousedown", (event) => {
+    const option = event.target.closest("[data-mention-user]");
+    if (!option) return;
+    event.preventDefault();
+    applyMentionSuggestion(option.dataset.mentionUser);
+  });
   elements.closeTaskDetailBtn.addEventListener("click", closeTaskDetail);
   elements.taskDetailModal.addEventListener("click", (event) => {
     if (event.target.closest("[data-close-task-detail]")) {
@@ -4995,6 +5175,19 @@ function bindEvents() {
       openAttachmentPreview(attachmentItem.dataset.taskId, attachmentItem.dataset.previewAttachment);
     }
   });
+  window.addEventListener("offline", () => {
+    setConnectionStatus("error", "Çevrimdışı · Değişiklikler yerelde saklanıyor");
+  });
+  window.addEventListener("online", () => {
+    if (supabaseReady && currentSession?.userId) {
+      setConnectionStatus("syncing", "Bağlantı geldi · Eşitleniyor…");
+      scheduleSupabaseSync();
+      startRealtimeUpdates(currentSession.userId);
+    } else {
+      setConnectionStatus("", "Demo mod · Yerel kayıt");
+    }
+  });
+
   document.addEventListener("keydown", (event) => {
     const openModal = getTopmostOpenModal();
     if (event.key === "Tab" && openModal) {

@@ -588,8 +588,9 @@
       <form id="taskCommentForm" class="comment-form">
         <label>
           Yorum
-          <textarea id="taskCommentText" rows="3" required placeholder="Görev hakkında not yaz"></textarea>
+          <textarea id="taskCommentText" rows="3" required placeholder="Görev hakkında not yaz. @ad yazarak birinden bahsedebilirsin."></textarea>
         </label>
+        <div id="mentionSuggestions" class="mention-suggestions hidden" role="listbox" aria-label="Bahsetme önerileri"></div>
         <button class="primary-button" type="submit">Yorum ekle</button>
       </form>
     </section>

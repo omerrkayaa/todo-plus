@@ -43,12 +43,16 @@ button {
   cursor: pointer;
 }
 
+/* WCAG 2.4.7 — klavyeyle gezinirken odak her zaman belirgin görünür. */
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
-textarea:focus-visible {
-  outline: 3px solid rgba(37, 99, 235, 0.22);
+textarea:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(91, 80, 214, 0.18);
 }
 
 .hidden {
@@ -1931,7 +1935,10 @@ main { padding: 0 36px 48px; }
 .due-signal.due-soon { color: var(--warning); background: var(--warning-soft); }
 .due-signal.due-complete { color: var(--success); background: var(--success-soft); }
 .task-card .card-actions { align-items: center; margin-top: 12px; opacity: .78; transition: opacity 160ms ease; }
-.task-card:hover .card-actions { opacity: 1; }
+.task-card:hover .card-actions,
+.task-card:focus-within .card-actions { opacity: 1; }
+.move-button { border: 1px solid var(--line); color: var(--primary); font-size: 12px; }
+.move-button:hover { color: #fff; background: var(--primary); }
 .action-detail { color: var(--primary); background: var(--primary-soft); }
 .action-detail:hover { color: #fff; background: var(--primary); }
 .action-status { margin-right: auto; }
@@ -1985,6 +1992,7 @@ main { padding: 0 36px 48px; }
 .calendar-chip.priority-orta { border-left-color: var(--warning); background: var(--warning-soft); }
 .calendar-chip.priority-dusuk { border-left-color: var(--success); background: var(--success-soft); }
 .calendar-chip-done { color: var(--muted); text-decoration: line-through; }
+.calendar-chip-mark { margin-right: 4px; font-weight: 800; opacity: .75; }
 .calendar-chip-more { padding: 2px 4px; color: var(--muted); font-size: 10px; font-weight: 700; }
 
 /* Kanban */
@@ -2072,6 +2080,42 @@ main { padding: 0 36px 48px; }
 .modal-panel { border: 1px solid rgba(255,255,255,.3); border-radius: 20px; box-shadow: var(--shadow-lg); }
 .detail-block { border-color: var(--line); border-radius: 12px; background: #f8f9fa; }
 .comment-item { border-color: var(--line); border-radius: 10px; }
+.mention {
+  border-radius: 5px;
+  padding: 1px 5px;
+  color: var(--primary-dark);
+  background: var(--primary-soft);
+  font-weight: 700;
+}
+.mention-suggestions {
+  display: grid;
+  gap: 2px;
+  margin-top: -6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 5px;
+  background: #fff;
+  box-shadow: var(--shadow-lg);
+}
+.mention-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 38px;
+  border: 0;
+  border-radius: 8px;
+  padding: 5px 9px;
+  background: transparent;
+  text-align: left;
+  font-size: 13px;
+  cursor: pointer;
+}
+.mention-suggestion:hover { background: var(--surface-soft); }
+.mention-suggestion.active { background: var(--primary-soft); color: var(--primary-dark); font-weight: 700; }
+.notification-mention {
+  border-color: #d8ccf3;
+  background: linear-gradient(180deg, #fff, #faf7ff);
+}
 .toast { border-radius: 12px; background: #20232b; }
 
 @media (max-width: 1240px) {
