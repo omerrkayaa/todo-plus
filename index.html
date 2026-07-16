@@ -343,6 +343,15 @@
           <p>İşlerinizi size en uygun görünümde yönetin.</p>
         </div>
 
+        <form id="quickAddForm" class="panel quick-add-panel admin-only" aria-label="Hızlı görev ekle">
+          <div class="quick-add-row">
+            <span class="quick-add-icon" aria-hidden="true">⚡</span>
+            <input id="quickAddInput" type="text" autocomplete="off" placeholder='Hızlı ekle: "raporu bitir yarın #Mobil @acil !yüksek her hafta"' aria-label="Hızlı görev ekle metni" />
+            <button class="primary-button" type="submit">Ekle</button>
+          </div>
+          <div id="quickAddPreview" class="quick-add-preview hidden" aria-live="polite"></div>
+        </form>
+
         <section id="taskFilters" class="panel filters" aria-label="Görev filtreleri">
           <input id="searchInput" type="search" placeholder="Görev ara" aria-label="Görev ara" />
           <button id="filterToggleBtn" class="small-button filter-toggle" type="button" aria-expanded="false" aria-controls="advancedFilters">Filtrele <span id="activeFilterCount" class="filter-count hidden">0</span></button>
@@ -629,6 +638,7 @@
   <script defer src="./supabase-config.js"></script>
   <script defer src="./app-config.js"></script>
   <script defer src="./app-utils.js"></script>
+  <script defer src="./app-quick-add-parser.js"></script>
   <script defer src="./app-storage.js"></script>
   <script defer src="./app-task-model.js"></script>
   <script defer src="./app-supabase-mapper.js"></script>

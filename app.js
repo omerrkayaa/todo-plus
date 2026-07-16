@@ -3,6 +3,7 @@ const { createId, escapeHtml, today, formatDate, getDueDateMeta, isTaskOverdue, 
 const localStore = window.TODO_PLUS_STORAGE.createStorage(window.localStorage, storageKeys);
 const taskModel = window.TODO_PLUS_TASK_MODEL.createTaskModel({ createId, priorityScores });
 const supabaseMapper = window.TODO_PLUS_SUPABASE_MAPPER;
+const parseQuickAddText = window.TODO_PLUS_QUICK_ADD_PARSER.parseQuickAddText;
 const getTaskAttachments = taskModel.getAttachments;
 const getTaskSubtasks = taskModel.getSubtasks;
 const getTaskScore = taskModel.getScore;
@@ -408,6 +409,9 @@ const elements = {
   pageTitle: document.querySelector("#pageTitle"),
   pageSubtitle: document.querySelector("#pageSubtitle"),
   newTaskBtn: document.querySelector("#newTaskBtn"),
+  quickAddForm: document.querySelector("#quickAddForm"),
+  quickAddInput: document.querySelector("#quickAddInput"),
+  quickAddPreview: document.querySelector("#quickAddPreview"),
   dashboardView: document.querySelector("#dashboardView"),
   projectsView: document.querySelector("#projectsView"),
   tasksView: document.querySelector("#tasksView"),
@@ -2147,6 +2151,7 @@ function renderTaskDetail() {
               <option value="tamamlandi" ${task.status === "tamamlandi" ? "selected" : ""}>Tamamlandı</option>
             </select>
           </label>
+          ${isAdmin() ? `<button class="small-button" type="button" data-convert-task-to-project="${task.id}" title="Alt görevleri bağımsız görevlere yükseltip bu görevi projeye dönüştürür">📁 Projeye dönüştür</button>` : ""}
         </div>
         <div class="detail-meta">
           <span class="badge">${escapeHtml(getProjectName(task.projectId))}</span>
@@ -3153,11 +3158,135 @@ function editCategory(categoryId) {
   elements.categoryName.focus();
 }
 
+function createTaskRecord(fields) {
+  const taskId = createId("task");
+  const task = {
+    id: taskId,
+    projectId: fields.projectId || "",
+    categoryId: fields.categoryId || "",
+    createdBy: getSessionUser().id,
+    title: fields.title,
+    description: fields.description || "",
+    priority: fields.priority || "orta",
+    status: "bekliyor",
+    estimatedMinutes: fields.estimatedMinutes || 60,
+    startDate: fields.startDate || "",
+    dueDate: fields.dueDate || "",
+    repeatInterval: fields.repeatInterval || "none",
+    attachments: fields.attachments || [],
+    subtasks: fields.subtasks || [],
+    tags: fields.tags || [],
+    createdAt: today(),
+    updatedAt: today(),
+  };
+  state.tasks.push(task);
+
+  (fields.assigneeIds || []).forEach((userId) => {
+    state.assignments.push({
+      id: createId("assignment"),
+      taskId,
+      userId,
+      isCompleted: false,
+      completedAt: "",
+      earnedScore: 0,
+      assignedAt: today(),
+    });
+  });
+
+  (fields.giverIds || []).forEach((userId) => {
+    state.taskGivers.push({
+      id: createId("giver"),
+      taskId,
+      userId,
+      assignedAt: today(),
+    });
+  });
+
+  state.history.push({
+    id: createId("history"),
+    taskId,
+    changedBy: getSessionUser().id,
+    oldStatus: "",
+    newStatus: "bekliyor",
+    note: "Görev oluşturuldu.",
+    changedAt: today(),
+  });
+
+  return task;
+}
+
+function matchProjectByName(name) {
+  if (!name) return null;
+  const query = name.toLocaleLowerCase("tr-TR");
+  return (
+    state.projects.find((project) => project.name.toLocaleLowerCase("tr-TR") === query) ||
+    state.projects.find((project) => project.name.toLocaleLowerCase("tr-TR").split(/\s+/)[0] === query) ||
+    state.projects.find((project) => project.name.toLocaleLowerCase("tr-TR").includes(query)) ||
+    null
+  );
+}
+
+function renderQuickAddPreview() {
+  const raw = elements.quickAddInput.value;
+  if (!raw.trim()) {
+    elements.quickAddPreview.classList.add("hidden");
+    elements.quickAddPreview.innerHTML = "";
+    return;
+  }
+
+  const parsed = parseQuickAddText(raw, new Date());
+  const chips = [];
+  if (parsed.dueDate) chips.push(`📅 ${formatDate(parsed.dueDate)}`);
+  if (parsed.repeatInterval) chips.push(`🔁 ${repeatIntervalLabels[parsed.repeatInterval] || parsed.repeatInterval}`);
+  if (parsed.priority) chips.push(`${priorityLabels[parsed.priority]} öncelik`);
+  if (parsed.projectName) {
+    const project = matchProjectByName(parsed.projectName);
+    chips.push(project ? `📁 ${project.name}` : `📁 "${parsed.projectName}" bulunamadı`);
+  }
+  parsed.tags.forEach((tag) => chips.push(`#${tag}`));
+
+  elements.quickAddPreview.classList.toggle("hidden", chips.length === 0);
+  elements.quickAddPreview.innerHTML = chips.map((chip) => `<span class="quick-add-chip">${escapeHtml(chip)}</span>`).join("");
+}
+
+function handleQuickAddSubmit(event) {
+  event.preventDefault();
+  if (!isAdmin()) return showToast("Görev oluşturma yalnızca yöneticilere açıktır.", "error");
+
+  const raw = elements.quickAddInput.value.trim();
+  if (!raw) return;
+
+  const parsed = parseQuickAddText(raw, new Date());
+  const project = matchProjectByName(parsed.projectName);
+  const sessionUserId = getSessionUser().id;
+
+  createTaskRecord({
+    projectId: project?.id || "",
+    categoryId: project?.categoryId || "",
+    title: parsed.title || raw,
+    priority: parsed.priority || "orta",
+    dueDate: parsed.dueDate,
+    repeatInterval: parsed.repeatInterval || "none",
+    tags: parsed.tags,
+    assigneeIds: [sessionUserId],
+    giverIds: [sessionUserId],
+  });
+
+  elements.quickAddInput.value = "";
+  renderQuickAddPreview();
+  saveState();
+  renderAll();
+  showToast(
+    parsed.projectName && !project
+      ? `Görev oluşturuldu (Gelen Kutusu — "${parsed.projectName}" adında proje bulunamadı).`
+      : "Görev oluşturuldu.",
+  );
+}
+
 async function addTask(event) {
   event.preventDefault();
   if (!isAdmin()) return showToast("Görev oluşturma yalnızca yöneticilere açıktır.", "error");
 
-  const taskId = createId("task");
   const priority = elements.taskPriority.value;
   const assigneeIds = [...elements.taskAssignee.selectedOptions].map((option) => option.value);
   const giverIds = [...elements.taskGivers.selectedOptions].map((option) => option.value);
@@ -3192,15 +3321,12 @@ async function addTask(event) {
     return;
   }
 
-  const task = {
-    id: taskId,
+  createTaskRecord({
     projectId: elements.taskProject.value,
     categoryId: selectedProject?.categoryId || "",
-    createdBy: getSessionUser().id,
     title: elements.taskTitle.value.trim(),
     description: elements.taskDescription.value.trim(),
     priority,
-    status: "bekliyor",
     estimatedMinutes: Number(elements.taskMinutes.value) || 60,
     startDate: elements.taskStartDate.value,
     dueDate: elements.taskDueDate.value,
@@ -3208,40 +3334,8 @@ async function addTask(event) {
     attachments: [...taskDraftAttachments],
     subtasks,
     tags,
-    createdAt: today(),
-    updatedAt: today(),
-  };
-
-  state.tasks.push(task);
-  assigneeIds.forEach((userId) => {
-    state.assignments.push({
-      id: createId("assignment"),
-      taskId,
-      userId,
-      isCompleted: false,
-      completedAt: "",
-      earnedScore: 0,
-      assignedAt: today(),
-    });
-  });
-
-  selectedGiverIds.forEach((userId) => {
-    state.taskGivers.push({
-      id: createId("giver"),
-      taskId,
-      userId,
-      assignedAt: today(),
-    });
-  });
-
-  state.history.push({
-    id: createId("history"),
-    taskId,
-    changedBy: getSessionUser().id,
-    oldStatus: "",
-    newStatus: "bekliyor",
-    note: "Görev oluşturuldu.",
-    changedAt: today(),
+    assigneeIds,
+    giverIds: selectedGiverIds,
   });
 
   resetTaskForm();
@@ -3495,6 +3589,98 @@ function deleteTask(taskId) {
   saveState();
   renderAll();
   showToast("Görev silindi.");
+}
+
+function convertTaskToProject(taskId) {
+  if (!isAdmin()) return showToast("Bu işlem için yönetici yetkisi gerekir.", "error");
+  const task = state.tasks.find((item) => item.id === taskId);
+  if (!task) return;
+
+  const subtasks = getTaskSubtasks(task).filter((subtask) => subtask.title.trim());
+  const confirmMessage = subtasks.length
+    ? `"${task.title}" görevi projeye dönüştürülecek ve ${subtasks.length} alt görev bağımsız göreve yükseltilecek. Görevin yorumları ve dosya ekleri kaybolacak. Devam edilsin mi?`
+    : `"${task.title}" görevi projeye dönüştürülecek. Görevin yorumları ve dosya ekleri kaybolacak. Devam edilsin mi?`;
+  if (!confirm(confirmMessage)) return;
+
+  const assigneeIds = getTaskAssignments(taskId).map((assignment) => assignment.userId);
+  const giverIds = getTaskGivers(taskId).map((giver) => giver.userId);
+
+  const projectId = createId("project");
+  const project = {
+    id: projectId,
+    userId: getSessionUser().id,
+    categoryId: task.categoryId || "",
+    name: task.title,
+    description: task.description || "",
+    archived: false,
+    dueDate: task.dueDate || "",
+    createdAt: today(),
+    updatedAt: today(),
+  };
+  state.projects.push(project);
+
+  subtasks.forEach((subtask) => {
+    const newTaskId = createId("task");
+    const newTask = {
+      id: newTaskId,
+      projectId,
+      categoryId: project.categoryId,
+      createdBy: getSessionUser().id,
+      title: subtask.title,
+      description: "",
+      priority: task.priority,
+      status: subtask.completed ? "tamamlandi" : "bekliyor",
+      estimatedMinutes: 60,
+      startDate: "",
+      dueDate: "",
+      repeatInterval: "none",
+      attachments: [],
+      subtasks: [],
+      tags: [],
+      createdAt: today(),
+      updatedAt: today(),
+    };
+    state.tasks.push(newTask);
+
+    assigneeIds.forEach((userId) => {
+      state.assignments.push({
+        id: createId("assignment"),
+        taskId: newTaskId,
+        userId,
+        isCompleted: newTask.status === "tamamlandi",
+        completedAt: newTask.status === "tamamlandi" ? today() : "",
+        earnedScore: newTask.status === "tamamlandi" ? getTaskScore(newTask) : 0,
+        assignedAt: today(),
+      });
+    });
+
+    giverIds.forEach((userId) => {
+      state.taskGivers.push({ id: createId("giver"), taskId: newTaskId, userId, assignedAt: today() });
+    });
+
+    state.history.push({
+      id: createId("history"),
+      taskId: newTaskId,
+      changedBy: getSessionUser().id,
+      oldStatus: "",
+      newStatus: newTask.status,
+      note: `"${task.title}" görevinin projeye dönüştürülmesiyle oluşturuldu.`,
+      changedAt: today(),
+    });
+  });
+
+  deleteSupabaseRow("tasks", taskId);
+  state.tasks = state.tasks.filter((item) => item.id !== taskId);
+  state.assignments = state.assignments.filter((assignment) => assignment.taskId !== taskId);
+  state.taskGivers = state.taskGivers.filter((giver) => giver.taskId !== taskId);
+  state.history = state.history.filter((historyItem) => historyItem.taskId !== taskId);
+  state.taskComments = state.taskComments.filter((comment) => comment.taskId !== taskId);
+  if (activeDetailTaskId === taskId) closeTaskDetail();
+
+  saveState();
+  renderAll();
+  setView("projects");
+  showToast(`Görev "${project.name}" projesine dönüştürüldü.`);
 }
 
 function deleteProject(projectId) {
@@ -3942,6 +4128,12 @@ function handleTaskActionClick(event) {
   const downloadAttachmentButton = event.target.closest("[data-download-attachment]");
   const previewRemoveButton = event.target.closest("[data-preview-remove-attachment]");
   const subtaskToggle = event.target.closest("[data-toggle-subtask]");
+  const convertButton = event.target.closest("[data-convert-task-to-project]");
+
+  if (convertButton) {
+    convertTaskToProject(convertButton.dataset.convertTaskToProject);
+    return;
+  }
 
   if (detailButton) {
     openTaskDetail(detailButton.dataset.detailTask);
@@ -4176,6 +4368,8 @@ function bindEvents() {
   elements.categoryForm.addEventListener("submit", addCategory);
   elements.cancelCategoryEditBtn.addEventListener("click", resetCategoryForm);
   elements.taskForm.addEventListener("submit", addTask);
+  elements.quickAddForm.addEventListener("submit", handleQuickAddSubmit);
+  elements.quickAddInput.addEventListener("input", renderQuickAddPreview);
   elements.cancelTaskEditBtn.addEventListener("click", resetTaskForm);
   elements.closeTaskDrawerBtn.addEventListener("click", resetTaskForm);
   elements.taskDrawerBackdrop.addEventListener("click", resetTaskForm);
