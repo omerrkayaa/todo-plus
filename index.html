@@ -113,6 +113,7 @@
 
       <nav class="nav-list" aria-label="Ana menü">
         <span id="navRoleLabel" class="nav-label">YÖNETİCİ PANELİ</span>
+        <button id="inboxNavBtn" class="nav-item" data-view="inbox" data-inbox-shortcut="true" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h4l1.5 3h5L16 12h4M4 12l1.6-6.4A2 2 0 0 1 7.53 4h8.94a2 2 0 0 1 1.93 1.6L20 12M4 12v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/></svg><span>Gelen Kutusu</span><span id="inboxNavCount" class="nav-badge hidden">0</span></button>
         <button class="nav-item active" data-view="dashboard" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6v-9h-6v9Zm0-16v5h6V4h-6Z"/></svg><span id="dashboardNavText">Ekip özeti</span></button>
         <button class="nav-item admin-only" data-view="projects" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H10l2 2h6.5A2.5 2.5 0 0 1 21 8.5v8A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5v-10Z"/></svg><span>Proje yönetimi</span></button>
         <button id="addCategoryNavBtn" class="nav-item admin-only" data-view="projects" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Kategori Ekle</span></button>
@@ -442,7 +443,7 @@
             <div class="form-row">
               <label>
                 Proje
-                <select id="taskProject" required aria-label="Görev projesi"></select>
+                <select id="taskProject" aria-label="Görev projesi"></select>
               </label>
               <label>
                 Süre (dakika)

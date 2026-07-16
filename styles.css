@@ -1294,6 +1294,7 @@ input:focus, select:focus, textarea:focus {
 .nav-item:first-of-type svg { fill: currentColor; stroke: none; }
 .nav-item:hover { color: #e9e9ee; background: rgba(255,255,255,.05); }
 .nav-item.active { color: #fff; border-color: rgba(132,120,255,.24); background: rgba(91,80,214,.18); }
+.nav-badge { display: grid; place-items: center; min-width: 20px; height: 20px; margin-left: auto; padding: 0 6px; border-radius: 999px; color: #fff; background: var(--primary); font-size: 11px; font-weight: 700; }
 .sidebar-spacer { flex: 1; }
 .sidebar-footnote { margin: 0; padding: 0 10px; color: #4f535e; font-size: 10px; }
 

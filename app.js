@@ -403,6 +403,8 @@ const elements = {
   changePasswordSubmitBtn: document.querySelector("#changePasswordSubmitBtn"),
   logoutBtn: document.querySelector("#logoutBtn"),
   navItems: document.querySelectorAll(".nav-item"),
+  inboxNavBtn: document.querySelector("#inboxNavBtn"),
+  inboxNavCount: document.querySelector("#inboxNavCount"),
   pageTitle: document.querySelector("#pageTitle"),
   pageSubtitle: document.querySelector("#pageSubtitle"),
   newTaskBtn: document.querySelector("#newTaskBtn"),
@@ -1412,7 +1414,7 @@ function buildDemoUserEmail(fullName) {
 }
 
 function getProjectName(projectId) {
-  return state.projects.find((project) => project.id === projectId)?.name || "Proje yok";
+  return state.projects.find((project) => project.id === projectId)?.name || "Gelen Kutusu";
 }
 
 function getProjectDueMeta(project, progressRate) {
@@ -1455,12 +1457,15 @@ function setView(viewName, activeNavItem = null) {
     dashboard: isAdmin() ? "Yönetici paneli" : "Kullanıcı paneli",
     projects: "Projeler",
     tasks: "Görevler",
+    inbox: "Gelen Kutusu",
   };
   const subtitles = {
     dashboard: isAdmin() ? "Ekibin görevlerini ve genel ilerlemesini yönetin." : "Size atanan işleri ve kişisel ilerlemenizi görün.",
     projects: "Projelerinizi ve kategorilerinizi tek yerden yönetin.",
     tasks: "Önceliklerinizi düzenleyin ve işi akışta tutun.",
+    inbox: "Henüz bir projeye bağlanmamış görevler.",
   };
+  const displayView = viewName === "inbox" ? "tasks" : viewName;
 
   elements.pageTitle.textContent = titles[viewName];
   elements.pageSubtitle.textContent = subtitles[viewName];
@@ -1469,7 +1474,7 @@ function setView(viewName, activeNavItem = null) {
     view.classList.remove("active-view");
   });
 
-  document.querySelector(`#${viewName}View`).classList.add("active-view");
+  document.querySelector(`#${displayView}View`).classList.add("active-view");
 
   const selectedNavItem = activeNavItem || [...elements.navItems].find((item) => item.dataset.view === viewName);
   elements.navItems.forEach((item) => {
@@ -1532,12 +1537,8 @@ function renderUsers() {
 }
 
 function renderProjectOptions() {
-  if (state.projects.length === 0) {
-    elements.taskProject.innerHTML = `<option value="">Önce proje ekleyin</option>`;
-    return;
-  }
-
-  elements.taskProject.innerHTML = state.projects
+  const inboxOption = `<option value="">📥 Gelen Kutusu (Projesiz)</option>`;
+  elements.taskProject.innerHTML = inboxOption + state.projects
     .map((project) => `<option value="${project.id}">${escapeHtml(project.name)}${project.archived ? " (Arşivlendi)" : ""}</option>`)
     .join("");
 }
@@ -1574,9 +1575,10 @@ function renderProjectFilterOptions() {
   );
   elements.projectFilter.innerHTML = `
     <option value="all">Tüm projeler</option>
+    <option value="__inbox__">📥 Gelen Kutusu</option>
     ${availableProjects.map((project) => `<option value="${project.id}">${escapeHtml(project.name)}</option>`).join("")}
   `;
-  elements.projectFilter.value = availableProjects.some((project) => project.id === currentProject)
+  elements.projectFilter.value = currentProject === "__inbox__" || availableProjects.some((project) => project.id === currentProject)
     ? currentProject
     : "all";
 }
@@ -1782,6 +1784,35 @@ function renderCategories() {
     .join("");
 }
 
+function isTaskVisibleToRole(task, assignments) {
+  const taskAssignments = assignments || getTaskAssignments(task.id);
+  return isAdmin() || taskAssignments.some((assignment) => assignment.userId === getSessionUser()?.id) || canUploadTaskAttachments(task);
+}
+
+function getInboxTaskCount() {
+  return state.tasks.filter((task) => !task.projectId && task.status !== "tamamlandi" && isTaskVisibleToRole(task)).length;
+}
+
+function renderInboxNavBadge() {
+  if (!elements.inboxNavCount) return;
+  const count = getInboxTaskCount();
+  elements.inboxNavCount.textContent = String(count);
+  elements.inboxNavCount.classList.toggle("hidden", count === 0);
+}
+
+function openInboxView() {
+  elements.searchInput.value = "";
+  elements.statusFilter.value = "all";
+  elements.priorityFilter.value = "all";
+  elements.categoryFilter.value = "all";
+  renderProjectFilterOptions();
+  elements.projectFilter.value = "__inbox__";
+  elements.assigneeFilter.value = "all";
+  elements.tagFilter.value = "all";
+  elements.sortFilter.value = "created_desc";
+  renderTaskViews();
+}
+
 function getFilteredTasks() {
   const query = elements.searchInput.value.trim().toLocaleLowerCase("tr-TR");
   const status = elements.statusFilter.value;
@@ -1795,7 +1826,7 @@ function getFilteredTasks() {
   const filteredTasks = state.tasks.filter((task) => {
     const assignments = getTaskAssignments(task.id);
     const taskCategory = getTaskCategory(task);
-    const isVisibleToRole = isAdmin() || assignments.some((assignment) => assignment.userId === getSessionUser()?.id) || canUploadTaskAttachments(task);
+    const isVisibleToRole = isTaskVisibleToRole(task, assignments);
     const matchesText =
       !query ||
       (task.title || "").toLocaleLowerCase("tr-TR").includes(query) ||
@@ -1807,7 +1838,7 @@ function getFilteredTasks() {
     const matchesStatus = status === "all" || task.status === status;
     const matchesPriority = priority === "all" || task.priority === priority;
     const matchesCategory = category === "all" || taskCategory?.id === category;
-    const matchesProject = projectId === "all" || task.projectId === projectId;
+    const matchesProject = projectId === "all" || (projectId === "__inbox__" ? !task.projectId : task.projectId === projectId);
     const matchesAssignee = assignee === "all" || assignments.some((assignment) => assignment.userId === assignee);
     const matchesTag = tag === "all" || (task.tags || []).includes(tag);
 
@@ -1887,6 +1918,12 @@ function renderTasks() {
   elements.taskCount.textContent = `${tasks.length} görev`;
 
   if (tasks.length === 0) {
+    const isInboxView = elements.projectFilter.value === "__inbox__";
+    const hasOtherFilters = elements.searchInput.value.trim() || [elements.statusFilter, elements.priorityFilter, elements.categoryFilter, elements.assigneeFilter, elements.tagFilter].some((control) => control.value !== "all");
+    if (isInboxView && !hasOtherFilters) {
+      elements.taskList.innerHTML = `<div class="empty-state"><strong>Gelen Kutusu boş 🎉</strong><span>Projesiz görevin yok — sıfır sürtünmeli yakalama. Proje seçmeden eklediğin yeni görevler buraya düşer.</span></div>`;
+      return;
+    }
     const hasFilters = elements.searchInput.value.trim() || [elements.statusFilter, elements.priorityFilter, elements.categoryFilter, elements.projectFilter, elements.assigneeFilter, elements.tagFilter].some((control) => control.value !== "all");
     elements.taskList.innerHTML = hasFilters
       ? `<div class="empty-state"><strong>Aradığın görev bulunamadı.</strong><span>Filtreleri temizleyerek tüm görevleri yeniden görebilirsin.</span><button class="small-button" type="button" data-clear-task-filters>Filtreleri temizle</button></div>`
@@ -2627,6 +2664,7 @@ function renderAll() {
   renderTaskViews();
   renderDashboard();
   renderTaskDetail();
+  renderInboxNavBadge();
   const currentView = [...elements.navItems].find((item) => item.classList.contains("active"))?.dataset.view;
   setView(currentView || "dashboard");
 }
@@ -3118,11 +3156,6 @@ function editCategory(categoryId) {
 async function addTask(event) {
   event.preventDefault();
   if (!isAdmin()) return showToast("Görev oluşturma yalnızca yöneticilere açıktır.", "error");
-
-  if (!elements.taskProject.value) {
-    alert("Görev eklemek için önce proje oluşturun.");
-    return;
-  }
 
   const taskId = createId("task");
   const priority = elements.taskPriority.value;
@@ -4088,6 +4121,9 @@ function bindEvents() {
   elements.navItems.forEach((item) => {
     item.addEventListener("click", () => {
       setView(item.dataset.view, item);
+      if (item.dataset.inboxShortcut) {
+        openInboxView();
+      }
       if (item === elements.addCategoryNavBtn) {
         resetCategoryForm();
         requestAnimationFrame(() => {

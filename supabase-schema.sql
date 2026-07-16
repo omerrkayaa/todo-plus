@@ -72,6 +72,8 @@ alter table public.tasks add column if not exists subtasks jsonb not null defaul
 alter table public.tasks add column if not exists tags text[] not null default '{}';
 alter table public.tasks add column if not exists start_date date;
 alter table public.tasks add column if not exists repeat_interval varchar(20) not null default 'none';
+-- Gelen Kutusu: projesiz gorevlere izin vermek icin zorunlulugu kaldirir.
+alter table public.tasks alter column project_id drop not null;
 do $$
 begin
   if not exists (select 1 from pg_constraint where conname = 'tasks_repeat_interval_check') then
