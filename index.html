@@ -113,7 +113,6 @@
 
       <nav class="nav-list" aria-label="Ana menü">
         <span id="navRoleLabel" class="nav-label">YÖNETİCİ PANELİ</span>
-        <button id="inboxNavBtn" class="nav-item" data-view="inbox" data-inbox-shortcut="true" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h4l1.5 3h5L16 12h4M4 12l1.6-6.4A2 2 0 0 1 7.53 4h8.94a2 2 0 0 1 1.93 1.6L20 12M4 12v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/></svg><span>Gelen Kutusu</span><span id="inboxNavCount" class="nav-badge hidden">0</span></button>
         <button id="todayNavBtn" class="nav-item" data-view="today" data-date-scope-shortcut="today" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Z"/><path d="M4 9h16M8 3v3M16 3v3"/><circle cx="12" cy="14.5" r="2.5"/></svg><span>Bugün</span><span id="todayNavCount" class="nav-badge hidden">0</span></button>
         <button id="calendarNavBtn" class="nav-item" data-view="calendar" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M8 3v3M16 3v3"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01"/></svg><span>Takvim</span></button>
         <button class="nav-item active" data-view="dashboard" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6v-9h-6v9Zm0-16v5h6V4h-6Z"/></svg><span id="dashboardNavText">Ekip özeti</span></button>
@@ -136,7 +135,25 @@
             <p id="pageSubtitle" class="page-subtitle">Çalışma alanınızdaki son durumu görün.</p>
           </div>
         </div>
-        <button id="newTaskBtn" class="primary-button topbar-cta" type="button"><span>+</span> Yeni görev</button>
+        <div class="topbar-actions">
+          <div class="notifications-wrap">
+            <button id="notificationsBtn" class="notifications-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="notificationsPanel" aria-label="Bildirimler">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 3.2 1 5.2 2 6.5H4c1-1.3 2-3.3 2-6.5Z"/><path d="M9.5 18a2.5 2.5 0 0 0 5 0"/></svg>
+              <span id="notificationsBadge" class="notification-badge hidden">0</span>
+            </button>
+            <section id="notificationsPanel" class="notifications-panel hidden" aria-label="Bildirimler">
+              <div class="panel-header">
+                <div>
+                  <p class="section-kicker">BİLDİRİM MERKEZİ</p>
+                  <h3>Görev, yorum ve teslim uyarıları</h3>
+                </div>
+                <span id="notificationCount">0 bildirim</span>
+              </div>
+              <div id="notificationList" class="notification-list"></div>
+            </section>
+          </div>
+          <button id="newTaskBtn" class="primary-button topbar-cta" type="button"><span>+</span> Yeni görev</button>
+        </div>
       </header>
 
       <section id="dashboardView" class="view active-view">
@@ -208,17 +225,6 @@
             </article>
           </div>
           <div id="focusTaskList" class="focus-list"></div>
-        </section>
-
-        <section class="panel notification-center-panel" data-dashboard-panel="overview">
-          <div class="panel-header">
-            <div>
-              <p class="section-kicker">BİLDİRİM MERKEZİ</p>
-              <h3>Görev, yorum ve teslim uyarıları</h3>
-            </div>
-            <span id="notificationCount">0 bildirim</span>
-          </div>
-          <div id="notificationList" class="notification-list"></div>
         </section>
 
         <div class="content-grid" data-dashboard-panel="overview">

@@ -359,6 +359,7 @@ let syncRetryTimer = null;
 let syncRetryCount = 0;
 let pendingDeletions = loadPendingDeletions();
 let toastTimer = null;
+const toastedNotificationIds = new Set();
 const ARCHIVE_PAGE_SIZE = 20;
 let archiveVisibleCount = ARCHIVE_PAGE_SIZE;
 let calendarAnchorDate = new Date();
@@ -410,8 +411,6 @@ const elements = {
   changePasswordSubmitBtn: document.querySelector("#changePasswordSubmitBtn"),
   logoutBtn: document.querySelector("#logoutBtn"),
   navItems: document.querySelectorAll(".nav-item"),
-  inboxNavBtn: document.querySelector("#inboxNavBtn"),
-  inboxNavCount: document.querySelector("#inboxNavCount"),
   todayNavBtn: document.querySelector("#todayNavBtn"),
   todayNavCount: document.querySelector("#todayNavCount"),
   upcomingNavBtn: document.querySelector("#upcomingNavBtn"),
@@ -463,6 +462,9 @@ const elements = {
   dashboardSectionPanels: document.querySelectorAll("[data-dashboard-panel]"),
   notificationCount: document.querySelector("#notificationCount"),
   notificationList: document.querySelector("#notificationList"),
+  notificationsBtn: document.querySelector("#notificationsBtn"),
+  notificationsPanel: document.querySelector("#notificationsPanel"),
+  notificationsBadge: document.querySelector("#notificationsBadge"),
   userScores: document.querySelector("#userScores"),
   upcomingTasks: document.querySelector("#upcomingTasks"),
   historyList: document.querySelector("#historyList"),
@@ -1338,7 +1340,9 @@ function getDashboardNotifications(tasks) {
   const notifications = [];
 
   tasks.forEach((task) => {
-    if (task.status !== "tamamlandi" && task.dueDate === currentDate) {
+    if (task.status === "tamamlandi") return;
+    const daysUntilDue = task.dueDate ? getDaysBetween(task.dueDate, currentDate) : null;
+    if (task.dueDate === currentDate) {
       notifications.push({
         id: `today-${task.id}`,
         type: "due_today",
@@ -1358,7 +1362,18 @@ function getDashboardNotifications(tasks) {
         date: task.dueDate,
         severity: 4,
       });
-    } else if (task.status !== "tamamlandi" && task.dueDate && isWithinDays(task.dueDate, currentDate, 2)) {
+    } else if (daysUntilDue === 1) {
+      notifications.push({
+        id: `tomorrow-${task.id}`,
+        type: "due_tomorrow",
+        title: "Yarın son teslim!",
+        message: `"${task.title}" görevine son 1 gün kaldı.`,
+        badge: "1 gün kaldı",
+        date: task.dueDate,
+        severity: 4,
+        urgent: true,
+      });
+    } else if (task.dueDate && isWithinDays(task.dueDate, currentDate, 2)) {
       notifications.push({
         id: `soon-${task.id}`,
         type: "due_soon",
@@ -1681,12 +1696,11 @@ function getWeeklySummaryNotification(userId) {
 
 function setView(viewName, activeNavItem = null) {
   if (!isAdmin() && viewName === "projects") viewName = "dashboard";
-  const taskScopeViews = new Set(["inbox", "today", "upcoming"]);
+  const taskScopeViews = new Set(["today", "upcoming"]);
   const titles = {
     dashboard: isAdmin() ? "Yönetici paneli" : "Kullanıcı paneli",
     projects: "Projeler",
     tasks: "Görevler",
-    inbox: "Gelen Kutusu",
     today: "Bugün",
     upcoming: "Yaklaşan",
     calendar: "Takvim",
@@ -1696,7 +1710,6 @@ function setView(viewName, activeNavItem = null) {
     dashboard: isAdmin() ? "Ekibin görevlerini ve genel ilerlemesini yönetin." : "Size atanan işleri ve kişisel ilerlemenizi görün.",
     projects: "Projelerinizi ve kategorilerinizi tek yerden yönetin.",
     tasks: "Önceliklerinizi düzenleyin ve işi akışta tutun.",
-    inbox: "Henüz bir projeye bağlanmamış görevler.",
     today: "Başlangıcı bugün olan ve teslim tarihi bugün/geçmiş olan görevler.",
     upcoming: "Gelecek tarihli görevler, teslim tarihine göre sıralı.",
     calendar: "Son tarihli görevlerin aylık görünümü.",
@@ -2028,10 +2041,6 @@ function isTaskVisibleToRole(task, assignments) {
   return isAdmin() || taskAssignments.some((assignment) => assignment.userId === getSessionUser()?.id) || canUploadTaskAttachments(task);
 }
 
-function getInboxTaskCount() {
-  return state.tasks.filter((task) => !task.projectId && task.status !== "tamamlandi" && isTaskVisibleToRole(task)).length;
-}
-
 function isTaskDueToday(task) {
   return task.status !== "tamamlandi" && Boolean(task.startDate === today() || (task.dueDate && task.dueDate <= today()));
 }
@@ -2046,13 +2055,6 @@ function getTodayTaskCount() {
 
 function getUpcomingTaskCount() {
   return state.tasks.filter((task) => isTaskUpcoming(task) && isTaskVisibleToRole(task)).length;
-}
-
-function renderInboxNavBadge() {
-  if (!elements.inboxNavCount) return;
-  const count = getInboxTaskCount();
-  elements.inboxNavCount.textContent = String(count);
-  elements.inboxNavCount.classList.toggle("hidden", count === 0);
 }
 
 function renderTodayNavBadge() {
@@ -2079,13 +2081,6 @@ function resetTaskFiltersToDefaults() {
   elements.assigneeFilter.value = "all";
   elements.tagFilter.value = "all";
   elements.dateScopeFilter.value = "all";
-}
-
-function openInboxView() {
-  resetTaskFiltersToDefaults();
-  elements.projectFilter.value = "__inbox__";
-  elements.sortFilter.value = "created_desc";
-  renderTaskViews();
 }
 
 function openTodayView() {
@@ -3220,6 +3215,17 @@ function renderDashboard() {
   const weeklySummary = getWeeklySummaryNotification(dashboardUserId);
   const notifications = weeklySummary ? [weeklySummary, ...getDashboardNotifications(visibleTasks)] : getDashboardNotifications(visibleTasks);
   elements.notificationCount.textContent = `${notifications.length} bildirim`;
+  elements.notificationsBadge.textContent = String(notifications.length);
+  elements.notificationsBadge.classList.toggle("hidden", notifications.length === 0);
+
+  const newUrgentNotifications = notifications.filter((notification) => notification.urgent && !toastedNotificationIds.has(notification.id));
+  newUrgentNotifications.forEach((notification) => toastedNotificationIds.add(notification.id));
+  if (newUrgentNotifications.length === 1) {
+    showToast(newUrgentNotifications[0].message, "error");
+  } else if (newUrgentNotifications.length > 1) {
+    showToast(`${newUrgentNotifications.length} göreve son 1 gün kaldı.`, "error");
+  }
+
   elements.notificationList.innerHTML =
     notifications.length === 0
       ? `<div class="empty-state">Şu anda yeni bildirim yok.</div>`
@@ -3302,7 +3308,6 @@ function renderAll() {
   renderTaskViews();
   renderDashboard();
   renderTaskDetail();
-  renderInboxNavBadge();
   renderTodayNavBadge();
   renderUpcomingNavBadge();
   const currentView = [...elements.navItems].find((item) => item.classList.contains("active"))?.dataset.view;
@@ -5037,14 +5042,12 @@ function bindEvents() {
   elements.navItems.forEach((item) => {
     item.addEventListener("click", () => {
       setView(item.dataset.view, item);
-      if (item.dataset.inboxShortcut) {
-        openInboxView();
-      } else if (item.dataset.dateScopeShortcut === "today") {
+      if (item.dataset.dateScopeShortcut === "today") {
         openTodayView();
       } else if (item.dataset.dateScopeShortcut === "upcoming") {
         openUpcomingView();
       } else if (item.dataset.view === "tasks") {
-        // Gelen Kutusu/Bugün/Yaklaşan kısayollarının kurduğu filtreler burada kalmasın:
+        // Bugün/Yaklaşan kısayollarının kurduğu filtreler burada kalmasın:
         // "Görev yönetimi" her zaman tüm görevleri gösterir.
         resetTaskFiltersToDefaults();
         elements.sortFilter.value = "created_desc";
@@ -5096,6 +5099,17 @@ function bindEvents() {
     if (!dismissButton) return;
     dismissWeeklySummary(dismissButton.dataset.dismissUser, dismissButton.dataset.dismissWeek);
     renderDashboard();
+  });
+  elements.notificationsBtn.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const isOpen = elements.notificationsPanel.classList.toggle("hidden") === false;
+    elements.notificationsBtn.setAttribute("aria-expanded", String(isOpen));
+  });
+  document.addEventListener("click", (event) => {
+    if (elements.notificationsPanel.classList.contains("hidden")) return;
+    if (event.target.closest("#notificationsPanel") || event.target.closest("#notificationsBtn")) return;
+    elements.notificationsPanel.classList.add("hidden");
+    elements.notificationsBtn.setAttribute("aria-expanded", "false");
   });
   elements.resetDemoBtn.addEventListener("click", resetDemoData);
   elements.projectForm.addEventListener("submit", addProject);
@@ -5317,6 +5331,9 @@ function bindEvents() {
       resetTaskForm();
     } else if (event.key === "Escape" && elements.sidebar.classList.contains("open")) {
       closeSidebar();
+    } else if (event.key === "Escape" && !elements.notificationsPanel.classList.contains("hidden")) {
+      elements.notificationsPanel.classList.add("hidden");
+      elements.notificationsBtn.setAttribute("aria-expanded", "false");
     }
   });
 
