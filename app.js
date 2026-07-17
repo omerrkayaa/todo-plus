@@ -2562,7 +2562,7 @@ function renderKanbanBoard() {
       const columnTasks = tasks.filter((task) => task.status === status);
 
       return `
-        <section class="kanban-column" aria-label="${statusLabels[status]} sütunu, ${columnTasks.length} görev">
+        <section class="kanban-column" data-kanban-status="${status}" aria-label="${statusLabels[status]} sütunu, ${columnTasks.length} görev">
           <div class="kanban-column-header">
             <h4>${statusLabels[status]}</h4>
             <span aria-hidden="true">${columnTasks.length}</span>

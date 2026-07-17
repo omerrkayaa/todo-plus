@@ -459,17 +459,17 @@ main {
   margin: 0 0 4px;
 }
 
-/* Proje yönetimi: konteyner başına ince renk şeridi (düz beyaz kart gövdesi, diğer sayfalarla tutarlı) */
+/* Proje yönetimi: Trello tarzı, konteyner başına arka temadan net ayrışan renk */
 #projectsView .panel {
-  border-top-width: 3px;
+  border-top-width: 4px;
 }
 
-#projectForm { border-top-color: #3b82f6; }
-#categoryForm { border-top-color: #16a34a; }
-#projectInviteForm { border-top-color: #d97706; }
-#projectsListPanel { border-top-color: #7c3aed; }
-#categoriesListPanel { border-top-color: #db2777; }
-#projectMembershipPanel { border-top-color: #0891b2; }
+#projectForm { background: #e3edff; border-top-color: #3b82f6; }
+#categoryForm { background: #e1f7ea; border-top-color: #16a34a; }
+#projectInviteForm { background: #fff2d9; border-top-color: #d97706; }
+#projectsListPanel { background: #ede7ff; border-top-color: #7c3aed; }
+#categoriesListPanel { background: #fce7f3; border-top-color: #db2777; }
+#projectMembershipPanel { background: #dff8fa; border-top-color: #0891b2; }
 
 label {
   display: grid;
@@ -2347,4 +2347,32 @@ main { padding: 0 36px 48px; }
     width: auto;
     max-height: 70vh;
   }
+}
+
+/* Trello tarzı: her panel/konteyner arka temadan net ayrışan kendi rengine sahip */
+.dashboard-focus-panel,
+.quick-add-panel,
+.history-panel,
+#userScoresPanel,
+#upcomingTasksPanel {
+  border-top-width: 4px;
+}
+
+.dashboard-focus-panel { background: #fff2d9; border-top-color: #d97706; }
+.quick-add-panel { background: #ede7ff; border-top-color: #7c3aed; }
+#userScoresPanel { background: #e1f7ea; border-top-color: #16a34a; }
+#upcomingTasksPanel { background: #e3edff; border-top-color: #3b82f6; }
+.history-panel { background: #eef0f3; border-top-color: #64748b; }
+
+.kanban-column {
+  border-top-width: 4px;
+}
+
+.kanban-column[data-kanban-status="bekliyor"] { background: #eef0f3; border-top-color: #64748b; }
+.kanban-column[data-kanban-status="devam_ediyor"] { background: #e3edff; border-top-color: #3b82f6; }
+.kanban-column[data-kanban-status="tamamlandi"] { background: #e1f7ea; border-top-color: #16a34a; }
+
+.kanban-column .task-card,
+.kanban-column .empty-state {
+  background: rgba(255, 255, 255, .85);
 }
