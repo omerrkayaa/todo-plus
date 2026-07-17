@@ -360,6 +360,7 @@ let syncRetryCount = 0;
 let pendingDeletions = loadPendingDeletions();
 let toastTimer = null;
 const toastedNotificationIds = new Set();
+let latestNotificationsSnapshot = { userId: null, ids: [] };
 const ARCHIVE_PAGE_SIZE = 20;
 let archiveVisibleCount = ARCHIVE_PAGE_SIZE;
 let calendarAnchorDate = new Date();
@@ -1660,6 +1661,30 @@ function dismissWeeklySummary(userId, weekKey) {
     const map = raw ? JSON.parse(raw) : {};
     map[userId] = weekKey;
     window.localStorage.setItem(WEEKLY_SUMMARY_DISMISS_KEY, JSON.stringify(map));
+  } catch {
+    /* localStorage kullanılamıyorsa sessizce yok say. */
+  }
+}
+
+const SEEN_NOTIFICATIONS_KEY = "todo_plus_seen_notification_ids_v1";
+
+function getSeenNotificationIds(userId) {
+  try {
+    const raw = window.localStorage.getItem(SEEN_NOTIFICATIONS_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    return new Set(map[userId] || []);
+  } catch {
+    return new Set();
+  }
+}
+
+function markNotificationsSeen(userId, ids) {
+  if (!userId || ids.length === 0) return;
+  try {
+    const raw = window.localStorage.getItem(SEEN_NOTIFICATIONS_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    map[userId] = [...new Set([...(map[userId] || []), ...ids])];
+    window.localStorage.setItem(SEEN_NOTIFICATIONS_KEY, JSON.stringify(map));
   } catch {
     /* localStorage kullanılamıyorsa sessizce yok say. */
   }
@@ -3216,8 +3241,12 @@ function renderDashboard() {
   const weeklySummary = getWeeklySummaryNotification(dashboardUserId);
   const notifications = weeklySummary ? [weeklySummary, ...getDashboardNotifications(visibleTasks)] : getDashboardNotifications(visibleTasks);
   elements.notificationCount.textContent = `${notifications.length} bildirim`;
-  elements.notificationsBadge.textContent = String(notifications.length);
-  elements.notificationsBadge.classList.toggle("hidden", notifications.length === 0);
+
+  const seenNotificationIds = getSeenNotificationIds(dashboardUserId);
+  const unseenCount = notifications.filter((notification) => !seenNotificationIds.has(notification.id)).length;
+  elements.notificationsBadge.textContent = String(unseenCount);
+  elements.notificationsBadge.classList.toggle("hidden", unseenCount === 0);
+  latestNotificationsSnapshot = { userId: dashboardUserId, ids: notifications.map((notification) => notification.id) };
 
   const newUrgentNotifications = notifications.filter((notification) => notification.urgent && !toastedNotificationIds.has(notification.id));
   newUrgentNotifications.forEach((notification) => toastedNotificationIds.add(notification.id));
@@ -5115,6 +5144,10 @@ function bindEvents() {
     event.stopPropagation();
     const isOpen = elements.notificationsPanel.classList.toggle("hidden") === false;
     elements.notificationsBtn.setAttribute("aria-expanded", String(isOpen));
+    if (isOpen) {
+      markNotificationsSeen(latestNotificationsSnapshot.userId, latestNotificationsSnapshot.ids);
+      elements.notificationsBadge.classList.add("hidden");
+    }
   });
   document.addEventListener("click", (event) => {
     if (elements.notificationsPanel.classList.contains("hidden")) return;
