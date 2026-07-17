@@ -406,6 +406,7 @@ const elements = {
   closeChangePasswordModalBtn: document.querySelector("#closeChangePasswordModalBtn"),
   cancelChangePasswordBtn: document.querySelector("#cancelChangePasswordBtn"),
   changePasswordForm: document.querySelector("#changePasswordForm"),
+  currentPassword: document.querySelector("#currentPassword"),
   newPassword: document.querySelector("#newPassword"),
   newPasswordConfirm: document.querySelector("#newPasswordConfirm"),
   changePasswordSubmitBtn: document.querySelector("#changePasswordSubmitBtn"),
@@ -4391,7 +4392,7 @@ function closeUserModal() {
 
 function openChangePasswordModal() {
   elements.changePasswordForm.reset();
-  activateModal(elements.changePasswordModal, elements.newPassword);
+  activateModal(elements.changePasswordModal, elements.currentPassword);
 }
 
 function closeChangePasswordModal() {
@@ -4401,21 +4402,31 @@ function closeChangePasswordModal() {
 
 async function submitChangePassword(event) {
   event.preventDefault();
+  const currentPassword = elements.currentPassword.value;
   const newPassword = elements.newPassword.value;
   const confirmPassword = elements.newPasswordConfirm.value;
-  if (newPassword.length < 6) return showToast("Şifre en az 6 karakter olmalıdır.", "error");
-  if (newPassword !== confirmPassword) return showToast("Şifreler eşleşmiyor.", "error");
+  if (!currentPassword) return showToast("Mevcut şifreni girmelisin.", "error");
+  if (newPassword.length < 6) return showToast("Yeni şifre en az 6 karakter olmalıdır.", "error");
+  if (newPassword !== confirmPassword) return showToast("Yeni şifreler eşleşmiyor.", "error");
 
   const button = elements.changePasswordSubmitBtn;
   button.disabled = true;
   button.textContent = "Güncelleniyor…";
   try {
     if (supabaseReady) {
-      const { error } = await getSupabaseClient().auth.updateUser({ password: newPassword });
+      const client = getSupabaseClient();
+      const { error: signInError } = await client.auth.signInWithPassword({
+        email: getSessionUser().email,
+        password: currentPassword,
+      });
+      if (signInError) throw new Error("Mevcut şifre yanlış.");
+
+      const { error } = await client.auth.updateUser({ password: newPassword });
       if (error) throw new Error(error.message);
     } else {
       const account = authAccounts.find((item) => item.id === getSessionUser()?.id);
       if (!account) throw new Error("Hesap bulunamadı.");
+      if (account.password !== currentPassword) throw new Error("Mevcut şifre yanlış.");
       account.password = newPassword;
       saveAuthAccounts();
     }

@@ -2373,3 +2373,56 @@ main { padding: 0 36px 48px; }
 .kanban-column .empty-state {
   background: rgba(255, 255, 255, .85);
 }
+
+/* Şifre değiştirme modalı */
+.change-password-modal {
+  width: min(460px, 96vw);
+  border-top: 4px solid #3b82f6;
+}
+
+.modal-header-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.modal-icon-badge {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  color: #3b82f6;
+  background: #e3edff;
+}
+
+.modal-icon-badge svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.form-section-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.form-section-divider::before,
+.form-section-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}

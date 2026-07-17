@@ -685,16 +685,28 @@
 
   <div id="changePasswordModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="changePasswordModalTitle">
     <div class="modal-backdrop" data-close-change-password-modal></div>
-    <section class="modal-panel user-modal">
+    <section class="modal-panel user-modal change-password-modal">
       <div class="modal-header">
-        <div>
-          <p class="eyebrow">Hesap güvenliği</p>
-          <h2 id="changePasswordModalTitle">Şifre değiştir</h2>
+        <div class="modal-header-with-icon">
+          <span class="modal-icon-badge" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+          </span>
+          <div>
+            <p class="eyebrow">Hesap güvenliği</p>
+            <h2 id="changePasswordModalTitle">Şifre değiştir</h2>
+          </div>
         </div>
         <button id="closeChangePasswordModalBtn" class="small-button" type="button" aria-label="Şifre değiştirme penceresini kapat">Kapat</button>
       </div>
 
       <form id="changePasswordForm" class="user-form">
+        <label>
+          Mevcut şifre
+          <input id="currentPassword" type="password" required autocomplete="current-password" placeholder="Şu anki şifreni gir" />
+        </label>
+
+        <div class="form-section-divider"><span>Yeni şifre</span></div>
+
         <label>
           Yeni şifre
           <input id="newPassword" type="password" required minlength="6" autocomplete="new-password" placeholder="En az 6 karakter" />
