@@ -1705,6 +1705,8 @@ function setView(viewName, activeNavItem = null) {
 
   document.querySelector(`#${displayView}View`).classList.add("active-view");
 
+  elements.newTaskBtn.classList.toggle("view-hidden", displayView !== "tasks");
+
   const selectedNavItem = activeNavItem || [...elements.navItems].find((item) => item.dataset.view === viewName);
   elements.navItems.forEach((item) => {
     item.classList.toggle("active", item === selectedNavItem);

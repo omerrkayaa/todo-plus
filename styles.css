@@ -63,6 +63,10 @@ a:focus-visible,
   display: none !important;
 }
 
+.view-hidden {
+  display: none !important;
+}
+
 .auth-screen {
   display: grid;
   place-items: center;
