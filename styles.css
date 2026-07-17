@@ -165,7 +165,8 @@ a:focus-visible,
 }
 
 .menu-toggle {
-  display: none;
+  display: grid;
+  place-items: center;
   width: 42px;
   height: 42px;
   border: 1px solid var(--line);
@@ -1235,16 +1236,24 @@ input:focus, select:focus, textarea:focus {
 .auth-form .primary-button { width: 100%; margin-top: 4px; }
 
 /* Application shell */
-.app-shell { grid-template-columns: 248px minmax(0, 1fr); }
+.app-shell { grid-template-columns: 1fr; }
 
 .sidebar {
-  position: sticky;
-  top: 0;
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 40;
+  width: min(300px, 88vw);
   height: 100svh;
+  overflow-y: auto;
   gap: 18px;
   padding: 22px 16px 16px;
   background: var(--sidebar);
+  transform: translateX(-105%);
+  transition: transform 180ms ease;
+  box-shadow: 20px 0 45px rgba(15, 23, 42, 0.25);
 }
+
+.sidebar.open { transform: translateX(0); }
 
 .sidebar .brand { padding: 0 8px; }
 .brand-mark {
