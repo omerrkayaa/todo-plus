@@ -459,6 +459,18 @@ main {
   margin: 0 0 4px;
 }
 
+/* Proje yönetimi: Trello benzeri, konteyner başına farklı renk */
+#projectsView .panel {
+  border-top-width: 4px;
+}
+
+#projectForm { background: #eef3ff; border-top-color: #3b82f6; }
+#categoryForm { background: #eafaf1; border-top-color: #16a34a; }
+#projectInviteForm { background: #fff6e6; border-top-color: #d97706; }
+#projectsListPanel { background: #f3f0ff; border-top-color: #7c3aed; }
+#categoriesListPanel { background: #fdf0f7; border-top-color: #db2777; }
+#projectMembershipPanel { background: #e9fafb; border-top-color: #0891b2; }
+
 label {
   display: grid;
   gap: 7px;
