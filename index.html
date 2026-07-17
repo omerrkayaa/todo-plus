@@ -529,22 +529,45 @@
       </section>
 
       <section id="calendarView" class="view">
-        <section class="panel calendar-panel">
-          <div class="calendar-toolbar">
-            <div class="calendar-nav">
-              <button id="calendarPrevBtn" class="small-button" type="button" aria-label="Önceki ay">‹</button>
-              <h3 id="calendarMonthLabel">Ay Yıl</h3>
-              <button id="calendarNextBtn" class="small-button" type="button" aria-label="Sonraki ay">›</button>
-              <button id="calendarTodayBtn" class="small-button" type="button">Bugün</button>
+        <div class="calendar-layout">
+          <section class="panel calendar-panel">
+            <div class="calendar-toolbar">
+              <div class="calendar-nav">
+                <button id="calendarPrevBtn" class="small-button" type="button" aria-label="Önceki ay">‹</button>
+                <h3 id="calendarMonthLabel">Ay Yıl</h3>
+                <button id="calendarNextBtn" class="small-button" type="button" aria-label="Sonraki ay">›</button>
+                <button id="calendarTodayBtn" class="small-button" type="button">Bugün</button>
+              </div>
+              <button id="calendarExportBtn" class="small-button" type="button">📤 Takvimi indir (.ics)</button>
             </div>
-            <button id="calendarExportBtn" class="small-button" type="button">📤 Takvimi indir (.ics)</button>
-          </div>
-          <p class="calendar-hint">Son tarihi olan görevler burada görünür. Yönetici, bir görevi başka bir güne sürükleyerek teslim tarihini değiştirebilir.</p>
-          <div class="calendar-weekdays">
-            <span>Pzt</span><span>Sal</span><span>Çar</span><span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span>
-          </div>
-          <div id="calendarGrid" class="calendar-grid"></div>
-        </section>
+            <p class="calendar-hint">Bir güne tıklayınca sağda o günün planı açılır. Yönetici, görevi başka güne sürükleyerek teslim tarihini değiştirebilir.</p>
+            <div class="calendar-legend">
+              <span><span class="legend-dot legend-dot-task" aria-hidden="true"></span>Görev olan gün</span>
+              <span><span class="legend-dot legend-dot-note" aria-hidden="true"></span>📝 Kendi notun/planın olan gün</span>
+            </div>
+            <div class="calendar-weekdays">
+              <span>Pzt</span><span>Sal</span><span>Çar</span><span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span>
+            </div>
+            <div id="calendarGrid" class="calendar-grid"></div>
+          </section>
+
+          <aside class="panel day-planner-panel" aria-label="Günlük plan">
+            <p class="section-kicker">GÜNLÜK PLAN</p>
+            <h3 id="plannerDateTitle">Bugün</h3>
+            <div id="plannerTaskList" class="planner-task-list"></div>
+            <form id="plannerNoteForm" class="planner-note-form">
+              <label>
+                Günün notu
+                <textarea id="plannerNoteText" rows="5" placeholder="Bu gün için küçük notlar, plan taslağı, hatırlatmalar…"></textarea>
+              </label>
+              <div class="form-actions">
+                <button class="primary-button" type="submit">Notu kaydet</button>
+                <button id="plannerNoteDeleteBtn" class="small-button hidden" type="button">Notu sil</button>
+              </div>
+              <small>Not yalnızca sana görünür; gün hücresinde 📝 işaretiyle gösterilir.</small>
+            </form>
+          </aside>
+        </div>
       </section>
 
       <section id="archiveView" class="view">

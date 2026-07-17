@@ -312,6 +312,7 @@ const defaultState = {
   ],
   projectMembers: [],
   projectInvitations: [],
+  calendarNotes: [],
 };
 
 const defaultAuthAccounts = [
@@ -362,6 +363,7 @@ const ARCHIVE_PAGE_SIZE = 20;
 let archiveVisibleCount = ARCHIVE_PAGE_SIZE;
 let calendarAnchorDate = new Date();
 calendarAnchorDate.setDate(1);
+let selectedPlannerDate = today();
 const modalReturnFocus = new WeakMap();
 
 const elements = {
@@ -422,6 +424,11 @@ const elements = {
   calendarMonthLabel: document.querySelector("#calendarMonthLabel"),
   calendarExportBtn: document.querySelector("#calendarExportBtn"),
   calendarGrid: document.querySelector("#calendarGrid"),
+  plannerDateTitle: document.querySelector("#plannerDateTitle"),
+  plannerTaskList: document.querySelector("#plannerTaskList"),
+  plannerNoteForm: document.querySelector("#plannerNoteForm"),
+  plannerNoteText: document.querySelector("#plannerNoteText"),
+  plannerNoteDeleteBtn: document.querySelector("#plannerNoteDeleteBtn"),
   archiveNavBtn: document.querySelector("#archiveNavBtn"),
   archiveNavCount: document.querySelector("#archiveNavCount"),
   archiveView: document.querySelector("#archiveView"),
@@ -615,6 +622,7 @@ function migrateState(nextState, parsedState) {
   }
   if (!Array.isArray(parsedState.projectMembers)) nextState.projectMembers = [];
   if (!Array.isArray(parsedState.projectInvitations)) nextState.projectInvitations = [];
+  if (!Array.isArray(parsedState.calendarNotes)) nextState.calendarNotes = [];
 
   return nextState;
 }
@@ -2333,11 +2341,20 @@ function renderCalendarView() {
       const dayTasks = (tasksByDate[dateKey] || []).sort((a, b) => getTaskScore(b) - getTaskScore(a));
       const visibleChips = dayTasks.slice(0, 3);
       const overflowCount = dayTasks.length - visibleChips.length;
-      const dayClasses = ["calendar-day", !inMonth && "calendar-day-outside", dateKey === todayKey && "calendar-day-today"].filter(Boolean).join(" ");
+      const hasNote = Boolean(getCalendarNote(dateKey));
+      const dayClasses = [
+        "calendar-day",
+        !inMonth && "calendar-day-outside",
+        dateKey === todayKey && "calendar-day-today",
+        dateKey === selectedPlannerDate && "calendar-day-selected",
+        dayTasks.length > 0 && "calendar-day-has-tasks",
+        hasNote && "calendar-day-has-note",
+      ].filter(Boolean).join(" ");
 
       return `
         <div class="${dayClasses}" data-calendar-date="${dateKey}">
           <span class="calendar-day-number">${cellDate.getDate()}</span>
+          ${hasNote ? '<span class="calendar-day-note-badge" title="Kişisel notun var" aria-hidden="true">📝</span>' : ""}
           <div class="calendar-day-tasks">
             ${visibleChips
               .map((task) => {
@@ -2354,6 +2371,8 @@ function renderCalendarView() {
       `;
     })
     .join("");
+
+  renderDayPlanner();
 }
 
 function shiftCalendarMonth(offset) {
@@ -2363,7 +2382,94 @@ function shiftCalendarMonth(offset) {
 
 function resetCalendarToToday() {
   calendarAnchorDate = new Date(`${today()}T12:00:00`);
+  selectedPlannerDate = today();
   renderCalendarView();
+}
+
+function getPlannerUserId() {
+  return isAdmin() ? state.activeUserId : getSessionUser()?.id;
+}
+
+function getCalendarNote(dateKey) {
+  const userId = getPlannerUserId();
+  return state.calendarNotes.find((note) => note.date === dateKey && note.userId === userId);
+}
+
+function getTasksForCalendarDate(dateKey) {
+  return state.tasks
+    .filter((task) => task.dueDate === dateKey && isTaskVisibleToRole(task))
+    .sort((a, b) => getTaskScore(b) - getTaskScore(a));
+}
+
+function openDayPlanner(dateKey) {
+  selectedPlannerDate = dateKey;
+  renderCalendarView();
+}
+
+function renderDayPlanner() {
+  if (!elements.plannerDateTitle) return;
+  const dateKey = selectedPlannerDate;
+  elements.plannerDateTitle.textContent = dateKey === today() ? `Bugün · ${formatDate(dateKey)}` : formatDate(dateKey);
+
+  const dayTasks = getTasksForCalendarDate(dateKey);
+  elements.plannerTaskList.innerHTML = dayTasks.length
+    ? dayTasks
+        .map((task) => {
+          const chipLabel = `${task.title} — ${priorityLabels[task.priority]} öncelik${task.status === "tamamlandi" ? ", tamamlandı" : ""}`;
+          return `
+            <button type="button" class="planner-task-item priority-${task.priority}${task.status === "tamamlandi" ? " calendar-chip-done" : ""}" data-detail-task="${task.id}" title="${escapeHtml(chipLabel)}">
+              <span class="planner-task-title">${escapeHtml(task.title)}</span>
+              <span class="planner-task-meta">${priorityLabels[task.priority]}${task.status === "tamamlandi" ? " · Tamamlandı" : ""}</span>
+            </button>
+          `;
+        })
+        .join("")
+    : `<p class="planner-empty">Bu gün için görev yok. Kendi planını aşağıya not olarak ekleyebilirsin.</p>`;
+
+  const note = getCalendarNote(dateKey);
+  elements.plannerNoteText.value = note?.text || "";
+  elements.plannerNoteDeleteBtn.classList.toggle("hidden", !note);
+}
+
+function savePlannerNote(event) {
+  event.preventDefault();
+  const text = elements.plannerNoteText.value.trim();
+  if (!text) return showToast("Not metni boş olamaz.", "error");
+
+  const userId = getPlannerUserId();
+  const existing = getCalendarNote(selectedPlannerDate);
+  if (existing) {
+    existing.text = text;
+    existing.updatedAt = today();
+  } else {
+    state.calendarNotes.push({
+      id: createId(),
+      userId,
+      date: selectedPlannerDate,
+      text,
+      createdAt: today(),
+      updatedAt: today(),
+    });
+  }
+  saveState();
+  renderCalendarView();
+  showToast("Not kaydedildi.");
+}
+
+function deletePlannerNote() {
+  const existing = getCalendarNote(selectedPlannerDate);
+  if (!existing) return;
+  state.calendarNotes = state.calendarNotes.filter((note) => note.id !== existing.id);
+  saveState();
+  renderCalendarView();
+  showToast("Not silindi.");
+}
+
+function handleCalendarDayClick(event) {
+  if (event.target.closest("[data-task-card]")) return;
+  const dayCell = event.target.closest("[data-calendar-date]");
+  if (!dayCell) return;
+  openDayPlanner(dayCell.dataset.calendarDate);
 }
 
 function rescheduleTaskDueDate(taskId, newDueDate) {
@@ -5122,11 +5228,15 @@ function bindEvents() {
   elements.calendarTodayBtn.addEventListener("click", resetCalendarToToday);
   elements.calendarExportBtn.addEventListener("click", downloadCalendarIcs);
   elements.calendarGrid.addEventListener("click", handleTaskActionClick);
+  elements.calendarGrid.addEventListener("click", handleCalendarDayClick);
   elements.calendarGrid.addEventListener("dragstart", handleKanbanDragStart);
   elements.calendarGrid.addEventListener("dragend", handleKanbanDragEnd);
   elements.calendarGrid.addEventListener("dragover", handleCalendarDragOver);
   elements.calendarGrid.addEventListener("dragleave", handleCalendarDragLeave);
   elements.calendarGrid.addEventListener("drop", handleCalendarDrop);
+  elements.plannerTaskList.addEventListener("click", handleTaskActionClick);
+  elements.plannerNoteForm.addEventListener("submit", savePlannerNote);
+  elements.plannerNoteDeleteBtn.addEventListener("click", deletePlannerNote);
   elements.taskCommentForm.addEventListener("submit", addTaskComment);
   elements.taskCommentText.addEventListener("input", renderMentionSuggestions);
   elements.taskCommentText.addEventListener("click", renderMentionSuggestions);

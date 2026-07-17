@@ -1068,6 +1068,8 @@ textarea {
   --warning-soft: #fff4df;
   --danger: #c43d4b;
   --danger-soft: #fdecef;
+  --note: #0e7490;
+  --note-soft: #e3f6fa;
   --sidebar: #15171d;
   --sidebar-soft: #20232b;
   --shadow: 0 1px 2px rgba(24, 26, 32, 0.04);
@@ -1963,29 +1965,43 @@ main { padding: 0 36px 48px; }
 .danger-icon:hover { color: var(--danger); background: var(--danger-soft); }
 
 /* Takvim */
+.calendar-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; align-items: start; gap: 18px; margin-top: 18px; }
 .calendar-panel { padding: 18px; }
 .calendar-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
 .calendar-nav { display: flex; align-items: center; gap: 10px; }
 .calendar-nav h3 { min-width: 150px; margin: 0; font-size: 15px; text-align: center; text-transform: capitalize; }
-.calendar-hint { margin: 8px 0 14px; color: var(--muted); font-size: 12px; }
+.calendar-hint { margin: 8px 0 10px; color: var(--muted); font-size: 12px; }
+.calendar-legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 0 0 14px; color: var(--muted); font-size: 11px; font-weight: 600; }
+.calendar-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+.legend-dot-task { background: var(--primary); }
+.legend-dot-note { background: var(--note); }
 .calendar-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-bottom: 6px; color: var(--muted); font-size: 11px; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: .04em; }
 .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
 .calendar-day {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
   min-height: 92px;
   padding: 8px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--surface);
-  transition: border-color 140ms ease, background 140ms ease;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
 }
+.calendar-day:hover { border-color: var(--primary); }
 .calendar-day.drop-target { border-color: var(--primary); background: var(--primary-soft); }
 .calendar-day-outside { background: var(--surface-soft); opacity: .55; }
 .calendar-day-today { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
 .calendar-day-number { font-size: 12px; font-weight: 700; color: var(--muted); }
 .calendar-day-today .calendar-day-number { color: var(--primary); }
+.calendar-day-has-note { background: var(--note-soft); border-left: 3px solid var(--note); }
+.calendar-day-has-tasks { background: var(--primary-soft); }
+.calendar-day-selected { border-color: var(--primary-dark); box-shadow: 0 0 0 2px var(--primary-soft); }
+.calendar-day-note-badge { position: absolute; top: 6px; right: 7px; font-size: 11px; line-height: 1; }
 .calendar-day-tasks { display: flex; flex-direction: column; gap: 4px; }
 .calendar-chip {
   overflow: hidden;
@@ -2010,6 +2026,33 @@ main { padding: 0 36px 48px; }
 .calendar-chip-done { color: var(--muted); text-decoration: line-through; }
 .calendar-chip-mark { margin-right: 4px; font-weight: 800; opacity: .75; }
 .calendar-chip-more { padding: 2px 4px; color: var(--muted); font-size: 10px; font-weight: 700; }
+
+.day-planner-panel { display: flex; flex-direction: column; gap: 14px; padding: 18px; }
+.day-planner-panel h3 { margin: 0; font-size: 16px; text-transform: capitalize; }
+.planner-task-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+.planner-task-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-left: 3px solid var(--primary);
+  border-radius: 8px;
+  background: var(--primary-soft);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.planner-task-item:hover { filter: brightness(0.97); }
+.planner-task-item.priority-yuksek { border-left-color: var(--danger); background: var(--danger-soft); }
+.planner-task-item.priority-orta { border-left-color: var(--warning); background: var(--warning-soft); }
+.planner-task-item.priority-dusuk { border-left-color: var(--success); background: var(--success-soft); }
+.planner-task-title { font-size: 13px; font-weight: 700; }
+.planner-task-meta { color: var(--muted); font-size: 11px; }
+.planner-empty { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.planner-note-form { display: flex; flex-direction: column; gap: 10px; }
+.planner-note-form small { color: var(--muted); font-size: 11px; }
 
 /* Kanban */
 .kanban-panel { margin-top: 14px; padding: 16px; }
@@ -2149,7 +2192,7 @@ main { padding: 0 36px 48px; }
   .sidebar-backdrop { display: block; }
   main { padding: 0 20px 90px; }
   .topbar { min-height: 92px; margin-bottom: 16px; padding-top: 18px; }
-  .content-grid, .split-layout, .task-detail-grid { grid-template-columns: 1fr; }
+  .content-grid, .split-layout, .task-detail-grid, .calendar-layout { grid-template-columns: 1fr; }
   .focus-overview { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .kanban-board { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; }
   .kanban-column { flex: 0 0 min(340px,86vw); scroll-snap-align: start; }
