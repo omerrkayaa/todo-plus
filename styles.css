@@ -459,17 +459,15 @@ main {
   margin: 0 0 4px;
 }
 
-/* Proje yönetimi: Trello tarzı, konteyner başına arka temadan net ayrışan renk */
+/* Proje yönetimi: Trello tarzı, ama renk sayısı azaltıldı — aynı varlık türü aynı rengi paylaşır
+   (Proje = mavi, Kategori = yeşil, Davet/Üyelik = amber) */
 #projectsView .panel {
   border-top-width: 4px;
 }
 
-#projectForm { background: #e3edff; border-top-color: #3b82f6; }
-#categoryForm { background: #e1f7ea; border-top-color: #16a34a; }
-#projectInviteForm { background: #fff2d9; border-top-color: #d97706; }
-#projectsListPanel { background: #ede7ff; border-top-color: #7c3aed; }
-#categoriesListPanel { background: #fce7f3; border-top-color: #db2777; }
-#projectMembershipPanel { background: #dff8fa; border-top-color: #0891b2; }
+#projectForm, #projectsListPanel { background: #e3edff; border-top-color: #3b82f6; }
+#categoryForm, #categoriesListPanel { background: #e1f7ea; border-top-color: #16a34a; }
+#projectInviteForm, #projectMembershipPanel { background: #fff2d9; border-top-color: #d97706; }
 
 label {
   display: grid;
@@ -1052,7 +1050,7 @@ textarea {
 
 /* ToDo+ 2026 product redesign — Quiet Momentum */
 :root {
-  --bg: #eef1f7;
+  --bg: #e6eaf3;
   --surface: #ffffff;
   --surface-soft: #f0f2f5;
   --surface-raised: #ffffff;
@@ -2349,10 +2347,10 @@ main { padding: 0 36px 48px; }
   }
 }
 
-/* Trello tarzı: her panel/konteyner arka temadan net ayrışan kendi rengine sahip */
+/* Trello tarzı, azaltılmış palet: sadece 4 renk (amber/mor/yeşil/mavi), her biri anlamlı şekilde
+   tekrar kullanılıyor. En az önemli panel (Son görev hareketleri) renksiz/nötr kalıyor. */
 .dashboard-focus-panel,
 .quick-add-panel,
-.history-panel,
 #userScoresPanel,
 #upcomingTasksPanel {
   border-top-width: 4px;
@@ -2362,7 +2360,6 @@ main { padding: 0 36px 48px; }
 .quick-add-panel { background: #ede7ff; border-top-color: #7c3aed; }
 #userScoresPanel { background: #e1f7ea; border-top-color: #16a34a; }
 #upcomingTasksPanel { background: #e3edff; border-top-color: #3b82f6; }
-.history-panel { background: #eef0f3; border-top-color: #64748b; }
 
 .kanban-column {
   border-top-width: 4px;
