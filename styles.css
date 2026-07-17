@@ -459,17 +459,17 @@ main {
   margin: 0 0 4px;
 }
 
-/* Proje yönetimi: Trello benzeri, konteyner başına farklı renk */
+/* Proje yönetimi: konteyner başına ince renk şeridi (düz beyaz kart gövdesi, diğer sayfalarla tutarlı) */
 #projectsView .panel {
-  border-top-width: 4px;
+  border-top-width: 3px;
 }
 
-#projectForm { background: #eef3ff; border-top-color: #3b82f6; }
-#categoryForm { background: #eafaf1; border-top-color: #16a34a; }
-#projectInviteForm { background: #fff6e6; border-top-color: #d97706; }
-#projectsListPanel { background: #f3f0ff; border-top-color: #7c3aed; }
-#categoriesListPanel { background: #fdf0f7; border-top-color: #db2777; }
-#projectMembershipPanel { background: #e9fafb; border-top-color: #0891b2; }
+#projectForm { border-top-color: #3b82f6; }
+#categoryForm { border-top-color: #16a34a; }
+#projectInviteForm { border-top-color: #d97706; }
+#projectsListPanel { border-top-color: #7c3aed; }
+#categoriesListPanel { border-top-color: #db2777; }
+#projectMembershipPanel { border-top-color: #0891b2; }
 
 label {
   display: grid;
@@ -1052,7 +1052,7 @@ textarea {
 
 /* ToDo+ 2026 product redesign — Quiet Momentum */
 :root {
-  --bg: #f6f7f9;
+  --bg: #eef1f7;
   --surface: #ffffff;
   --surface-soft: #f0f2f5;
   --surface-raised: #ffffff;
@@ -1072,7 +1072,7 @@ textarea {
   --note-soft: #e3f6fa;
   --sidebar: #15171d;
   --sidebar-soft: #20232b;
-  --shadow: 0 1px 2px rgba(24, 26, 32, 0.04);
+  --shadow: 0 10px 24px rgba(24, 26, 32, 0.07), 0 2px 6px rgba(24, 26, 32, 0.05);
   --shadow-lg: 0 24px 70px rgba(24, 26, 32, 0.18);
   --radius: 16px;
 }
