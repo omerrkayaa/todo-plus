@@ -358,6 +358,8 @@ let syncInFlight = null;
 let syncRetryTimer = null;
 let syncRetryCount = 0;
 let pendingDeletions = loadPendingDeletions();
+let lastSyncedAt = localStore.loadLastSync();
+let offlineNoticeShown = false;
 let toastTimer = null;
 const toastedNotificationIds = new Set();
 let latestNotificationsSnapshot = { userId: null, ids: [] };
@@ -635,6 +637,10 @@ function saveState() {
   localStore.saveState(state);
 
   if (supabaseReady && currentSession?.userId && !isLoadingRemoteData) {
+    if (!navigator.onLine && !offlineNoticeShown) {
+      offlineNoticeShown = true;
+      showToast("Değişiklikler cihazında saklandı; bağlantı gelince gönderilecek.");
+    }
     scheduleSupabaseSync();
   }
 }
@@ -661,6 +667,29 @@ function setConnectionStatus(status, message) {
   elements.connectionStatus.textContent = message;
 }
 
+function offlineStatusMessage() {
+  if (!lastSyncedAt) return "Çevrimdışı · Değişiklikler yerelde saklanıyor";
+  const clock = new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" }).format(new Date(lastSyncedAt));
+  return `Çevrimdışı · Son eşitleme ${clock}`;
+}
+
+const syncedCollectionKeys = Object.freeze([
+  "users", "projects", "categories", "tasks", "assignments",
+  "taskGivers", "history", "taskComments", "projectMembers", "projectInvitations",
+]);
+
+function snapshotSyncedCollections(source) {
+  return structuredClone(
+    Object.fromEntries(syncedCollectionKeys.map((key) => [key, Array.isArray(source[key]) ? source[key] : []])),
+  );
+}
+
+function saveSyncCheckpoint(baseCollections) {
+  lastSyncedAt = new Date().toISOString();
+  localStore.saveLastSync(lastSyncedAt);
+  localStore.saveSyncBase({ savedAt: lastSyncedAt, collections: baseCollections });
+}
+
 function showToast(message, type = "success") {
   clearTimeout(toastTimer);
   elements.toastRegion.innerHTML = `<div class="toast ${type}">${escapeHtml(message)}</div>`;
@@ -673,6 +702,10 @@ function scheduleSupabaseSync() {
   if (!supabaseReady || !currentSession?.userId) return;
   clearTimeout(syncTimer);
   clearTimeout(syncRetryTimer);
+  if (!navigator.onLine) {
+    setConnectionStatus("error", offlineStatusMessage());
+    return;
+  }
   setConnectionStatus("syncing", "Supabase · Kaydediliyor…");
   syncTimer = setTimeout(() => {
     syncInFlight = (syncInFlight || Promise.resolve())
@@ -832,6 +865,7 @@ async function syncStateToSupabase() {
   if (!client) return false;
 
   const rows = supabaseMapper.toRemoteRows(state, isUuid);
+  const baseCandidate = snapshotSyncedCollections(state);
   const upsertRows = async (tableName, tableRows, options = undefined) => {
     if (tableRows.length === 0) return;
     const { error } = await client.from(tableName).upsert(tableRows, options);
@@ -879,12 +913,17 @@ async function syncStateToSupabase() {
         { ignoreDuplicates: true },
       );
     }
+    saveSyncCheckpoint(baseCandidate);
     setConnectionStatus("online", "Supabase · Güncel");
     return true;
   } catch (error) {
     console.error("Supabase senkronizasyon hatası:", error);
-    setConnectionStatus("error", "Supabase · Kayıt başarısız");
-    showToast("Bulut kaydı başarısız oldu; veriler yerel olarak korundu.", "error");
+    if (!navigator.onLine) {
+      setConnectionStatus("error", offlineStatusMessage());
+    } else {
+      setConnectionStatus("error", "Supabase · Kayıt başarısız");
+      showToast("Bulut kaydı başarısız oldu; veriler yerel olarak korundu.", "error");
+    }
     return false;
   }
 }
@@ -977,11 +1016,17 @@ async function loadSupabaseData(userId) {
 
     state.activeUserId = userId;
     localStore.saveState(state);
+    saveSyncCheckpoint(snapshotSyncedCollections(state));
     return true;
   } catch (error) {
     console.error("Supabase veri yükleme hatası:", error);
-    setConnectionStatus("error", "Supabase · Yükleme başarısız");
-    showToast("Bulut verileri yüklenemedi; son yerel veriler gösteriliyor.", "error");
+    if (!navigator.onLine) {
+      setConnectionStatus("error", offlineStatusMessage());
+      showToast("İnternet yok; son yerel veriler gösteriliyor.", "error");
+    } else {
+      setConnectionStatus("error", "Supabase · Yükleme başarısız");
+      showToast("Bulut verileri yüklenemedi; son yerel veriler gösteriliyor.", "error");
+    }
     return false;
   } finally {
     isLoadingRemoteData = false;
@@ -1038,6 +1083,7 @@ function resetDemoData() {
   localStore.saveSession(currentSession);
   pendingDeletions = [];
   localStore.clearDeletionQueue();
+  localStore.clearSyncBase();
   resetProjectForm();
   resetCategoryForm();
   resetTaskForm();
@@ -3363,11 +3409,15 @@ async function showApp() {
   elements.authScreen.classList.add("hidden");
   elements.appShell.classList.remove("hidden");
   if (supabaseReady && currentSession?.userId) {
-    setConnectionStatus("syncing", "Supabase · Yükleniyor…");
-    const loaded = await loadSupabaseData(currentSession.userId);
-    if (loaded) {
-      setConnectionStatus("online", "Supabase · Bağlı");
-      startRealtimeUpdates(currentSession.userId);
+    if (!navigator.onLine) {
+      setConnectionStatus("error", offlineStatusMessage());
+    } else {
+      setConnectionStatus("syncing", "Supabase · Yükleniyor…");
+      const loaded = await loadSupabaseData(currentSession.userId);
+      if (loaded) {
+        setConnectionStatus("online", "Supabase · Bağlı");
+        startRealtimeUpdates(currentSession.userId);
+      }
     }
   } else {
     setConnectionStatus("", "Demo mod · Yerel kayıt");
@@ -5074,6 +5124,7 @@ function bindEvents() {
     if (supabaseReady) {
       await getSupabaseClient()?.auth.signOut();
     }
+    localStore.clearSyncBase();
     closeSidebar();
     clearSession();
     showAuth();
@@ -5346,9 +5397,12 @@ function bindEvents() {
     }
   });
   window.addEventListener("offline", () => {
-    setConnectionStatus("error", "Çevrimdışı · Değişiklikler yerelde saklanıyor");
+    if (supabaseReady && currentSession?.userId) {
+      setConnectionStatus("error", offlineStatusMessage());
+    }
   });
   window.addEventListener("online", () => {
+    offlineNoticeShown = false;
     if (supabaseReady && currentSession?.userId) {
       setConnectionStatus("syncing", "Bağlantı geldi · Eşitleniyor…");
       scheduleSupabaseSync();

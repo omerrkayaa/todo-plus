@@ -29,6 +29,11 @@
       },
       saveDeletionQueue: (value) => write(keys.deletionQueue, value),
       clearDeletionQueue: () => storage.removeItem(keys.deletionQueue),
+      loadLastSync: () => read(keys.lastSync, null),
+      saveLastSync: (value) => write(keys.lastSync, value),
+      loadSyncBase: () => read(keys.syncBase, null),
+      saveSyncBase: (value) => write(keys.syncBase, value),
+      clearSyncBase: () => storage.removeItem(keys.syncBase),
     });
   }
 

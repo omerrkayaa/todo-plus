@@ -4,6 +4,8 @@ window.TODO_PLUS_APP = Object.freeze({
     accounts: "todo_plus_auth_accounts_v1",
     session: "todo_plus_session_v1",
     deletionQueue: "todo_plus_pending_deletions_v1",
+    lastSync: "todo_plus_last_sync_v1",
+    syncBase: "todo_plus_sync_base_v1",
   }),
   priorityScores: Object.freeze({ dusuk: 1, orta: 2, yuksek: 3 }),
   priorityLabels: Object.freeze({ dusuk: "Düşük", orta: "Orta", yuksek: "Yüksek" }),
