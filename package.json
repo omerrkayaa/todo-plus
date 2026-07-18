@@ -7,8 +7,9 @@
   "scripts": {
     "start": "node server/index.js",
     "test:server": "node --test server/tests/*.test.js",
+    "test:merge": "node --test tests/sync-merge.test.mjs",
     "test:all": "npm run test:server && npm test",
-    "test": "node scripts/smoke-test.mjs",
+    "test": "npm run test:merge && node scripts/smoke-test.mjs",
     "screenshots": "node scripts/capture-screenshots.mjs"
   },
   "dependencies": {
