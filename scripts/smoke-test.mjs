@@ -13,6 +13,11 @@ const launchBrowser = async () => {
 const browser = await launchBrowser();
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 page.setDefaultTimeout(10000);
+// Test her ortamda deterministik kalsın: Supabase yapılandırmasını etkisizleştirip
+// uygulamayı her zaman demo modda çalıştır (ağ varken gerçek girişe düşmesin).
+await page.addInitScript(() => {
+  Object.defineProperty(window, "TODO_PLUS_SUPABASE", { value: null, writable: false, configurable: false });
+});
 const rootDir = path.resolve(import.meta.dirname, "..");
 const appUrl = pathToFileURL(path.join(rootDir, "index.html")).href;
 const runtimeErrors = [];
@@ -93,7 +98,6 @@ try {
   await expectVisible("#taskAdvancedFields:not(.hidden)", "Görev detay alanları");
   await page.fill("#taskDescription", "Otomatik doğrulama görevi");
   await page.selectOption("#taskProject", { label: "Smoke Test Projesi" });
-  await page.selectOption("#taskCategory", { label: "Smoke Kategori" });
   await page.selectOption("#taskPriority", "yuksek");
   await page.setInputFiles("#taskFiles", {
     name: "yonetici-notu.txt",
@@ -180,7 +184,14 @@ try {
   await page.click("#closeTaskDetailBtn");
 
   await taskCard.locator("[data-status-task]").click();
-  await taskCard.locator(".task-status-dot.status-dot-tamamlandi").waitFor({ state: "visible" });
+  await taskCard.waitFor({ state: "hidden" });
+  await page.click("#taskList [data-open-archive]");
+  const archivedCard = page.locator("#archiveList .task-card", { hasText: "Smoke Test Görevi" });
+  await archivedCard.locator(".task-status-dot.status-dot-tamamlandi").waitFor({ state: "visible" });
+  await archivedCard.locator("[data-status-task]").click();
+  await archivedCard.waitFor({ state: "hidden" });
+  await page.locator("[data-view='tasks']").evaluate((element) => element.click());
+  await expectVisible("#taskList >> text=Smoke Test Görevi", "Arşivden yeniden açılan görev");
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.click("#menuToggleBtn");
