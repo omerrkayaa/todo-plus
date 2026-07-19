@@ -2934,9 +2934,20 @@ function getTaskComments(taskId) {
 }
 
 function getTaskHistoryItems(taskId) {
-  return state.history
-    .filter((item) => item.taskId === taskId)
-    .slice()
+  const items = state.history.filter((item) => item.taskId === taskId);
+  // Eski verilerde biriken birebir aynı ardışık kayıtları (aynı not, durum, kişi ve tarih) tek satıra indir.
+  return items
+    .filter((item, index) => {
+      const previous = items[index - 1];
+      if (!previous) return true;
+      return !(
+        previous.note === item.note &&
+        previous.oldStatus === item.oldStatus &&
+        previous.newStatus === item.newStatus &&
+        previous.changedBy === item.changedBy &&
+        previous.changedAt === item.changedAt
+      );
+    })
     .reverse();
 }
 
@@ -3168,7 +3179,7 @@ function renderTaskDetail() {
             ? `<div class="empty-state">Henüz hareket yok.</div>`
             : historyItems
                 .map((item) => {
-                  const statusText = item.oldStatus
+                  const statusText = item.oldStatus && item.oldStatus !== item.newStatus
                     ? `${statusLabels[item.oldStatus]} → ${statusLabels[item.newStatus]}`
                     : statusLabels[item.newStatus];
 
@@ -3534,7 +3545,7 @@ function renderDashboard() {
       ? `<div class="empty-state">Henüz görev hareketi yok.</div>`
       : historyItems
           .map((item) => {
-            const statusText = item.oldStatus
+            const statusText = item.oldStatus && item.oldStatus !== item.newStatus
               ? `${statusLabels[item.oldStatus]} → ${statusLabels[item.newStatus]}`
               : statusLabels[item.newStatus];
 
@@ -4265,6 +4276,34 @@ async function updateTaskFromForm(taskId, formData) {
 
   const oldStatus = task.status;
 
+  const sameIdList = (a, b) => [...(a || [])].sort().join("|") === [...(b || [])].sort().join("|");
+  const subtaskSnapshot = (list) => (list || []).map((subtask) => `${subtask.title}:${subtask.completed ? 1 : 0}`).join("|");
+  const existingAssigneeIds = state.assignments.filter((assignment) => assignment.taskId === taskId).map((assignment) => assignment.userId);
+  const existingGiverIds = state.taskGivers.filter((giver) => giver.taskId === taskId).map((giver) => giver.userId);
+
+  const changedFields = [];
+  if (task.projectId !== formData.projectId) changedFields.push("proje");
+  if (task.title !== formData.title) changedFields.push("başlık");
+  if (task.description !== formData.description) changedFields.push("açıklama");
+  if (task.priority !== formData.priority) changedFields.push("öncelik");
+  if (oldStatus !== formData.status) changedFields.push("durum");
+  if (task.estimatedMinutes !== formData.estimatedMinutes) changedFields.push("tahmini süre");
+  if ((task.startDate || "") !== (formData.startDate || "")) changedFields.push("başlangıç tarihi");
+  if ((task.dueDate || "") !== (formData.dueDate || "")) changedFields.push("teslim tarihi");
+  if ((task.repeatInterval || "none") !== (formData.repeatInterval || "none")) changedFields.push("tekrar aralığı");
+  if (!sameIdList(existingAssigneeIds, formData.assigneeIds)) changedFields.push("atanan kişiler");
+  if (!sameIdList(existingGiverIds, formData.giverIds)) changedFields.push("görev verenler");
+  if (subtaskSnapshot(getTaskSubtasks(task)) !== subtaskSnapshot(formData.subtasks)) changedFields.push("alt görevler");
+  if (!sameIdList(task.tags, formData.tags)) changedFields.push("etiketler");
+  if ((formData.attachments || []).length > 0) changedFields.push("dosya ekleri");
+
+  if (changedFields.length === 0) {
+    resetTaskForm();
+    renderAll();
+    showToast("Değişiklik yapılmadı; görev aynı kaldı.");
+    return;
+  }
+
   task.projectId = formData.projectId;
   task.categoryId = formData.categoryId;
   task.title = formData.title;
@@ -4321,7 +4360,7 @@ async function updateTaskFromForm(taskId, formData) {
     changedBy: getSessionUser().id,
     oldStatus,
     newStatus: formData.status,
-    note: "Görev bilgileri güncellendi.",
+    note: `Görev güncellendi: ${changedFields.join(", ")}.`,
     changedAt: today(),
   });
 
@@ -4332,7 +4371,7 @@ async function updateTaskFromForm(taskId, formData) {
   resetTaskForm();
   saveState();
   renderAll();
-  showToast("Görev durumu güncellendi.");
+  showToast("Görev güncellendi.");
 }
 
 function getNextRecurrenceDate(dateStr, interval) {
