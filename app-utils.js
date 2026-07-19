@@ -11,7 +11,14 @@
   }
 
   function today() {
-    return new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  }
+
+  function addDays(dateStr, days) {
+    const date = new Date(`${dateStr}T12:00:00`);
+    date.setDate(date.getDate() + days);
+    return date.toISOString().slice(0, 10);
   }
 
   function formatDate(value) {
@@ -69,5 +76,5 @@
     return { Görsel: "🖼", PDF: "PDF", Tablo: "▦", Belge: "DOC" }[getAttachmentLabel(attachment)] || "📎";
   }
 
-  global.TODO_PLUS_UTILS = Object.freeze({ createId, escapeHtml, today, formatDate, getDueDateMeta, isTaskOverdue, isUuid, formatFileSize, readFileAsDataURL, getAttachmentLabel, getAttachmentGroupLabel, getAttachmentGroupIcon });
+  global.TODO_PLUS_UTILS = Object.freeze({ createId, escapeHtml, today, addDays, formatDate, getDueDateMeta, isTaskOverdue, isUuid, formatFileSize, readFileAsDataURL, getAttachmentLabel, getAttachmentGroupLabel, getAttachmentGroupIcon });
 })(window);

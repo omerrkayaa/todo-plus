@@ -1,5 +1,5 @@
 const { storageKeys, priorityScores, priorityLabels, statusLabels, roleLabels, repeatIntervalLabels, documentAssistantApiUrl } = window.TODO_PLUS_APP;
-const { createId, escapeHtml, today, formatDate, getDueDateMeta, isTaskOverdue, isUuid, formatFileSize, readFileAsDataURL, getAttachmentLabel, getAttachmentGroupLabel, getAttachmentGroupIcon } = window.TODO_PLUS_UTILS;
+const { createId, escapeHtml, today, addDays, formatDate, getDueDateMeta, isTaskOverdue, isUuid, formatFileSize, readFileAsDataURL, getAttachmentLabel, getAttachmentGroupLabel, getAttachmentGroupIcon } = window.TODO_PLUS_UTILS;
 const localStore = window.TODO_PLUS_STORAGE.createStorage(window.localStorage, storageKeys);
 const taskModel = window.TODO_PLUS_TASK_MODEL.createTaskModel({ createId, priorityScores });
 const supabaseMapper = window.TODO_PLUS_SUPABASE_MAPPER;
@@ -3910,6 +3910,9 @@ function resetTaskForm() {
   elements.taskPriority.value = "orta";
   elements.taskRepeatInterval.value = "none";
   elements.taskMinutes.value = "60";
+  const defaultStartDate = addDays(today(), 1);
+  elements.taskStartDate.value = defaultStartDate;
+  elements.taskDueDate.value = addDays(defaultStartDate, 1);
   clearTaskDraftSubtasks();
   clearTaskDraftTags();
   elements.taskFiles.value = "";
