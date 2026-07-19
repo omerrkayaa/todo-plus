@@ -393,10 +393,22 @@
         <form id="quickAddForm" class="panel quick-add-panel admin-only" aria-label="Hızlı görev ekle">
           <div class="quick-add-row">
             <span class="quick-add-icon" aria-hidden="true">⚡</span>
-            <input id="quickAddInput" type="text" autocomplete="off" placeholder='Hızlı ekle: "raporu bitir yarın #Mobil @acil !yüksek her hafta"' aria-label="Hızlı görev ekle metni" />
+            <input id="quickAddInput" type="text" autocomplete="off" placeholder='Hızlı ekle: "raporu bitir yarın #Mobil !yüksek her hafta"' aria-label="Hızlı görev ekle metni" />
             <button class="primary-button" type="submit">Ekle</button>
           </div>
           <div id="quickAddPreview" class="quick-add-preview hidden" aria-live="polite"></div>
+          <button type="button" id="quickAddHelpToggle" class="details-toggle quick-add-help-toggle" aria-expanded="false" aria-controls="quickAddHelp">Nasıl yazılır? <span>⌄</span></button>
+          <div id="quickAddHelp" class="quick-add-help hidden">
+            <ul>
+              <li><code>#Proje</code> — görevi bir projeye ekler. Örn: <code>#Mobil</code></li>
+              <li><code>@etiket</code> — serbest etiket ekler (öncelik değildir). Örn: <code>@fatura</code></li>
+              <li><code>!öncelik</code> — önceliği belirler: <code>!düşük</code>, <code>!orta</code> veya <code>!yüksek</code></li>
+              <li><code>bugün</code>, <code>yarın</code>, bir gün adı (<code>pazartesi</code>… <code>pazar</code>), <code>gelecek hafta</code> veya <code>gelecek ay</code> — son teslim tarihini belirler</li>
+              <li><code>her gün</code>, <code>her hafta</code> veya <code>her ay</code> — görevi tekrarlayan yapar</li>
+              <li>Geri kalan yazı görevin başlığı olur; sıralama önemli değil, hepsini istediğiniz gibi karıştırabilirsiniz.</li>
+            </ul>
+            <p class="section-hint">Örnek: <code>"raporu bitir yarın #Mobil !yüksek her hafta"</code> → başlık "raporu bitir", son teslim yarın, proje Mobil, öncelik yüksek, her hafta tekrarlanır.</p>
+          </div>
         </form>
 
         <section id="taskFilters" class="panel filters" aria-label="Görev filtreleri">

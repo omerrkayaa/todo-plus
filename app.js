@@ -473,6 +473,8 @@ const elements = {
   quickAddForm: document.querySelector("#quickAddForm"),
   quickAddInput: document.querySelector("#quickAddInput"),
   quickAddPreview: document.querySelector("#quickAddPreview"),
+  quickAddHelpToggle: document.querySelector("#quickAddHelpToggle"),
+  quickAddHelp: document.querySelector("#quickAddHelp"),
   dashboardView: document.querySelector("#dashboardView"),
   projectsView: document.querySelector("#projectsView"),
   tasksView: document.querySelector("#tasksView"),
@@ -5617,6 +5619,11 @@ function bindEvents() {
   });
   elements.taskDetailsToggle.addEventListener("click", () => {
     setTaskDetailsExpanded(elements.taskDetailsToggle.getAttribute("aria-expanded") !== "true");
+  });
+  elements.quickAddHelpToggle.addEventListener("click", () => {
+    const expanded = elements.quickAddHelpToggle.getAttribute("aria-expanded") !== "true";
+    elements.quickAddHelpToggle.setAttribute("aria-expanded", String(expanded));
+    elements.quickAddHelp.classList.toggle("hidden", !expanded);
   });
   elements.taskGiverChips.addEventListener("click", (event) => {
     const chip = event.target.closest("[data-giver-id]");
