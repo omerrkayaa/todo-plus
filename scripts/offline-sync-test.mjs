@@ -12,6 +12,7 @@ const appUrl = pathToFileURL(path.join(rootDir, "index.html")).href;
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const TASK_1 = "22222222-2222-4222-8222-222222222222";
 const TASK_2 = "33333333-3333-4333-8333-333333333333";
+const TASK_3 = "44444444-4444-4444-8444-444444444444";
 
 const localTask = (id, title) => ({
   id, projectId: "", categoryId: "", createdBy: USER_ID, title, description: "",
@@ -34,14 +35,14 @@ const seededState = {
   activeUserId: USER_ID,
   users: [localUser],
   projects: [], categories: [],
-  tasks: [localTask(TASK_1, "Yerel başlık"), localTask(TASK_2, "Görev iki")],
+  tasks: [localTask(TASK_1, "Yerel başlık"), localTask(TASK_2, "Görev iki"), localTask(TASK_3, "Yerel üçüncü")],
   assignments: [], taskGivers: [], history: [], taskComments: [],
   projectMembers: [], projectInvitations: [], calendarNotes: [],
 };
 
 const baseCollections = {
   users: [localUser], projects: [], categories: [],
-  tasks: [localTask(TASK_1, "Ortak görev"), localTask(TASK_2, "Görev iki")],
+  tasks: [localTask(TASK_1, "Ortak görev"), localTask(TASK_2, "Görev iki"), localTask(TASK_3, "Üçüncü görev")],
   assignments: [], taskGivers: [], history: [], taskComments: [],
   projectMembers: [], projectInvitations: [],
 };
@@ -97,7 +98,7 @@ await page.route("**/rest/v1/**", async (route) => {
   if (request.method() === "GET") {
     const data =
       table === "users" ? [remoteUserRow]
-      : table === "tasks" ? [remoteTaskRow(TASK_1, "Bulut başlık"), remoteTaskRow(TASK_2, "Bulut düzeltmesi (oto)")]
+      : table === "tasks" ? [remoteTaskRow(TASK_1, "Bulut başlık"), remoteTaskRow(TASK_2, "Bulut düzeltmesi (oto)"), remoteTaskRow(TASK_3, "Bulut üçüncü")]
       : [];
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(data) });
   }
@@ -115,12 +116,13 @@ try {
 
   await page.locator("#appShell:not(.hidden)").waitFor({ state: "visible" });
 
-  // 1) Çakışma kartı açılmalı ve iki sürümü yan yana göstermeli.
+  // 1) İki çakışma kartı açılmalı ve sürümler yan yana görünmeli.
   await page.locator("#conflictModal:not(.hidden)").waitFor({ state: "visible" });
   const cardCount = await page.locator("#conflictList .conflict-card").count();
-  if (cardCount !== 1) throw new Error(`1 çakışma kartı bekleniyordu, ${cardCount} bulundu.`);
-  const mineText = await page.locator("#conflictList .conflict-value.mine").first().textContent();
-  const cloudText = await page.locator("#conflictList .conflict-value.cloud").first().textContent();
+  if (cardCount !== 2) throw new Error(`2 çakışma kartı bekleniyordu, ${cardCount} bulundu.`);
+  const firstCard = page.locator("#conflictList .conflict-card", { hasText: "Yerel başlık" });
+  const mineText = await firstCard.locator(".conflict-value.mine").textContent();
+  const cloudText = await firstCard.locator(".conflict-value.cloud").textContent();
   if (!mineText.includes("Yerel başlık")) throw new Error(`Kartta yerel sürüm görünmüyor: "${mineText}"`);
   if (!cloudText.includes("Bulut başlık")) throw new Error(`Kartta bulut sürümü görünmüyor: "${cloudText}"`);
 
@@ -140,13 +142,30 @@ try {
     throw new Error(`Otomatik birleşme çalışmadı: "${autoMergedTitle}"`);
   }
 
-  // 4) "Benimki kalsın" → yerel sürüm geri gelmeli ve buluta gönderilmeli.
-  await page.locator("[data-conflict-choice='local']").click();
-  await page.locator("#conflictModal.hidden").waitFor({ state: "attached" });
+  // 4) İlk kartta "Benimki kalsın" → yerel sürüm geri gelmeli ve buluta gönderilmeli.
+  await firstCard.locator("[data-conflict-choice='local']").click();
   await page.waitForFunction((taskId) => {
     const state = JSON.parse(localStorage.getItem("todo_plus_state_v1"));
     return state.tasks.find((task) => task.id === taskId)?.title === "Yerel başlık";
   }, TASK_1);
+
+  // 4b) Kalan kartta "Buluttaki kalsın" → bulut sürümü kalmalı, yerel sürüm geçmişe not düşülmeli.
+  const secondCard = page.locator("#conflictList .conflict-card", { hasText: "Yerel üçüncü" });
+  await secondCard.locator("[data-conflict-choice='remote']").click();
+  await page.locator("#conflictModal.hidden").waitFor({ state: "attached" });
+  const remoteChoiceResult = await page.evaluate((taskId) => {
+    const state = JSON.parse(localStorage.getItem("todo_plus_state_v1"));
+    return {
+      title: state.tasks.find((task) => task.id === taskId)?.title,
+      historyNote: state.history.find((item) => item.taskId === taskId && item.note.includes("Eşitleme çakışması"))?.note || "",
+    };
+  }, TASK_3);
+  if (remoteChoiceResult.title !== "Bulut üçüncü") {
+    throw new Error(`"Buluttaki kalsın" sonrası bulut sürümü bekleniyordu: "${remoteChoiceResult.title}"`);
+  }
+  if (!remoteChoiceResult.historyNote.includes("Yerel üçüncü")) {
+    throw new Error("Yerel sürüm görev geçmişine not düşülmedi.");
+  }
   await page.waitForTimeout(1200); // 300 ms'lik senkron zamanlayıcısı + istek için pay
   const pushed = pushedTaskBodies.some((body) => body.includes("Yerel başlık"));
   if (!pushed) throw new Error("Seçilen yerel sürüm buluta gönderilmedi (upsert yakalanamadı).");
