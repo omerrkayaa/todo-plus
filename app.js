@@ -358,6 +358,9 @@ let syncTimer = null;
 let syncInFlight = null;
 let syncRetryTimer = null;
 let syncRetryCount = 0;
+let cloudLoadRetryTimer = null;
+let cloudLoadRetryCount = 0;
+let cloudLoadFailureNotified = false;
 let pendingDeletions = loadPendingDeletions();
 let lastSyncedAt = localStore.loadLastSync();
 let offlineNoticeShown = false;
@@ -1044,6 +1047,10 @@ async function syncStateToSupabase() {
     return true;
   } catch (error) {
     console.error("Supabase senkronizasyon hatası:", error);
+    if (isSessionExpiredError(error)) {
+      // Oturumu tazele ki bekleyen yeniden deneme (backoff) taze anahtarla koşsun.
+      await client.auth.refreshSession().catch(() => undefined);
+    }
     if (!navigator.onLine) {
       setConnectionStatus("error", offlineStatusMessage());
     } else {
@@ -1077,6 +1084,10 @@ async function deleteSupabaseRow(tableName, rowId) {
   }
 }
 
+function isSessionExpiredError(error) {
+  return error?.code === "PGRST301" || /jwt/i.test(String(error?.message || ""));
+}
+
 async function loadSupabaseData(userId) {
   const client = getSupabaseClient();
   if (!client) return;
@@ -1084,19 +1095,7 @@ async function loadSupabaseData(userId) {
   isLoadingRemoteData = true;
   try {
     await flushPendingDeletions(client);
-    const [
-      usersResult,
-      projectsResult,
-      categoriesResult,
-      tasksResult,
-      attachmentsResult,
-      assignmentsResult,
-      giversResult,
-      historyResult,
-      commentsResult,
-      membersResult,
-      invitationsResult,
-    ] = await Promise.all([
+    const fetchTables = () => Promise.all([
       client.from("users").select("*"),
       client.from("projects").select("*"),
       client.from("categories").select("*"),
@@ -1110,7 +1109,18 @@ async function loadSupabaseData(userId) {
       client.from("project_invitations").select("*"),
     ]);
 
-    const failedResult = [
+    let results = await fetchTables();
+    let failedResult = results.find((result) => result.error);
+    if (failedResult && isSessionExpiredError(failedResult.error)) {
+      // Uzun süre çevrimdışı/uykuda kalınca oturum anahtarının süresi dolabiliyor (401);
+      // yenileyip bir kez daha dene.
+      await client.auth.refreshSession();
+      results = await fetchTables();
+      failedResult = results.find((result) => result.error);
+    }
+    if (failedResult) throw failedResult.error;
+
+    const [
       usersResult,
       projectsResult,
       categoriesResult,
@@ -1122,9 +1132,7 @@ async function loadSupabaseData(userId) {
       commentsResult,
       membersResult,
       invitationsResult,
-    ].find((result) => result.error);
-
-    if (failedResult) throw failedResult.error;
+    ] = results;
 
     const remoteScratch = supabaseMapper.applyRemoteRows({}, {
       users: usersResult.data,
@@ -1159,16 +1167,18 @@ async function loadSupabaseData(userId) {
     if (JSON.stringify(snapshotSyncedCollections(state)) !== JSON.stringify(remoteCollections)) {
       scheduleSupabaseSync();
     }
+    cloudLoadFailureNotified = false;
     return true;
   } catch (error) {
     console.error("Supabase veri yükleme hatası:", error);
     if (!navigator.onLine) {
       setConnectionStatus("error", offlineStatusMessage());
-      showToast("İnternet yok; son yerel veriler gösteriliyor.", "error");
+      if (!cloudLoadFailureNotified) showToast("İnternet yok; son yerel veriler gösteriliyor.", "error");
     } else {
       setConnectionStatus("error", "Supabase · Yükleme başarısız");
-      showToast("Bulut verileri yüklenemedi; son yerel veriler gösteriliyor.", "error");
+      if (!cloudLoadFailureNotified) showToast("Bulut verileri yüklenemedi; son yerel veriler gösteriliyor.", "error");
     }
+    cloudLoadFailureNotified = true;
     return false;
   } finally {
     isLoadingRemoteData = false;
@@ -3550,20 +3560,34 @@ function setAuthMode(mode) {
   showAuthMessage("");
 }
 
+async function connectToCloud() {
+  clearTimeout(cloudLoadRetryTimer);
+  if (!supabaseReady || !currentSession?.userId) return;
+  if (!navigator.onLine) {
+    setConnectionStatus("error", offlineStatusMessage());
+    return;
+  }
+  setConnectionStatus("syncing", "Supabase · Yükleniyor…");
+  // Önce çek ve birleştir: yerel fark varsa göndermeyi loadSupabaseData planlar.
+  // Doğrudan göndermek, çevrimdışıyken bulutta değişen alanları ezerdi.
+  const loaded = await loadSupabaseData(currentSession.userId);
+  if (loaded) {
+    cloudLoadRetryCount = 0;
+    setConnectionStatus("online", "Supabase · Bağlı");
+    startRealtimeUpdates(currentSession.userId);
+    renderAll();
+    return;
+  }
+  const retryDelay = Math.min(30000, 2000 * 2 ** cloudLoadRetryCount);
+  cloudLoadRetryCount += 1;
+  cloudLoadRetryTimer = setTimeout(connectToCloud, retryDelay);
+}
+
 async function showApp() {
   elements.authScreen.classList.add("hidden");
   elements.appShell.classList.remove("hidden");
   if (supabaseReady && currentSession?.userId) {
-    if (!navigator.onLine) {
-      setConnectionStatus("error", offlineStatusMessage());
-    } else {
-      setConnectionStatus("syncing", "Supabase · Yükleniyor…");
-      const loaded = await loadSupabaseData(currentSession.userId);
-      if (loaded) {
-        setConnectionStatus("online", "Supabase · Bağlı");
-        startRealtimeUpdates(currentSession.userId);
-      }
-    }
+    await connectToCloud();
   } else {
     setConnectionStatus("", "Demo mod · Yerel kayıt");
   }
@@ -5560,9 +5584,9 @@ function bindEvents() {
   window.addEventListener("online", () => {
     offlineNoticeShown = false;
     if (supabaseReady && currentSession?.userId) {
+      cloudLoadRetryCount = 0;
       setConnectionStatus("syncing", "Bağlantı geldi · Eşitleniyor…");
-      scheduleSupabaseSync();
-      startRealtimeUpdates(currentSession.userId);
+      connectToCloud();
     } else {
       setConnectionStatus("", "Demo mod · Yerel kayıt");
     }

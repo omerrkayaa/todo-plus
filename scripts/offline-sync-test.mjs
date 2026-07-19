@@ -1,7 +1,7 @@
 // Uçtan uca eşitleme/çakışma testi: sahte Supabase oturumu + REST araya girme.
-// Senaryo: aynı görevin başlığı hem yerelde hem "bulutta" değişmiş →
-// çakışma kartı çıkmalı, "Benimki kalsın" seçilince yerel sürüm buluta gönderilmeli.
-// Yalnızca bulutta değişen ikinci görev ise kart çıkmadan kendiliğinden birleşmeli.
+// Sahte bulut durumludur: gönderilen upsert'ler sonraki GET'lere yansır (gerçek PostgREST gibi).
+// Kapsam: süresi dolmuş oturum (401 → yenile → tekrar dene), çakışma kartları,
+// otomatik birleşme, çevrimdışı kalıcılık ve yeniden bağlanınca önce çek-birleştir-sonra gönder.
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { chromium } from "playwright";
@@ -74,6 +74,14 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 page.setDefaultTimeout(15000);
 
 const pushedTaskBodies = [];
+let jwtRejectionsServed = 0;
+let refreshTokenCalls = 0;
+
+const cloudTasks = new Map([
+  [TASK_1, remoteTaskRow(TASK_1, "Bulut başlık")],
+  [TASK_2, remoteTaskRow(TASK_2, "Bulut düzeltmesi (oto)")],
+  [TASK_3, remoteTaskRow(TASK_3, "Bulut üçüncü")],
+]);
 
 await page.addInitScript(({ state, base, session }) => {
   // Gerçek Realtime sunucusuna bağlanılmasın diye WebSocket köreltilir.
@@ -95,29 +103,50 @@ await page.route("**/rest/v1/**", async (route) => {
   const request = route.request();
   const url = new URL(request.url());
   const table = url.pathname.split("/").pop();
+  // Gerçek olaydaki gibi: ilk task_comments isteği "JWT expired" (401) ile reddedilir;
+  // uygulama oturumu yenileyip yüklemeyi bir kez daha denemeli.
+  if (table === "task_comments" && request.method() === "GET" && jwtRejectionsServed === 0) {
+    jwtRejectionsServed += 1;
+    return route.fulfill({
+      status: 401,
+      contentType: "application/json",
+      body: JSON.stringify({ code: "PGRST301", message: "JWT expired", details: null, hint: null }),
+    });
+  }
   if (request.method() === "GET") {
     const data =
       table === "users" ? [remoteUserRow]
-      : table === "tasks" ? [remoteTaskRow(TASK_1, "Bulut başlık"), remoteTaskRow(TASK_2, "Bulut düzeltmesi (oto)"), remoteTaskRow(TASK_3, "Bulut üçüncü")]
+      : table === "tasks" ? [...cloudTasks.values()]
       : [];
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(data) });
   }
   if (table === "tasks" && (request.method() === "POST" || request.method() === "PATCH")) {
-    pushedTaskBodies.push(request.postData() || "");
+    const body = request.postData() || "";
+    pushedTaskBodies.push(body);
+    try {
+      const rows = JSON.parse(body);
+      (Array.isArray(rows) ? rows : [rows]).forEach((row) => {
+        if (row?.id) cloudTasks.set(row.id, { ...cloudTasks.get(row.id), ...row });
+      });
+    } catch { /* gövde JSON değilse sahte bulut durumu değişmez */ }
   }
   return route.fulfill({ status: 201, contentType: "application/json", body: "[]" });
 });
-await page.route("**/auth/v1/**", (route) =>
-  route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fakeSession) }),
-);
+await page.route("**/auth/v1/**", (route) => {
+  if (route.request().url().includes("grant_type=refresh_token")) refreshTokenCalls += 1;
+  return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fakeSession) });
+});
 
 try {
   await page.goto(appUrl, { waitUntil: "domcontentloaded" });
 
   await page.locator("#appShell:not(.hidden)").waitFor({ state: "visible" });
 
-  // 1) İki çakışma kartı açılmalı ve sürümler yan yana görünmeli.
+  // 1) Süresi dolmuş oturum: 401 servis edildi, oturum yenilendi, yükleme yine tamamlandı
+  //    ve iki çakışma kartı sürümleri yan yana gösterdi.
   await page.locator("#conflictModal:not(.hidden)").waitFor({ state: "visible" });
+  if (jwtRejectionsServed !== 1) throw new Error("Test kurgusu bozuk: 401 cevabı hiç servis edilmedi.");
+  if (refreshTokenCalls < 1) throw new Error("401 sonrası oturum yenileme (refresh_token) çağrısı yapılmadı.");
   const cardCount = await page.locator("#conflictList .conflict-card").count();
   if (cardCount !== 2) throw new Error(`2 çakışma kartı bekleniyordu, ${cardCount} bulundu.`);
   const firstCard = page.locator("#conflictList .conflict-card", { hasText: "Yerel başlık" });
@@ -202,16 +231,21 @@ try {
   }
   if (pushedTaskBodies.length > 0) throw new Error("Çevrimdışıyken buluta istek gitmemeliydi.");
 
-  // 9) Bağlantı gelince bekleyen değişiklik kendiliğinden buluta gönderilmeli.
+  // 9) Bağlantı gelince önce bulut çekilip birleştirilmeli, sonra bekleyen değişiklik
+  //    gönderilmeli: gövdede hem korunan başlık hem çevrimdışı yapılan durum birlikte olmalı.
   await page.context().setOffline(false);
   await page.waitForFunction(() => navigator.onLine);
-  await page.waitForTimeout(1500);
-  const syncedAfterReconnect = pushedTaskBodies.some(
-    (body) => body.includes("Yerel başlık") && body.includes("tamamlandi"),
-  );
+  const reconnectDeadline = Date.now() + 8000;
+  let syncedAfterReconnect = false;
+  while (!syncedAfterReconnect && Date.now() < reconnectDeadline) {
+    syncedAfterReconnect = pushedTaskBodies.some(
+      (body) => body.includes("Yerel başlık") && body.includes("tamamlandi"),
+    );
+    if (!syncedAfterReconnect) await page.waitForTimeout(200);
+  }
   if (!syncedAfterReconnect) throw new Error("Bağlantı gelince çevrimdışı değişiklik buluta gönderilmedi.");
 
-  console.log("Eşitleme testi başarılı: alan bazlı birleştirme, çakışma kartı, çevrimdışı kalıcılık ve yeniden bağlanınca gönderim doğrulandı.");
+  console.log("Eşitleme testi başarılı: süresi dolmuş oturum yenileme (401), alan bazlı birleştirme, çakışma kartı, çevrimdışı kalıcılık ve yeniden bağlanınca çek-birleştir-gönder doğrulandı.");
 } finally {
   await browser.close();
 }
