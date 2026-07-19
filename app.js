@@ -642,10 +642,6 @@ function saveState() {
   localStore.saveState(state);
 
   if (supabaseReady && currentSession?.userId && !isLoadingRemoteData) {
-    if (!navigator.onLine && !offlineNoticeShown) {
-      offlineNoticeShown = true;
-      showToast("Değişiklikler cihazında saklandı; bağlantı gelince gönderilecek.");
-    }
     scheduleSupabaseSync();
   }
 }
@@ -817,10 +813,15 @@ function dismissSyncConflicts() {
 
 function showToast(message, type = "success") {
   clearTimeout(toastTimer);
-  elements.toastRegion.innerHTML = `<div class="toast ${type}">${escapeHtml(message)}</div>`;
+  let offlineNote = "";
+  if (supabaseReady && currentSession?.userId && !navigator.onLine && !offlineNoticeShown) {
+    offlineNoticeShown = true;
+    offlineNote = `<div class="toast-subnote">Çevrimdışısın — değişiklikler cihazında saklandı, bağlantı gelince gönderilecek.</div>`;
+  }
+  elements.toastRegion.innerHTML = `<div class="toast ${type}">${escapeHtml(message)}${offlineNote}</div>`;
   toastTimer = setTimeout(() => {
     elements.toastRegion.innerHTML = "";
-  }, 3200);
+  }, offlineNote ? 5200 : 3200);
 }
 
 function scheduleSupabaseSync() {

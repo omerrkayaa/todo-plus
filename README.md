@@ -186,6 +186,24 @@ Demo modunda veriler tarayıcının LocalStorage alanında saklanır. Supabase b
 
 > Üretim kullanımında demo kullanıcı ekleme ve demo sıfırlama işlemleri Supabase modunda kapatılmalı veya gerçek davet/yönetim akışına dönüştürülmelidir.
 
+### Çevrimdışı çalışma (Supabase modu)
+
+Uygulama yerel-öncelikli çalışır: her değişiklik önce cihaza (LocalStorage) yazılır, sonra buluta gönderilir.
+
+**Ne çalışır:**
+
+- İnternet yokken görev/proje ekleme, düzenleme, tamamlama ve silme — hepsi cihazda saklanır.
+- Sayfa çevrimdışıyken yenilense bile uygulama Supabase modunda açılır (kütüphane `vendor/` içinden yüklenir) ve son veriler görünür.
+- Rozet dürüsttür: "Çevrimdışı · Son eşitleme 14:03" gibi son başarılı eşitleme saatini gösterir; ilk çevrimdışı değişiklikte kısa bir bilgi notu düşer.
+- Bağlantı gelince bekleyen değişiklikler kendiliğinden gönderilir. Bulut verisi yerelin üzerine yazılmaz; **taban + yerel + bulut** üçlüsü alan bazlı birleştirilir (`app-sync-merge.js`): bir alanı yalnızca bir taraf değiştirdiyse o taraf kazanır, çevrimdışı oluşturulan kayıtlar korunur, yorum/geçmiş listeleri birleşir.
+- İki taraf aynı alanı farklı değiştirdiyse **"Hangisi kalsın?"** kartı açılır: iki sürüm yan yana, "Benimki kalsın" / "Buluttaki kalsın". Kart kapatılırsa bulut sürümü kalır ve senin sürümün görev geçmişine not düşülür — hiçbir şey sessizce kaybolmaz.
+
+**Ne çalışmaz (bilinçli sınırlar):**
+
+- Çevrimdışıyken ilk giriş yapılamaz (şifre kontrolü Supabase'dedir); açık oturum çevrimdışı devam eder.
+- Doküman asistanı ve dosya eki yükleme internet ister.
+- Silinmiş bir görevi çakışma kartından geri getirirsen atamalarını yeniden yapman gerekebilir.
+
 ## 7. Supabase Kurulumu
 
 1. [Supabase](https://supabase.com) üzerinde yeni bir proje oluşturun.
@@ -306,16 +324,16 @@ Başka bir terminalde:
 npm test
 ```
 
-Smoke test şu akışları doğrular:
+`npm test` üç aşamayı sırayla çalıştırır:
 
-1. Demo hesabıyla giriş
-2. Proje oluşturma
-3. Kategori oluşturma
-4. Görev oluşturma
-5. Arama ve filtreleri temizleme
-6. Görev detayını açma ve yorum ekleme
-7. Görev durumunu tamamlama
-8. Mobil menüyü açma
+1. **Birleştirme birim testleri** (`npm run test:merge`) — alan bazlı üç yönlü birleştirme motorunun 15 senaryosu (çakışma tespiti, çevrimdışı oluşturulan kaydın korunması, silme kuyruğu vb.).
+2. **Smoke test** (Playwright) — demo modda uçtan uca arayüz akışları:
+   giriş, proje/kategori/görev oluşturma, arama ve filtreler, görev detayı ve yorum,
+   görevi tamamlayıp Arşiv'de görme ve yeniden açma, mobil menü, rol panelleri.
+3. **Çevrimdışı eşitleme testi** (`npm run test:offline`) — sahte Supabase oturumu ve araya
+   girilen REST çağrılarıyla: çakışma kartının açılması, "Benimki kalsın" seçiminin buluta
+   gönderilmesi, çevrimdışı değişikliğin sayfa yenilemede korunması ve bağlantı gelince
+   kendiliğinden eşitlenmesi.
 
 Ekran görüntülerini yeniden üretmek için:
 
@@ -393,7 +411,7 @@ npm run screenshots
 - [ ] Supabase modunda demo kullanıcı ekleme ve sıfırlama işlemleri kapatılmalı.
 - [x] Rol yükseltme ve görev yönetim alanları veritabanı tetikleyicileriyle korunuyor.
 - [ ] Supabase profil/e-posta görünürlüğü ekip üyeliği tablosuyla daha dar bir politikaya bağlanmalı.
-- [ ] Senkronizasyon kuyruğu eşzamanlı yazımlara karşı güçlendirilmeli.
+- [x] Senkronizasyon kuyruğu eşzamanlı yazımlara karşı güçlendirilmeli. *(2026-07: alan bazlı üç yönlü birleştirme + çakışma kartı eklendi — bkz. "Çevrimdışı çalışma" bölümü.)*
 
 ## 13. Bilinen Sınırlar
 
@@ -401,7 +419,7 @@ npm run screenshots
 - Supabase entegrasyonu için gerçek proje URL'si ve anon key gereklidir.
 - Çok kullanıcılı proje üyeliği ve rol modeli henüz ayrı tablolarla uygulanmamıştır.
 - Demo kullanıcı ekleme gerçek Supabase Auth hesabı oluşturmaz.
-- Dosya ekleri, alt görevler, tekrar eden görevler ve bildirim sistemi bulunmaz.
+- Çevrimdışıyken ilk giriş yapılamaz; açık oturum çevrimdışı çalışmaya devam eder.
 - `app.js` büyüktür; sonraki sürümde modüllere ayrılması önerilir.
 
 ## 14. Geliştirme Yol Haritası

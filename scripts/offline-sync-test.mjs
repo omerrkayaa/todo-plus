@@ -81,7 +81,9 @@ await page.addInitScript(({ state, base, session }) => {
     send() {} close() {}
     addEventListener() {} removeEventListener() {}
   };
+  if (localStorage.getItem("__offline_test_seeded")) return; // yeniden yüklemede veriyi sıfırlama
   localStorage.clear();
+  localStorage.setItem("__offline_test_seeded", "1");
   localStorage.setItem("todo_plus_state_v1", JSON.stringify(state));
   localStorage.setItem("todo_plus_sync_base_v1", JSON.stringify({ savedAt: "2026-07-19T09:00:00Z", collections: base }));
   localStorage.setItem("todo_plus_last_sync_v1", JSON.stringify("2026-07-19T09:00:00.000Z"));
@@ -153,7 +155,44 @@ try {
   await page.locator("[data-view='tasks']").evaluate((element) => element.click());
   await page.locator("#taskList >> text=Yerel başlık").waitFor({ state: "visible" });
 
-  console.log("Eşitleme çakışması testi başarılı: alan bazlı birleştirme + çakışma kartı + buluta geri gönderim doğrulandı.");
+  // --- Çevrimdışı döngü: kes → değiştir → çevrimdışı yenile → bağlan → buluta gitsin ---
+
+  // 6) Bağlantı kesilince rozet son eşitleme saatiyle "Çevrimdışı" demeli.
+  await page.context().setOffline(true);
+  await page.waitForFunction(() =>
+    document.querySelector("#connectionStatus")?.textContent.startsWith("Çevrimdışı"));
+
+  // 7) Çevrimdışı değişiklik: görevi tamamla → "cihazında saklandı" bilgisi görünmeli.
+  pushedTaskBodies.length = 0;
+  const offlineCard = page.locator("#taskList .task-card", { hasText: "Yerel başlık" });
+  await offlineCard.locator("[data-status-task]").click();
+  await page.waitForFunction(() =>
+    document.querySelector("#toastRegion")?.textContent.includes("cihazında saklandı"));
+
+  // 8) Çevrimdışıyken sayfa yenilense bile değişiklik durmalı, uygulama Supabase modunda kalmalı.
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.locator("#appShell:not(.hidden)").waitFor({ state: "visible" });
+  await page.waitForFunction(() =>
+    document.querySelector("#connectionStatus")?.textContent.startsWith("Çevrimdışı"));
+  const persistedStatus = await page.evaluate((taskId) => {
+    const state = JSON.parse(localStorage.getItem("todo_plus_state_v1"));
+    return state.tasks.find((task) => task.id === taskId)?.status;
+  }, TASK_1);
+  if (persistedStatus !== "tamamlandi") {
+    throw new Error(`Çevrimdışı değişiklik yenilemede kayboldu (durum: "${persistedStatus}").`);
+  }
+  if (pushedTaskBodies.length > 0) throw new Error("Çevrimdışıyken buluta istek gitmemeliydi.");
+
+  // 9) Bağlantı gelince bekleyen değişiklik kendiliğinden buluta gönderilmeli.
+  await page.context().setOffline(false);
+  await page.waitForFunction(() => navigator.onLine);
+  await page.waitForTimeout(1500);
+  const syncedAfterReconnect = pushedTaskBodies.some(
+    (body) => body.includes("Yerel başlık") && body.includes("tamamlandi"),
+  );
+  if (!syncedAfterReconnect) throw new Error("Bağlantı gelince çevrimdışı değişiklik buluta gönderilmedi.");
+
+  console.log("Eşitleme testi başarılı: alan bazlı birleştirme, çakışma kartı, çevrimdışı kalıcılık ve yeniden bağlanınca gönderim doğrulandı.");
 } finally {
   await browser.close();
 }
