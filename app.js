@@ -366,6 +366,7 @@ let editingProjectId = null;
 let editingCategoryId = null;
 let editingTaskId = null;
 let activeDetailTaskId = null;
+let taskHistoryExpanded = false;
 let draggedTaskId = null;
 let taskDraftAttachments = [];
 let taskDraftSubtasks = [];
@@ -2982,7 +2983,7 @@ function renderDocumentAssistantPanel(task, attachments) {
       </label>
       <div class="assistant-status" data-assistant-status>${supabaseReady ? "Doküman durumu kontrol ediliyor…" : "Doküman asistanı Supabase bağlantısı etkinleştirildiğinde kullanılabilir."}</div>
       <div class="assistant-actions">
-        <button class="small-button" type="button" data-process-assistant-document ${supabaseReady ? "" : "disabled"}>Metni işle</button>
+        <button class="small-button hidden" type="button" data-process-assistant-document ${supabaseReady ? "" : "disabled"}>Tekrar işle</button>
       </div>
       <div class="assistant-messages" data-assistant-messages aria-live="polite">
         <div class="empty-state">Merhaba! Yüklediğiniz doküman hakkında merak ettiğiniz her şeyi bana sorabilirsiniz.</div>
@@ -3181,8 +3182,8 @@ function renderTaskDetail() {
     ${renderDocumentAssistantPanel(task, attachments)}
 
     <section class="detail-block">
-      <h3>Geçmiş</h3>
-      <div class="history-list">
+      <button type="button" class="details-toggle history-toggle" data-toggle-history aria-expanded="${taskHistoryExpanded}">Geçmiş (${historyItems.length}) <span>⌄</span></button>
+      <div class="history-list${taskHistoryExpanded ? "" : " hidden"}">
         ${
           historyItems.length === 0
             ? `<div class="empty-state">Henüz hareket yok.</div>`
@@ -3248,8 +3249,9 @@ function applyAssistantStatus(root, document) {
   };
   status.textContent = labels[document.status] || "Doküman durumu bilinmiyor.";
   status.dataset.state = document.status || "unknown";
+  processButton.classList.toggle("hidden", document.status !== "failed");
   processButton.disabled = document.status === "processing";
-  processButton.textContent = document.status === "failed" ? "Tekrar işle" : "Metni işle";
+  processButton.textContent = "Tekrar işle";
   submitButton.disabled = document.status !== "ready";
 }
 
@@ -3399,6 +3401,7 @@ function openTaskDetail(taskId) {
     return showToast("Bu görevi görüntüleme yetkiniz yok.", "error");
   }
   activeDetailTaskId = taskId;
+  taskHistoryExpanded = false;
   renderTaskDetail();
   elements.taskCommentText.value = "";
   elements.taskDetailBody.scrollTop = 0;
@@ -5224,6 +5227,12 @@ function toggleTaskSubtask(taskId, subtaskId) {
 }
 
 function handleTaskActionClick(event) {
+  const historyToggle = event.target.closest("[data-toggle-history]");
+  if (historyToggle) {
+    taskHistoryExpanded = !taskHistoryExpanded;
+    renderTaskDetail();
+    return;
+  }
   if (event.target.closest("[data-create-first-task]")) {
     resetTaskForm();
     openTaskDrawer();

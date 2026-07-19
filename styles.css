@@ -861,7 +861,7 @@ textarea {
 
 .detail-block p {
   margin: 0;
-  color: var(--muted);
+  color: var(--text);
 }
 
 .detail-meta,
@@ -1683,9 +1683,8 @@ main { padding: 0 36px 48px; }
 
 .section-hint {
   margin: 2px 0 10px;
-  color: var(--muted);
+  color: var(--text);
   font-size: 12px;
-  font-style: italic;
 }
 
 .attachment-error {
@@ -2241,6 +2240,7 @@ main { padding: 0 36px 48px; }
 .task-drawer > label, .task-drawer > .form-row, .task-drawer > .form-actions { margin-top: 15px; }
 .task-advanced-fields > label, .task-advanced-fields > .form-row, .task-advanced-fields > .file-field, .task-advanced-fields > .attachment-dropzone, .task-advanced-fields > .subtask-field, .task-advanced-fields > .tag-field { display: block; margin-top: 15px; }
 .details-toggle { width: 100%; margin-top: 14px; padding: 11px 0; border: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--primary); background: transparent; text-align: left; font-weight: 750; cursor: pointer; }
+.history-toggle { margin-top: 0; padding: 0; border: 0; font-size: 17px; }
 .details-toggle span { float: right; transition: transform .2s ease; }
 .details-toggle[aria-expanded="true"] span { transform: rotate(180deg); }
 .detail-action-row { display: flex; align-items: end; justify-content: space-between; gap: 16px; }
