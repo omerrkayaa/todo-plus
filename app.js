@@ -3,6 +3,7 @@ const { createId, escapeHtml, today, formatDate, getDueDateMeta, isTaskOverdue, 
 const localStore = window.TODO_PLUS_STORAGE.createStorage(window.localStorage, storageKeys);
 const taskModel = window.TODO_PLUS_TASK_MODEL.createTaskModel({ createId, priorityScores });
 const supabaseMapper = window.TODO_PLUS_SUPABASE_MAPPER;
+const syncMerge = window.TODO_PLUS_SYNC_MERGE;
 const parseQuickAddText = window.TODO_PLUS_QUICK_ADD_PARSER.parseQuickAddText;
 const getTaskAttachments = taskModel.getAttachments;
 const getTaskSubtasks = taskModel.getSubtasks;
@@ -360,6 +361,7 @@ let syncRetryCount = 0;
 let pendingDeletions = loadPendingDeletions();
 let lastSyncedAt = localStore.loadLastSync();
 let offlineNoticeShown = false;
+let pendingSyncConflicts = [];
 let toastTimer = null;
 const toastedNotificationIds = new Set();
 let latestNotificationsSnapshot = { userId: null, ids: [] };
@@ -560,6 +562,9 @@ const elements = {
   attachmentPreviewTitle: document.querySelector("#attachmentPreviewTitle"),
   attachmentPreviewBody: document.querySelector("#attachmentPreviewBody"),
   userModal: document.querySelector("#userModal"),
+  conflictModal: document.querySelector("#conflictModal"),
+  conflictList: document.querySelector("#conflictList"),
+  closeConflictModalBtn: document.querySelector("#closeConflictModalBtn"),
   closeUserModalBtn: document.querySelector("#closeUserModalBtn"),
   userForm: document.querySelector("#userForm"),
   userName: document.querySelector("#userName"),
@@ -688,6 +693,126 @@ function saveSyncCheckpoint(baseCollections) {
   lastSyncedAt = new Date().toISOString();
   localStore.saveLastSync(lastSyncedAt);
   localStore.saveSyncBase({ savedAt: lastSyncedAt, collections: baseCollections });
+}
+
+const conflictCollectionLabels = Object.freeze({
+  tasks: "Görev", projects: "Proje", categories: "Kategori", users: "Kullanıcı",
+});
+
+function formatConflictValue(field, value) {
+  if (value === null || value === undefined || value === "") return "—";
+  if (field === "priority") return priorityLabels[value] || String(value);
+  if (field === "status") return statusLabels[value] || String(value);
+  if (field === "repeatInterval") return repeatIntervalLabels[value] || String(value);
+  if (field === "dueDate" || field === "startDate") return formatDate(value);
+  if (field === "estimatedMinutes") return `${value} dk`;
+  if (field === "archived") return value ? "Arşivde" : "Arşivde değil";
+  if (field === "subtasks") return `${Array.isArray(value) ? value.length : 0} alt görev`;
+  if (field === "tags") return Array.isArray(value) && value.length > 0 ? value.map((tag) => `#${tag}`).join(" ") : "—";
+  if (field === "projectId") return getProjectName(value) || "—";
+  if (field === "categoryId") return state.categories.find((category) => category.id === value)?.name || "—";
+  return String(value);
+}
+
+function queueSyncConflicts(conflicts) {
+  conflicts.forEach((conflict) => {
+    const existingIndex = pendingSyncConflicts.findIndex(
+      (item) => item.collection === conflict.collection && item.entityId === conflict.entityId && item.kind === conflict.kind,
+    );
+    if (existingIndex >= 0) pendingSyncConflicts[existingIndex] = conflict;
+    else pendingSyncConflicts.push(conflict);
+  });
+  renderSyncConflicts();
+  if (pendingSyncConflicts.length > 0) elements.conflictModal.classList.remove("hidden");
+}
+
+function closeConflictModal() {
+  elements.conflictModal.classList.add("hidden");
+}
+
+function renderSyncConflicts() {
+  if (!elements.conflictList) return;
+  if (pendingSyncConflicts.length === 0) {
+    elements.conflictList.innerHTML = "";
+    closeConflictModal();
+    return;
+  }
+  elements.conflictList.innerHTML = pendingSyncConflicts
+    .map((conflict, index) => {
+      const isDelete = conflict.kind === "edit-delete";
+      const body = isDelete
+        ? `<div class="conflict-delete-note">Bu kayıt başka bir cihazda silindi; sende üzerinde kaydedilmemiş değişiklik vardı.</div>`
+        : `<div class="conflict-columns-head"><span></span><span>Benim cihazım</span><span>Buluttaki</span></div>` +
+          conflict.fields
+            .map(
+              (field) => `
+                <div class="conflict-field">
+                  <span class="conflict-field-name">${escapeHtml(field.label)}</span>
+                  <span class="conflict-value mine">${escapeHtml(formatConflictValue(field.field, field.localValue))}</span>
+                  <span class="conflict-value cloud">${escapeHtml(formatConflictValue(field.field, field.remoteValue))}</span>
+                </div>`,
+            )
+            .join("");
+      return `
+        <article class="conflict-card">
+          <h3 class="conflict-card-title">${escapeHtml(conflictCollectionLabels[conflict.collection] || "Kayıt")}: ${escapeHtml(conflict.entityLabel)}</h3>
+          ${body}
+          <div class="conflict-actions">
+            <button class="primary-button" type="button" data-conflict-choice="local" data-conflict-index="${index}">${isDelete ? "Geri getir (benim sürümüm)" : "Benimki kalsın"}</button>
+            <button class="small-button" type="button" data-conflict-choice="remote" data-conflict-index="${index}">${isDelete ? "Silinmiş kalsın" : "Buluttaki kalsın"}</button>
+          </div>
+        </article>`;
+    })
+    .join("");
+}
+
+function noteConflictLocalVersion(conflict) {
+  if (conflict.collection !== "tasks" || conflict.kind !== "field") return;
+  const task = state.tasks.find((item) => item.id === conflict.entityId);
+  const sessionUser = getSessionUser();
+  if (!task || !sessionUser) return;
+  const summary = conflict.fields
+    .map((field) => `${field.label}: senin sürümün "${formatConflictValue(field.field, field.localValue)}" idi, bulut sürümü korundu`)
+    .join("; ");
+  state.history.push({
+    id: createId("history"),
+    taskId: task.id,
+    changedBy: sessionUser.id,
+    oldStatus: "",
+    newStatus: task.status,
+    note: `Eşitleme çakışması — ${summary}.`,
+    changedAt: today(),
+  });
+}
+
+function resolveSyncConflict(index, choice) {
+  const conflict = pendingSyncConflicts[index];
+  if (!conflict) return;
+  if (choice === "local") {
+    syncMerge.applyConflictResolution(state, conflict, "local");
+    if (conflict.collection === "tasks" || conflict.collection === "projects") {
+      const row = state[conflict.collection].find((item) => item.id === conflict.entityId);
+      if (row) row.updatedAt = today();
+    }
+  } else {
+    noteConflictLocalVersion(conflict);
+  }
+  pendingSyncConflicts.splice(index, 1);
+  saveState();
+  renderAll();
+  renderSyncConflicts();
+  showToast(choice === "local" ? "Senin sürümün geri yüklendi ve buluta gönderiliyor." : "Bulut sürümü korundu.");
+}
+
+function dismissSyncConflicts() {
+  if (pendingSyncConflicts.length > 0) {
+    pendingSyncConflicts.forEach(noteConflictLocalVersion);
+    pendingSyncConflicts = [];
+    saveState();
+    renderAll();
+    showToast("Bulut sürümleri korundu; senin sürümlerin görev geçmişine not düşüldü.");
+  }
+  closeConflictModal();
 }
 
 function showToast(message, type = "success") {
@@ -1000,7 +1125,7 @@ async function loadSupabaseData(userId) {
 
     if (failedResult) throw failedResult.error;
 
-    supabaseMapper.applyRemoteRows(state, {
+    const remoteScratch = supabaseMapper.applyRemoteRows({}, {
       users: usersResult.data,
       projects: projectsResult.data,
       categories: categoriesResult.data,
@@ -1014,9 +1139,25 @@ async function loadSupabaseData(userId) {
       project_invitations: invitationsResult.data,
     }, today);
 
+    // Bulut verisi yerelin üzerine yazılmaz; taban+yerel+bulut üçlüsü alan bazlı birleştirilir.
+    const remoteCollections = snapshotSyncedCollections(remoteScratch);
+    const { merged, conflicts } = syncMerge.mergeCollections({
+      base: localStore.loadSyncBase()?.collections || null,
+      local: snapshotSyncedCollections(state),
+      remote: remoteCollections,
+      pendingDeletions,
+    });
+    syncedCollectionKeys.forEach((key) => {
+      state[key] = merged[key];
+    });
+
     state.activeUserId = userId;
     localStore.saveState(state);
-    saveSyncCheckpoint(snapshotSyncedCollections(state));
+    saveSyncCheckpoint(remoteCollections);
+    if (conflicts.length > 0) queueSyncConflicts(conflicts);
+    if (JSON.stringify(snapshotSyncedCollections(state)) !== JSON.stringify(remoteCollections)) {
+      scheduleSupabaseSync();
+    }
     return true;
   } catch (error) {
     console.error("Supabase veri yükleme hatası:", error);
@@ -1084,6 +1225,8 @@ function resetDemoData() {
   pendingDeletions = [];
   localStore.clearDeletionQueue();
   localStore.clearSyncBase();
+  pendingSyncConflicts = [];
+  closeConflictModal();
   resetProjectForm();
   resetCategoryForm();
   resetTaskForm();
@@ -3186,6 +3329,7 @@ function trapModalFocus(event, modal) {
 }
 
 function getTopmostOpenModal() {
+  if (!elements.conflictModal.classList.contains("hidden")) return elements.conflictModal;
   if (!elements.attachmentPreviewModal.classList.contains("hidden")) return elements.attachmentPreviewModal;
   if (!elements.userModal.classList.contains("hidden")) return elements.userModal;
   if (!elements.taskDetailModal.classList.contains("hidden")) return elements.taskDetailModal;
@@ -5125,6 +5269,8 @@ function bindEvents() {
       await getSupabaseClient()?.auth.signOut();
     }
     localStore.clearSyncBase();
+    pendingSyncConflicts = [];
+    closeConflictModal();
     closeSidebar();
     clearSession();
     showAuth();
@@ -5378,6 +5524,15 @@ function bindEvents() {
       closeUserModal();
     }
   });
+  elements.closeConflictModalBtn.addEventListener("click", dismissSyncConflicts);
+  elements.conflictModal.addEventListener("click", (event) => {
+    if (event.target.closest("[data-close-conflict-modal]")) dismissSyncConflicts();
+  });
+  elements.conflictList.addEventListener("click", (event) => {
+    const choiceButton = event.target.closest("[data-conflict-choice]");
+    if (!choiceButton) return;
+    resolveSyncConflict(Number(choiceButton.dataset.conflictIndex), choiceButton.dataset.conflictChoice);
+  });
   elements.changePasswordForm.addEventListener("submit", submitChangePassword);
   elements.closeChangePasswordModalBtn.addEventListener("click", closeChangePasswordModal);
   elements.cancelChangePasswordBtn.addEventListener("click", closeChangePasswordModal);
@@ -5416,6 +5571,9 @@ function bindEvents() {
     const openModal = getTopmostOpenModal();
     if (event.key === "Tab" && openModal) {
       trapModalFocus(event, openModal);
+    } else if (event.key === "Escape" && !elements.conflictModal.classList.contains("hidden")) {
+      event.preventDefault();
+      dismissSyncConflicts();
     } else if (event.key === "Escape" && !elements.userModal.classList.contains("hidden")) {
       event.preventDefault();
       closeUserModal();
