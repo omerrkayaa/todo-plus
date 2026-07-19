@@ -11,8 +11,7 @@ window.TODO_PLUS_APP = Object.freeze({
   priorityScores: Object.freeze({ dusuk: 1, orta: 2, yuksek: 3 }),
   priorityLabels: Object.freeze({ dusuk: "Düşük", orta: "Orta", yuksek: "Yüksek" }),
   statusLabels: Object.freeze({
-    bekliyor: "Bekliyor",
-    devam_ediyor: "Devam ediyor",
+    bekliyor: "Yapılacak",
     tamamlandi: "Tamamlandı",
   }),
   roleLabels: Object.freeze({ admin: "Yönetici", user: "Kullanıcı" }),

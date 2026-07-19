@@ -283,7 +283,7 @@ erDiagram
 - Her görev bir projeye ve oluşturan kullanıcıya bağlıdır.
 - Kategori isteğe bağlıdır; kategori silinirse görev kategorisiz kalabilir.
 - Öncelik yalnızca `dusuk`, `orta`, `yuksek` olabilir.
-- Durum yalnızca `bekliyor`, `devam_ediyor`, `tamamlandi` olabilir.
+- Durum yalnızca `bekliyor` (Yapılacak), `tamamlandi` olabilir.
 - Aynı görev-kullanıcı ataması tekrar edemez.
 - Aynı kullanıcı aynı görev için birden fazla “veren” kaydı alamaz.
 - Proje veya görev silindiğinde ilgili alt kayıtlar foreign-key kurallarına göre temizlenir.

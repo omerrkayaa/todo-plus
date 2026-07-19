@@ -211,11 +211,6 @@
             <span class="stat-label">Tamamlanan</span>
             <strong id="completedTasks">0</strong><small>başarıyla sonuçlandı</small>
           </article>
-          <article class="stat-card stat-progress">
-            <div class="stat-card-top"><span class="stat-icon">↗</span><span class="stat-kicker">Aktif</span></div>
-            <span class="stat-label">Devam eden</span>
-            <strong id="inProgressTasks">0</strong><small>üzerinde çalışılıyor</small>
-          </article>
           <article class="stat-card stat-rate">
             <div class="stat-card-top"><span class="stat-icon">◎</span><span class="stat-kicker">Performans</span></div>
             <span class="stat-label">Başarı oranı</span>
@@ -415,8 +410,7 @@
           </select>
           <select id="statusFilter" aria-label="Duruma göre filtrele">
             <option value="all">Tüm durumlar</option>
-            <option value="bekliyor">Bekliyor</option>
-            <option value="devam_ediyor">Devam ediyor</option>
+            <option value="bekliyor">Yapılacak</option>
             <option value="tamamlandi">Tamamlandı</option>
           </select>
           <select id="priorityFilter" aria-label="Önceliğe göre filtrele">
@@ -462,6 +456,7 @@
               <div><span class="drawer-kicker">GÖREV YÖNETİMİ</span><h3 id="taskFormTitle">Görev oluştur</h3></div>
               <button id="closeTaskDrawerBtn" class="drawer-close" type="button" aria-label="Görev formunu kapat">×</button>
             </div>
+            <p id="taskFormPermissionNotice" class="section-hint hidden">Bu görev size ait olduğu için yalnızca alt görev ve dosya ekleyebilirsiniz; başlık, tarih, öncelik ve atama gibi alanları yalnızca yönetici değiştirebilir.</p>
             <label>
               Başlık
               <input id="taskTitle" type="text" required placeholder="ER diyagramını hazırla" />

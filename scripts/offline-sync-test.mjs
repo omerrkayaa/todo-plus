@@ -72,6 +72,8 @@ const launchBrowser = async () => {
 const browser = await launchBrowser();
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 page.setDefaultTimeout(15000);
+// Alt görev/yorum/dosyası olmayan bir görev tamamlanırken uygulama confirm() ile onay ister; bu testte kabul et.
+page.on("dialog", (dialog) => dialog.accept());
 
 const pushedTaskBodies = [];
 let jwtRejectionsServed = 0;

@@ -137,7 +137,7 @@ const defaultState = {
       title: "Görev ekranını kodla",
       description: "Görev ekleme, filtreleme ve durum değiştirme işlemleri.",
       priority: "yuksek",
-      status: "devam_ediyor",
+      status: "bekliyor",
       estimatedMinutes: 120,
       dueDate: "2026-07-12",
       attachments: [
@@ -171,44 +171,44 @@ const defaultState = {
       createdAt: "2026-07-09",
     },
     { id: "task-4", projectId: "project-3", categoryId: "category-4", createdBy: "user-4", title: "Mobil menüyü test et", description: "390 px görünümde menü açma ve kapama akışını doğrula.", priority: "orta", status: "tamamlandi", estimatedMinutes: 45, dueDate: "2026-07-11", createdAt: "2026-07-10" },
-    { id: "task-5", projectId: "project-3", categoryId: "category-4", createdBy: "user-4", title: "Klavye erişimini kontrol et", description: "Tab ve Escape tuşlarıyla tüm temel akışları denetle.", priority: "yuksek", status: "devam_ediyor", estimatedMinutes: 75, dueDate: "2026-07-13", createdAt: "2026-07-10" },
+    { id: "task-5", projectId: "project-3", categoryId: "category-4", createdBy: "user-4", title: "Klavye erişimini kontrol et", description: "Tab ve Escape tuşlarıyla tüm temel akışları denetle.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 75, dueDate: "2026-07-13", createdAt: "2026-07-10" },
     { id: "task-6", projectId: "project-4", categoryId: "category-7", createdBy: "user-4", title: "Smoke testleri çalıştır", description: "Giriş, proje, kategori, görev ve yorum akışlarını doğrula.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 90, dueDate: "2026-07-15", createdAt: "2026-07-10" },
-    { id: "task-7", projectId: "project-4", categoryId: "category-7", createdBy: "user-1", title: "RLS politikalarını denetle", description: "Kullanıcıların yalnızca ilişkili görevleri görebildiğini doğrula.", priority: "yuksek", status: "devam_ediyor", estimatedMinutes: 120, dueDate: "2026-07-16", createdAt: "2026-07-10" },
+    { id: "task-7", projectId: "project-4", categoryId: "category-7", createdBy: "user-1", title: "RLS politikalarını denetle", description: "Kullanıcıların yalnızca ilişkili görevleri görebildiğini doğrula.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 120, dueDate: "2026-07-16", createdAt: "2026-07-10" },
     { id: "task-8", projectId: "project-1", categoryId: "category-2", createdBy: "user-1", title: "Filtreleme ekranını iyileştir", description: "Proje ve kategori ilişkisini görev formunda görünür yap.", priority: "orta", status: "bekliyor", estimatedMinutes: 60, dueDate: "2026-07-17", createdAt: "2026-07-11" },
     { id: "task-9", projectId: "project-5", categoryId: "category-8", createdBy: "user-1", title: "Mil ölçülerini kontrol et", description: "Motor mili ölçülerini teknik çizimle karşılaştır.", priority: "dusuk", status: "bekliyor", estimatedMinutes: 30, dueDate: "2026-07-18", createdAt: "2026-07-11" },
-    { id: "task-10", projectId: "project-5", categoryId: "category-8", createdBy: "user-1", title: "Motor gövdesini modelle", description: "Motor gövdesinin üç boyutlu modelini hazırla.", priority: "yuksek", status: "devam_ediyor", estimatedMinutes: 150, dueDate: "2026-07-19", createdAt: "2026-07-11" },
+    { id: "task-10", projectId: "project-5", categoryId: "category-8", createdBy: "user-1", title: "Motor gövdesini modelle", description: "Motor gövdesinin üç boyutlu modelini hazırla.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 150, dueDate: "2026-07-19", createdAt: "2026-07-11" },
     { id: "task-11", projectId: "project-6", categoryId: "category-8", createdBy: "user-4", title: "Valf listesini hazırla", description: "Hidrolik devrede kullanılacak valfleri listele.", priority: "dusuk", status: "tamamlandi", estimatedMinutes: 40, dueDate: "2026-07-12", createdAt: "2026-07-11" },
     { id: "task-12", projectId: "project-6", categoryId: "category-8", createdBy: "user-4", title: "Basınç testini yap", description: "Hidrolik hattın çalışma basıncını doğrula.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 90, dueDate: "2026-07-20", createdAt: "2026-07-11" },
-    { id: "task-13", projectId: "project-7", categoryId: "category-8", createdBy: "user-1", title: "Dişli numaralarını düzenle", description: "Parça listesindeki dişli numaralarını sırala.", priority: "dusuk", status: "devam_ediyor", estimatedMinutes: 35, dueDate: "2026-07-21", createdAt: "2026-07-11" },
+    { id: "task-13", projectId: "project-7", categoryId: "category-8", createdBy: "user-1", title: "Dişli numaralarını düzenle", description: "Parça listesindeki dişli numaralarını sırala.", priority: "dusuk", status: "bekliyor", estimatedMinutes: 35, dueDate: "2026-07-21", createdAt: "2026-07-11" },
     { id: "task-14", projectId: "project-7", categoryId: "category-8", createdBy: "user-1", title: "Aktarım oranını hesapla", description: "Giriş ve çıkış dişlilerinin aktarım oranını hesapla.", priority: "orta", status: "tamamlandi", estimatedMinutes: 70, dueDate: "2026-07-13", createdAt: "2026-07-11" },
-    { id: "task-15", projectId: "project-8", categoryId: "category-1", createdBy: "user-1", title: "Satış verilerini temizle", description: "Eksik ve yinelenen satış kayıtlarını düzenle.", priority: "yuksek", status: "devam_ediyor", estimatedMinutes: 120, dueDate: "2026-07-22", createdAt: "2026-07-01" },
+    { id: "task-15", projectId: "project-8", categoryId: "category-1", createdBy: "user-1", title: "Satış verilerini temizle", description: "Eksik ve yinelenen satış kayıtlarını düzenle.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 120, dueDate: "2026-07-22", createdAt: "2026-07-01" },
     { id: "task-16", projectId: "project-8", categoryId: "category-1", createdBy: "user-1", title: "Bölgesel satış grafiği oluştur", description: "Bölgelere göre aylık satış dağılımını göster.", priority: "orta", status: "bekliyor", estimatedMinutes: 75, dueDate: "2026-07-25", createdAt: "2026-07-02" },
     { id: "task-17", projectId: "project-9", categoryId: "category-2", createdBy: "user-4", title: "Portal ana sayfasını kodla", description: "Müşteri özet kartlarını ve görev listesini hazırla.", priority: "yuksek", status: "tamamlandi", estimatedMinutes: 180, dueDate: "2026-07-08", createdAt: "2026-06-24" },
-    { id: "task-18", projectId: "project-9", categoryId: "category-2", createdBy: "user-4", title: "Bildirim menüsünü geliştir", description: "Okundu ve okunmadı bildirim durumlarını ekle.", priority: "dusuk", status: "devam_ediyor", estimatedMinutes: 60, dueDate: "2026-07-28", createdAt: "2026-07-03" },
+    { id: "task-18", projectId: "project-9", categoryId: "category-2", createdBy: "user-4", title: "Bildirim menüsünü geliştir", description: "Okundu ve okunmadı bildirim durumlarını ekle.", priority: "dusuk", status: "bekliyor", estimatedMinutes: 60, dueDate: "2026-07-28", createdAt: "2026-07-03" },
     { id: "task-19", projectId: "project-10", categoryId: "category-3", createdBy: "user-1", title: "Kurulum bölümünü yaz", description: "Yerel ve bulut kurulum adımlarını belgeleyin.", priority: "orta", status: "tamamlandi", estimatedMinutes: 90, dueDate: "2026-07-05", createdAt: "2026-06-26" },
     { id: "task-20", projectId: "project-10", categoryId: "category-3", createdBy: "user-1", title: "Ekran görüntülerini güncelle", description: "Yeni arayüz ekranlarını kılavuza ekle.", priority: "dusuk", status: "bekliyor", estimatedMinutes: 45, dueDate: "2026-08-01", createdAt: "2026-07-04" },
-    { id: "task-21", projectId: "project-11", categoryId: "category-4", createdBy: "user-4", title: "Çevrimdışı görev ekranını tasarla", description: "Bağlantı yokken görevlerin görüntülenmesini sağla.", priority: "yuksek", status: "devam_ediyor", estimatedMinutes: 150, dueDate: "2026-07-24", createdAt: "2026-07-05" },
+    { id: "task-21", projectId: "project-11", categoryId: "category-4", createdBy: "user-4", title: "Çevrimdışı görev ekranını tasarla", description: "Bağlantı yokken görevlerin görüntülenmesini sağla.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 150, dueDate: "2026-07-24", createdAt: "2026-07-05" },
     { id: "task-22", projectId: "project-11", categoryId: "category-4", createdBy: "user-4", title: "Konum izinlerini test et", description: "Android ve iOS izin akışlarını doğrula.", priority: "orta", status: "bekliyor", estimatedMinutes: 80, dueDate: "2026-07-30", createdAt: "2026-07-06" },
     { id: "task-23", projectId: "project-12", categoryId: "category-5", createdBy: "user-1", title: "Renk kontrastlarını denetle", description: "Metin ve arka plan kontrast oranlarını ölç.", priority: "yuksek", status: "tamamlandi", estimatedMinutes: 70, dueDate: "2026-07-09", createdAt: "2026-07-01" },
-    { id: "task-24", projectId: "project-12", categoryId: "category-5", createdBy: "user-1", title: "Ekran okuyucu etiketlerini ekle", description: "Form alanlarına erişilebilir adlar tanımla.", priority: "orta", status: "devam_ediyor", estimatedMinutes: 110, dueDate: "2026-07-26", createdAt: "2026-07-07" },
+    { id: "task-24", projectId: "project-12", categoryId: "category-5", createdBy: "user-1", title: "Ekran okuyucu etiketlerini ekle", description: "Form alanlarına erişilebilir adlar tanımla.", priority: "orta", status: "bekliyor", estimatedMinutes: 110, dueDate: "2026-07-26", createdAt: "2026-07-07" },
     { id: "task-25", projectId: "project-13", categoryId: "category-6", createdBy: "user-4", title: "Giriş testlerini otomatikleştir", description: "Başarılı ve hatalı giriş senaryolarını kapsa.", priority: "yuksek", status: "tamamlandi", estimatedMinutes: 130, dueDate: "2026-07-10", attachments: [{ id: "attachment-task-25-1", name: "test-senaryolari.png", type: "image/svg+xml", size: 598, dataUrl: sampleAttachmentDataUrl, uploadedAt: "2026-07-02" }], subtasks: [{ id: "subtask-task-25-1", title: "Başarılı giriş testini yaz", completed: true }, { id: "subtask-task-25-2", title: "Hatalı giriş durumunu kapsa", completed: true }, { id: "subtask-task-25-3", title: "Rapor çıktısını doğrula", completed: false }], createdAt: "2026-07-02" },
-    { id: "task-26", projectId: "project-13", categoryId: "category-6", createdBy: "user-4", title: "Filtre regresyonlarını yaz", description: "Tüm filtre kombinasyonlarını otomatik doğrula.", priority: "yuksek", status: "devam_ediyor", estimatedMinutes: 140, dueDate: "2026-07-23", createdAt: "2026-07-08" },
+    { id: "task-26", projectId: "project-13", categoryId: "category-6", createdBy: "user-4", title: "Filtre regresyonlarını yaz", description: "Tüm filtre kombinasyonlarını otomatik doğrula.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 140, dueDate: "2026-07-23", createdAt: "2026-07-08" },
     { id: "task-27", projectId: "project-14", categoryId: "category-7", createdBy: "user-1", title: "Oturum süresini sınırla", description: "Hareketsiz oturumların güvenli biçimde kapanmasını sağla.", priority: "orta", status: "bekliyor", estimatedMinutes: 85, dueDate: "2026-08-03", createdAt: "2026-07-09" },
-    { id: "task-28", projectId: "project-14", categoryId: "category-7", createdBy: "user-1", title: "Yetki matrisini doğrula", description: "Yönetici ve kullanıcı izinlerini karşılaştır.", priority: "yuksek", status: "devam_ediyor", estimatedMinutes: 100, dueDate: "2026-07-27", createdAt: "2026-07-09" },
+    { id: "task-28", projectId: "project-14", categoryId: "category-7", createdBy: "user-1", title: "Yetki matrisini doğrula", description: "Yönetici ve kullanıcı izinlerini karşılaştır.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 100, dueDate: "2026-07-27", createdAt: "2026-07-09" },
     { id: "task-29", projectId: "project-15", categoryId: "category-8", createdBy: "user-4", title: "Bant hızını hesapla", description: "Hedef kapasiteye göre konveyör hızını belirle.", priority: "orta", status: "tamamlandi", estimatedMinutes: 95, dueDate: "2026-07-07", createdAt: "2026-07-05" },
     { id: "task-30", projectId: "project-15", categoryId: "category-8", createdBy: "user-4", title: "Rulman seçimini yap", description: "Yük değerlerine uygun rulmanları listele.", priority: "dusuk", status: "bekliyor", estimatedMinutes: 55, dueDate: "2026-08-05", createdAt: "2026-07-10" },
-    { id: "task-31", projectId: "project-16", categoryId: "category-1", createdBy: "user-1", title: "Başarı oranlarını karşılaştır", description: "Aylık ekip başarı oranlarını analiz et.", priority: "orta", status: "devam_ediyor", estimatedMinutes: 65, dueDate: "2026-07-29", createdAt: "2026-07-10" },
+    { id: "task-31", projectId: "project-16", categoryId: "category-1", createdBy: "user-1", title: "Başarı oranlarını karşılaştır", description: "Aylık ekip başarı oranlarını analiz et.", priority: "orta", status: "bekliyor", estimatedMinutes: 65, dueDate: "2026-07-29", createdAt: "2026-07-10" },
     { id: "task-32", projectId: "project-16", categoryId: "category-1", createdBy: "user-1", title: "Geciken görev raporu hazırla", description: "Proje ve kullanıcı bazında gecikmeleri grupla.", priority: "dusuk", status: "tamamlandi", estimatedMinutes: 50, dueDate: "2026-07-11", createdAt: "2026-07-10" },
     { id: "task-33", projectId: "project-17", categoryId: "category-2", createdBy: "user-4", title: "Yönetici tablosunu geliştir", description: "Sıralanabilir ekip ve görev tablosu ekle.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 125, dueDate: "2026-08-02", createdAt: "2026-07-11" },
-    { id: "task-34", projectId: "project-17", categoryId: "category-2", createdBy: "user-4", title: "Toplu işlem menüsünü ekle", description: "Seçilen görevlerin durumunu topluca güncelle.", priority: "dusuk", status: "devam_ediyor", estimatedMinutes: 100, dueDate: "2026-08-04", createdAt: "2026-07-11" },
-    { id: "task-35", projectId: "project-18", categoryId: "category-6", createdBy: "user-1", title: "Görev API testlerini yaz", description: "Oluşturma, güncelleme ve silme uçlarını doğrula.", priority: "yuksek", status: "devam_ediyor", estimatedMinutes: 160, dueDate: "2026-07-31", createdAt: "2026-07-11" },
+    { id: "task-34", projectId: "project-17", categoryId: "category-2", createdBy: "user-4", title: "Toplu işlem menüsünü ekle", description: "Seçilen görevlerin durumunu topluca güncelle.", priority: "dusuk", status: "bekliyor", estimatedMinutes: 100, dueDate: "2026-08-04", createdAt: "2026-07-11" },
+    { id: "task-35", projectId: "project-18", categoryId: "category-6", createdBy: "user-1", title: "Görev API testlerini yaz", description: "Oluşturma, güncelleme ve silme uçlarını doğrula.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 160, dueDate: "2026-07-31", createdAt: "2026-07-11" },
     { id: "task-36", projectId: "project-18", categoryId: "category-6", createdBy: "user-1", title: "Hata yanıtlarını doğrula", description: "Geçersiz isteklerin hata kodlarını kontrol et.", priority: "orta", status: "bekliyor", estimatedMinutes: 80, dueDate: "2026-08-06", createdAt: "2026-07-11" },
-    { id: "task-37", projectId: "project-9", categoryId: "category-2", createdBy: "user-4", title: "Müşteri destek notlarını ekle", description: "Sık sorulan sorular ve kısa yönlendirme metinleri yaz.", priority: "orta", status: "devam_ediyor", estimatedMinutes: 70, dueDate: "2026-07-18", createdAt: "2026-07-12" },
+    { id: "task-37", projectId: "project-9", categoryId: "category-2", createdBy: "user-4", title: "Müşteri destek notlarını ekle", description: "Sık sorulan sorular ve kısa yönlendirme metinleri yaz.", priority: "orta", status: "bekliyor", estimatedMinutes: 70, dueDate: "2026-07-18", createdAt: "2026-07-12" },
     { id: "task-38", projectId: "project-9", categoryId: "category-2", createdBy: "user-4", title: "Portal bildirimlerini grupla", description: "Önemli ve normal bildirimleri ayrı kartlarda göster.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 95, dueDate: "2026-07-19", createdAt: "2026-07-12" },
     { id: "task-39", projectId: "project-10", categoryId: "category-3", createdBy: "user-1", title: "Kılavuz görsellerini yenile", description: "Eski ekran görüntülerini yeni sürümle değiştir.", priority: "dusuk", status: "bekliyor", estimatedMinutes: 55, dueDate: "2026-07-20", createdAt: "2026-07-12" },
-    { id: "task-40", projectId: "project-11", categoryId: "category-4", createdBy: "user-4", title: "Saha raporu formunu düzenle", description: "Tek satırlık not ve konum alanlarını iyileştir.", priority: "orta", status: "devam_ediyor", estimatedMinutes: 85, dueDate: "2026-07-21", createdAt: "2026-07-12" },
+    { id: "task-40", projectId: "project-11", categoryId: "category-4", createdBy: "user-4", title: "Saha raporu formunu düzenle", description: "Tek satırlık not ve konum alanlarını iyileştir.", priority: "orta", status: "bekliyor", estimatedMinutes: 85, dueDate: "2026-07-21", createdAt: "2026-07-12" },
     { id: "task-41", projectId: "project-12", categoryId: "category-5", createdBy: "user-1", title: "Klavyeyle gezinmeyi test et", description: "Formlar, menüler ve modal pencereler arasında dolaş.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 100, dueDate: "2026-07-22", createdAt: "2026-07-12" },
-    { id: "task-42", projectId: "project-13", categoryId: "category-6", createdBy: "user-4", title: "Ödeme akışı regresyonu", description: "Başarılı, hatalı ve iptal durumlarını otomatik doğrula.", priority: "yuksek", status: "devam_ediyor", estimatedMinutes: 140, dueDate: "2026-07-23", createdAt: "2026-07-12" },
+    { id: "task-42", projectId: "project-13", categoryId: "category-6", createdBy: "user-4", title: "Ödeme akışı regresyonu", description: "Başarılı, hatalı ve iptal durumlarını otomatik doğrula.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 140, dueDate: "2026-07-23", createdAt: "2026-07-12" },
     { id: "task-43", projectId: "project-16", categoryId: "category-1", createdBy: "user-1", title: "Raporu yönetime hazırla", description: "Özet metrikleri kısa yönetici notu haline getir.", priority: "orta", status: "bekliyor", estimatedMinutes: 75, dueDate: "2026-07-24", createdAt: "2026-07-12" },
     { id: "task-44", projectId: "project-18", categoryId: "category-6", createdBy: "user-1", title: "API sonuçlarını belgeye aktar", description: "Test çıktılarından kısa özet ve ekran notu hazırla.", priority: "dusuk", status: "bekliyor", estimatedMinutes: 60, dueDate: "2026-07-25", createdAt: "2026-07-12" },
   ],
@@ -318,7 +318,7 @@ const defaultState = {
       id: "history-1",
       taskId: "task-1",
       changedBy: "user-1",
-      oldStatus: "devam_ediyor",
+      oldStatus: "bekliyor",
       newStatus: "tamamlandi",
       note: "ER diyagramı tamamlandı.",
       changedAt: "2026-07-09",
@@ -477,7 +477,6 @@ const elements = {
   tasksView: document.querySelector("#tasksView"),
   totalTasks: document.querySelector("#totalTasks"),
   completedTasks: document.querySelector("#completedTasks"),
-  inProgressTasks: document.querySelector("#inProgressTasks"),
   successRate: document.querySelector("#successRate"),
   overdueTasks: document.querySelector("#overdueTasks"),
   streakDays: document.querySelector("#streakDays"),
@@ -550,6 +549,7 @@ const elements = {
   taskLayoutPanels: document.querySelectorAll("[data-task-layout-panel]"),
   taskForm: document.querySelector("#taskForm"),
   taskFormTitle: document.querySelector("#taskFormTitle"),
+  taskFormPermissionNotice: document.querySelector("#taskFormPermissionNotice"),
   taskSubmitBtn: document.querySelector("#taskSubmitBtn"),
   cancelTaskEditBtn: document.querySelector("#cancelTaskEditBtn"),
   closeTaskDrawerBtn: document.querySelector("#closeTaskDrawerBtn"),
@@ -629,6 +629,8 @@ function migrateState(nextState, parsedState) {
   }));
   nextState.tasks = (nextState.tasks || []).map((task) => ({
     ...task,
+    // "devam_ediyor" durumu "bekliyor" ile birleştirildi (2026-07); eski veriyi geriye dönük eşitliyoruz.
+    status: task.status === "devam_ediyor" ? "bekliyor" : task.status,
     attachments: Array.isArray(task.attachments)
       ? task.attachments.map((attachment) => ({
           ...attachment,
@@ -646,6 +648,12 @@ function migrateState(nextState, parsedState) {
     tags: Array.isArray(task.tags) ? task.tags : [],
     startDate: task.startDate || "",
     repeatInterval: task.repeatInterval || "none",
+  }));
+
+  nextState.history = (nextState.history || []).map((item) => ({
+    ...item,
+    oldStatus: item.oldStatus === "devam_ediyor" ? "bekliyor" : item.oldStatus,
+    newStatus: item.newStatus === "devam_ediyor" ? "bekliyor" : item.newStatus,
   }));
 
   if (!Array.isArray(parsedState.taskGivers)) {
@@ -2405,7 +2413,7 @@ function renderTaskCard(task, options = {}) {
     .map((giver) => getUserName(giver.userId))
     .join(", ");
   const category = getTaskCategory(task);
-  const nextStatus = task.status === "tamamlandi" ? "devam_ediyor" : "tamamlandi";
+  const nextStatus = task.status === "tamamlandi" ? "bekliyor" : "tamamlandi";
   const actionText = task.status === "tamamlandi" ? "Tekrar aç" : "Tamamla";
   const dueDate = getDueDateMeta(task);
   const attachmentCount = getTaskAttachments(task).length;
@@ -2414,7 +2422,7 @@ function renderTaskCard(task, options = {}) {
   const assigneeInitials = getInitials(assigneeNames[0] || "?");
 
   // WCAG 2.5.7: sürükle-bırakın klavye alternatifi — panoda kartı ok düğmeleriyle taşı.
-  const statusOrder = ["bekliyor", "devam_ediyor", "tamamlandi"];
+  const statusOrder = ["bekliyor", "tamamlandi"];
   const statusIndex = statusOrder.indexOf(task.status);
   const previousStatus = statusOrder[statusIndex - 1];
   const nextColumnStatus = statusOrder[statusIndex + 1];
@@ -2457,7 +2465,7 @@ function renderTaskCard(task, options = {}) {
         <button class="small-button action-detail" type="button" data-detail-task="${task.id}">Detayı aç</button>
         ${options.compact ? "" : `<button class="small-button action-status" type="button" data-status-task="${task.id}" data-next-status="${nextStatus}">${actionText}</button>`}
         ${moveButtons}
-        ${isAdmin() ? `<button class="icon-button" type="button" data-edit-task="${task.id}" aria-label="${escapeHtml(task.title)} görevini düzenle">✎</button>` : ""}
+        ${isAdmin() || isTaskAssignee(task) ? `<button class="icon-button" type="button" data-edit-task="${task.id}" aria-label="${escapeHtml(task.title)} görevini düzenle">✎</button>` : ""}
         ${isAdmin() ? `<button class="icon-button danger-icon" type="button" data-delete-task="${task.id}" aria-label="${escapeHtml(task.title)} görevini sil">×</button>` : ""}
       </div>
     </article>
@@ -2807,7 +2815,7 @@ function handleCalendarDrop(event) {
 
 function renderKanbanBoard() {
   const tasks = getFilteredTasks();
-  const columns = ["bekliyor", "devam_ediyor", "tamamlandi"];
+  const columns = ["bekliyor", "tamamlandi"];
 
   elements.kanbanBoard.innerHTML = columns
     .map((status) => {
@@ -3026,9 +3034,8 @@ function renderTaskDetail() {
           <h3>Bilgiler</h3>
           <label>Durumu değiştir
             <select data-detail-status="${task.id}" aria-label="Görev durumunu değiştir">
-              <option value="bekliyor" ${task.status === "bekliyor" ? "selected" : ""}>Bekliyor</option>
-              <option value="devam_ediyor" ${task.status === "devam_ediyor" ? "selected" : ""}>Devam ediyor</option>
-              <option value="tamamlandi" ${task.status === "tamamlandi" ? "selected" : ""}>Tamamlandı</option>
+              <option value="bekliyor" ${task.status === "bekliyor" ? "selected" : ""}>${statusLabels.bekliyor}</option>
+              <option value="tamamlandi" ${task.status === "tamamlandi" ? "selected" : ""}>${statusLabels.tamamlandi}</option>
             </select>
           </label>
           ${isAdmin() ? `<button class="small-button" type="button" data-convert-task-to-project="${task.id}" title="Alt görevleri bağımsız görevlere yükseltip bu görevi projeye dönüştürür">📁 Projeye dönüştür</button>` : ""}
@@ -3066,6 +3073,7 @@ function renderTaskDetail() {
           <h3>Alt görevler</h3>
           <span>${completedSubtasks}/${subtasks.length}</span>
         </div>
+        <p class="section-hint">Bu görevi küçük adımlara böl; her adımı bitirdikçe işaretle, üstte kaçının tamamlandığını gör.</p>
         <div class="checklist-list">
           ${
             subtasks.length === 0
@@ -3086,6 +3094,7 @@ function renderTaskDetail() {
 
       <section class="detail-block">
         <h3>Yorumlar</h3>
+        <p class="section-hint">Görevle ilgili not bırak; birinden bahsetmek için @ad yaz, ona bildirim gitsin.</p>
         <div class="comment-list">
           ${
             comments.length === 0
@@ -3392,7 +3401,8 @@ function openTaskDetail(taskId) {
   activeDetailTaskId = taskId;
   renderTaskDetail();
   elements.taskCommentText.value = "";
-  activateModal(elements.taskDetailModal, elements.taskCommentText);
+  elements.taskDetailBody.scrollTop = 0;
+  activateModal(elements.taskDetailModal, elements.closeTaskDetailBtn);
 }
 
 function closeTaskDetail() {
@@ -3410,13 +3420,11 @@ function renderDashboard() {
     : state.tasks.filter((task) => getTaskAssignments(task.id).some((assignment) => assignment.userId === dashboardUserId));
   const totalTasks = visibleTasks.length;
   const completedTasks = visibleTasks.filter((task) => task.status === "tamamlandi").length;
-  const inProgressTasks = visibleTasks.filter((task) => task.status === "devam_ediyor").length;
   const overdueTasks = visibleTasks.filter(isTaskOverdue).length;
   const activeStats = calculateUserStats(dashboardUserId);
 
   elements.totalTasks.textContent = totalTasks;
   elements.completedTasks.textContent = completedTasks;
-  elements.inProgressTasks.textContent = inProgressTasks;
   elements.overdueTasks.textContent = overdueTasks;
   elements.successRate.textContent = `${activeStats.rate}%`;
 
@@ -3908,6 +3916,7 @@ function resetTaskForm() {
     option.selected = option.value === getSessionUser().id;
   });
   renderTaskGiverChips();
+  applyTaskFormPermissions();
   setTaskDetailsExpanded(false);
   closeTaskDrawer();
 }
@@ -4211,7 +4220,11 @@ function handleQuickAddSubmit(event) {
 
 async function addTask(event) {
   event.preventDefault();
-  if (!isAdmin()) return showToast("Görev oluşturma yalnızca yöneticilere açıktır.", "error");
+  const existingTaskForGuard = editingTaskId ? state.tasks.find((item) => item.id === editingTaskId) : null;
+  if (!editingTaskId && !isAdmin()) return showToast("Görev oluşturma yalnızca yöneticilere açıktır.", "error");
+  if (editingTaskId && !isAdmin() && (!existingTaskForGuard || !isTaskAssignee(existingTaskForGuard))) {
+    return showToast("Bu görevi düzenleme yetkiniz yok.", "error");
+  }
 
   const priority = elements.taskPriority.value;
   const assigneeIds = [...elements.taskAssignee.selectedOptions].map((option) => option.value);
@@ -4270,16 +4283,36 @@ async function addTask(event) {
   showToast("Görev oluşturuldu.");
 }
 
-async function updateTaskFromForm(taskId, formData) {
+async function updateTaskFromForm(taskId, rawFormData) {
   const task = state.tasks.find((item) => item.id === taskId);
   if (!task) return;
-
-  const oldStatus = task.status;
 
   const sameIdList = (a, b) => [...(a || [])].sort().join("|") === [...(b || [])].sort().join("|");
   const subtaskSnapshot = (list) => (list || []).map((subtask) => `${subtask.title}:${subtask.completed ? 1 : 0}`).join("|");
   const existingAssigneeIds = state.assignments.filter((assignment) => assignment.taskId === taskId).map((assignment) => assignment.userId);
   const existingGiverIds = state.taskGivers.filter((giver) => giver.taskId === taskId).map((giver) => giver.userId);
+
+  // Atanan kullanıcı formu görünüşte düzenleyebilse de (alanlar disabled), sunucu tarafı bir denetim
+  // olmadığından burada da yönetimsel alanları görevin mevcut değerlerine sabitliyoruz.
+  const formData = isAdmin()
+    ? rawFormData
+    : {
+        ...rawFormData,
+        projectId: task.projectId,
+        categoryId: task.categoryId,
+        title: task.title,
+        description: task.description,
+        priority: task.priority,
+        estimatedMinutes: task.estimatedMinutes,
+        startDate: task.startDate,
+        dueDate: task.dueDate,
+        repeatInterval: task.repeatInterval,
+        assigneeIds: existingAssigneeIds,
+        giverIds: existingGiverIds,
+        tags: task.tags,
+      };
+
+  const oldStatus = task.status;
 
   const changedFields = [];
   if (task.projectId !== formData.projectId) changedFields.push("proje");
@@ -4449,10 +4482,34 @@ function createRecurringTaskInstance(task) {
   showToast(`Tekrarlayan görev için yeni bir örnek oluşturuldu: "${task.title}".`);
 }
 
+function isTaskAssignee(task) {
+  const sessionUserId = getSessionUser()?.id;
+  return getTaskAssignments(task.id).some((assignment) => assignment.userId === sessionUserId);
+}
+
+const taskFormAdminOnlyFieldIds = [
+  "taskTitle", "taskDescription", "taskProject", "taskMinutes",
+  "taskStartDate", "taskDueDate", "taskRepeatInterval", "taskPriority",
+  "taskAssignee", "taskGivers", "taskTagInput", "taskTagAddBtn",
+];
+
+function applyTaskFormPermissions() {
+  const limited = Boolean(editingTaskId) && !isAdmin();
+  taskFormAdminOnlyFieldIds.forEach((id) => {
+    if (elements[id]) elements[id].disabled = limited;
+  });
+  [...elements.taskAssigneeChips.querySelectorAll("button"), ...elements.taskGiverChips.querySelectorAll("button")].forEach((button) => {
+    button.disabled = limited;
+  });
+  elements.taskFormPermissionNotice.classList.toggle("hidden", !limited);
+}
+
 function editTask(taskId) {
-  if (!isAdmin()) return showToast("Görev düzenleme yalnızca yöneticilere açıktır.", "error");
   const task = state.tasks.find((item) => item.id === taskId);
   if (!task) return;
+  if (!isAdmin() && !isTaskAssignee(task)) {
+    return showToast("Görev düzenleme yalnızca yöneticiler veya görevin atandığı kişi tarafından yapılabilir.", "error");
+  }
 
   editingTaskId = taskId;
   const assigneeIds = getTaskAssignments(taskId).map((assignment) => assignment.userId);
@@ -4484,6 +4541,7 @@ function editTask(taskId) {
     option.selected = giverIds.length > 0 ? giverIds.includes(option.value) : option.value === task.createdBy;
   });
   renderTaskGiverChips();
+  applyTaskFormPermissions();
   setTaskDetailsExpanded(true);
   openTaskDrawer();
 }
@@ -4496,6 +4554,18 @@ function updateTaskStatus(taskId, nextStatus) {
     return showToast("Yalnızca size atanan görevleri güncelleyebilirsiniz.", "error");
   }
   if (task.status === nextStatus) return;
+
+  if (nextStatus === "tamamlandi") {
+    const hasSubtasks = getTaskSubtasks(task).length > 0;
+    const hasComments = getTaskComments(taskId).length > 0;
+    const hasAttachments = getTaskAttachments(task).length > 0;
+    if (!hasSubtasks && !hasComments && !hasAttachments) {
+      const confirmed = confirm(
+        `"${task.title}" görevinde henüz alt görev, yorum veya dosya eklemediniz. Yine de tamamlandı olarak işaretlensin mi?`,
+      );
+      if (!confirmed) return;
+    }
+  }
 
   const oldStatus = task.status;
   task.status = nextStatus;

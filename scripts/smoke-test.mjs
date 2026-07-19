@@ -148,11 +148,11 @@ try {
       throw new Error("Düşük öncelik filtresi başka öncelikte görev gösterdi.");
     }
   }
-  await page.selectOption("#statusFilter", "devam_ediyor");
+  await page.selectOption("#statusFilter", "bekliyor");
   const combinedLowInProgress = page.locator("#taskList .task-card");
   for (let index = 0; index < (await combinedLowInProgress.count()); index += 1) {
     const card = combinedLowInProgress.nth(index);
-    if (!(await card.locator(".priority-dusuk").count()) || !(await card.locator(".status-dot-devam_ediyor").count())) {
+    if (!(await card.locator(".priority-dusuk").count()) || !(await card.locator(".status-dot-bekliyor").count())) {
       throw new Error("Öncelik ve durum filtreleri AND mantığıyla birleşmedi.");
     }
   }
@@ -179,8 +179,9 @@ try {
   await page.fill("#taskCommentText", "Smoke test yorumu");
   await page.click("#taskCommentForm button[type='submit']");
   await expectVisible("#taskDetailBody >> text=Smoke test yorumu", "Yeni yorum");
-  await page.selectOption("[data-detail-status]", "devam_ediyor");
-  await expectVisible("#taskDetailBody .status-devam_ediyor", "Modal içi hızlı durum değişikliği");
+  await page.selectOption("[data-detail-status]", "tamamlandi");
+  await expectVisible("#taskDetailBody .status-tamamlandi", "Modal içi hızlı durum değişikliği");
+  await page.selectOption("[data-detail-status]", "bekliyor");
   await page.click("#closeTaskDetailBtn");
 
   await taskCard.locator("[data-status-task]").click();
