@@ -9,6 +9,28 @@ const getTaskAttachments = taskModel.getAttachments;
 const getTaskSubtasks = taskModel.getSubtasks;
 const getTaskScore = taskModel.getScore;
 
+const moonIconPath = '<path d="M20.5 14.7A8.5 8.5 0 0 1 9.3 3.5a8.5 8.5 0 1 0 11.2 11.2Z"/>';
+const sunIconPath = '<circle cx="12" cy="12" r="4.6"/><path d="M12 2.5v2.4M12 19.1v2.4M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7"/>';
+
+function applyTheme(choice) {
+  if (choice === "dark" || choice === "light") {
+    document.documentElement.setAttribute("data-theme", choice);
+  } else {
+    document.documentElement.removeAttribute("data-theme");
+  }
+  const resolvedDark = choice === "dark"
+    || (choice !== "light" && window.matchMedia?.("(prefers-color-scheme: dark)").matches);
+  if (elements.themeToggleIcon) elements.themeToggleIcon.innerHTML = resolvedDark ? moonIconPath : sunIconPath;
+  elements.themeOptions.forEach((button) => {
+    button.setAttribute("aria-checked", String(button.dataset.themeChoice === choice));
+  });
+}
+
+function setTheme(choice) {
+  localStore.saveTheme(choice);
+  applyTheme(choice);
+}
+
 const attachmentRules = Object.freeze({
   maxFiles: 5,
   maxFileSize: 5 * 1024 * 1024,
@@ -474,6 +496,10 @@ const elements = {
   notificationsBtn: document.querySelector("#notificationsBtn"),
   notificationsPanel: document.querySelector("#notificationsPanel"),
   notificationsBadge: document.querySelector("#notificationsBadge"),
+  themeToggleBtn: document.querySelector("#themeToggleBtn"),
+  themeToggleIcon: document.querySelector("#themeToggleIcon"),
+  themePanel: document.querySelector("#themePanel"),
+  themeOptions: document.querySelectorAll("[data-theme-choice]"),
   userScores: document.querySelector("#userScores"),
   upcomingTasks: document.querySelector("#upcomingTasks"),
   historyList: document.querySelector("#historyList"),
@@ -5377,6 +5403,27 @@ function bindEvents() {
     elements.notificationsPanel.classList.add("hidden");
     elements.notificationsBtn.setAttribute("aria-expanded", "false");
   });
+  elements.themeToggleBtn.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const isOpen = elements.themePanel.classList.toggle("hidden") === false;
+    elements.themeToggleBtn.setAttribute("aria-expanded", String(isOpen));
+  });
+  elements.themeOptions.forEach((button) => {
+    button.addEventListener("click", () => {
+      setTheme(button.dataset.themeChoice);
+      elements.themePanel.classList.add("hidden");
+      elements.themeToggleBtn.setAttribute("aria-expanded", "false");
+    });
+  });
+  document.addEventListener("click", (event) => {
+    if (elements.themePanel.classList.contains("hidden")) return;
+    if (event.target.closest("#themePanel") || event.target.closest("#themeToggleBtn")) return;
+    elements.themePanel.classList.add("hidden");
+    elements.themeToggleBtn.setAttribute("aria-expanded", "false");
+  });
+  window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener("change", () => {
+    if (localStore.loadTheme() === "system") applyTheme("system");
+  });
   elements.resetDemoBtn.addEventListener("click", resetDemoData);
   elements.projectForm.addEventListener("submit", addProject);
   elements.projectInviteForm.addEventListener("submit", addProjectInvitation);
@@ -5615,6 +5662,9 @@ function bindEvents() {
     } else if (event.key === "Escape" && !elements.notificationsPanel.classList.contains("hidden")) {
       elements.notificationsPanel.classList.add("hidden");
       elements.notificationsBtn.setAttribute("aria-expanded", "false");
+    } else if (event.key === "Escape" && !elements.themePanel.classList.contains("hidden")) {
+      elements.themePanel.classList.add("hidden");
+      elements.themeToggleBtn.setAttribute("aria-expanded", "false");
     }
   });
 
@@ -5658,6 +5708,7 @@ function bindEvents() {
 }
 
 elements.taskDueDate.min = getLocalTodayValue();
+applyTheme(localStore.loadTheme());
 bindEvents();
 setTaskLayout("list");
 initializeAuth();

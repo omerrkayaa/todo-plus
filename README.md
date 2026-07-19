@@ -93,6 +93,8 @@ Temel hedefler:
 - Geciken ve yaklaşan görev rozetleri
 - Erişilebilir modal ve durum mesajları
 - Azaltılmış hareket tercihi desteği
+- Koyu tema (Aydınlık / Koyu / Sistem) — üst çubuktaki ay/güneş simgesinden değiştirilir, tercih
+  cihazda saklanır; tüm renkler WCAG AA (4.5:1) kontrastı için ayrıca test edildi
 
 ## 4. Proje Yapısı
 

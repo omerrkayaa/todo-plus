@@ -34,6 +34,8 @@
       loadSyncBase: () => read(keys.syncBase, null),
       saveSyncBase: (value) => write(keys.syncBase, value),
       clearSyncBase: () => storage.removeItem(keys.syncBase),
+      loadTheme: () => read(keys.theme, "system"),
+      saveTheme: (value) => write(keys.theme, value),
     });
   }
 
