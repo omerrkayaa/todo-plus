@@ -186,6 +186,23 @@ def add_number(text):
     return p
 
 
+def add_image(rel_path, caption):
+    path = ROOT / rel_path
+    if not path.exists():
+        print(f"[uyarı] görsel bulunamadı: {rel_path}")
+        return
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p.paragraph_format.keep_with_next = True
+    p.paragraph_format.space_before = Pt(6)
+    p.add_run().add_picture(str(path), width=Inches(6.1))
+    cp = doc.add_paragraph()
+    cp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    cp.paragraph_format.space_before = Pt(3)
+    cp.paragraph_format.space_after = Pt(12)
+    set_font(cp.add_run(caption), 9.5, False, GRAY, True)
+
+
 def add_table(header_cells, rows):
     n_cols = len(header_cells)
     table = doc.add_table(rows=1, cols=n_cols)
@@ -272,11 +289,22 @@ def flush_table():
     table_buffer = []
 
 
+img_re = re.compile(r"^\[\[IMG:(.+?)\|(.+?)\]\]$")
+
 i = 0
 first_h1_seen = False
+in_code_fence = False
 while i < len(lines):
     raw = lines[i]
     line = raw.rstrip()
+
+    if line.strip().startswith("```"):
+        in_code_fence = not in_code_fence
+        i += 1
+        continue
+    if in_code_fence:
+        i += 1
+        continue
 
     if line.startswith("|"):
         table_buffer.append(line)
@@ -286,6 +314,12 @@ while i < len(lines):
         flush_table()
 
     if not line.strip():
+        i += 1
+        continue
+
+    img_match = img_re.match(line.strip())
+    if img_match:
+        add_image(img_match.group(1), img_match.group(2))
         i += 1
         continue
 
@@ -321,40 +355,6 @@ while i < len(lines):
     i += 1
 
 flush_table()
-
-# ----------------------------------------------------------------------------
-# Ek: ekran goruntuleri
-# ----------------------------------------------------------------------------
-doc.add_page_break()
-doc.add_heading("Ek — Ekran Görüntüleri", level=1)
-doc.add_paragraph(
-    "Aşağıdaki görseller uygulamanın güncel arayüzünden alınmıştır (scripts/capture-screenshots.mjs ile üretilir)."
-)
-
-shot_captions = [
-    ("01-giris-ekrani.png", "Giriş ekranı"),
-    ("02-istatistik-ekrani.png", "İstatistik ekranı"),
-    ("03-projeler-kategoriler.png", "Projeler ve kategoriler"),
-    ("04-gorevler-ekrani.png", "Görevler ekranı"),
-    ("05-gorev-detayi-yorumlar.png", "Görev detayı ve yorumlar"),
-    ("06-kanban-panosu.png", "Kanban panosu"),
-    ("07-gorev-cekmece-formu.png", "Görev çekmece formu"),
-    ("08-mobil-genel-bakis.png", "Mobil genel bakış"),
-    ("09-mobil-yan-menu.png", "Mobil yan menü"),
-]
-for filename, caption in shot_captions:
-    path = SHOTS / filename
-    if not path.exists():
-        continue
-    p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p.paragraph_format.keep_with_next = True
-    p.add_run().add_picture(str(path), width=Inches(6.3))
-    cp = doc.add_paragraph()
-    cp.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    cp.paragraph_format.space_before = Pt(3)
-    cp.paragraph_format.space_after = Pt(14)
-    set_font(cp.add_run(caption), 9.5, False, GRAY, True)
 
 doc.core_properties.title = "ToDo+ — Baştan Sona Proje Raporu"
 doc.core_properties.subject = "ToDo+ projesinin tüm geliştirme sürecinin detaylı raporu"
