@@ -65,7 +65,7 @@ Temel hedefler:
 - Ayrı kullanıcı paneli: yalnızca kişiye atanmış görevler, kişisel istatistikler, durum güncelleme ve yorum
 - Arayüz ve işlem seviyesinde rol tabanlı yetki kontrolü
 - Düşük, orta ve yüksek öncelik
-- Bekliyor, devam ediyor ve tamamlandı durumları
+- Yapılacak ve tamamlandı durumları
 - Tahmini süre ve son teslim tarihi
 - Görev detayı modalı
 - Görev yorumları
@@ -79,7 +79,7 @@ Temel hedefler:
 - Durum, öncelik, kategori ve atanan kullanıcı filtresi
 - Teslim tarihi, öncelik veya oluşturulma tarihine göre sıralama
 - Filtreleri tek işlemle temizleme
-- Toplam, tamamlanan, devam eden ve geciken görev sayısı
+- Toplam, tamamlanan ve geciken görev sayısı
 - Yaklaşan teslim tarihleri
 - Kullanıcı bazlı başarı oranı ve ekip analizi
 - Proje ilerleme çubuğu
