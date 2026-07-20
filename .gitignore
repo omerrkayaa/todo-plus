@@ -9,5 +9,7 @@ build/
 *.log
 Thumbs.db
 .DS_Store
+~$*.docx
+~$*.doc
 .gstack/
 .claude/settings.local.json
