@@ -163,4 +163,28 @@ ax.set_xlim(0, 12)
 ax.set_ylim(0, 4.4)
 save(fig, "gelisim-zaman-cizelgesi.png")
 
+# ---------------------------------------------------------------------------
+# 6) Veri modeli (ER diyagrami, sadelestirilmis)
+# ---------------------------------------------------------------------------
+fig, ax = new_fig(11, 7.4)
+box(ax, 4.0, 6.3, 3.0, 0.85, "USERS", fc=NAVY, tc=WHITE, fs=11.5)
+box(ax, 4.0, 4.9, 3.0, 0.85, "PROJECTS", fc=LIGHT, ec=BLUE, fs=11)
+box(ax, 4.0, 3.5, 3.0, 0.85, "TASKS", fc=LIGHT, ec=BLUE, fs=11)
+box(ax, 0.2, 1.9, 2.2, 0.85, "TASK_\nASSIGNMENTS", fc=PALE, ec=GRAY, fs=9.5, bold=False)
+box(ax, 2.7, 1.9, 2.2, 0.85, "TASK_\nGIVERS", fc=PALE, ec=GRAY, fs=9.5, bold=False)
+box(ax, 5.2, 1.9, 2.2, 0.85, "TASK_\nHISTORY", fc=PALE, ec=GRAY, fs=9.5, bold=False)
+box(ax, 7.7, 1.9, 2.2, 0.85, "TASK_\nCOMMENTS", fc=PALE, ec=GRAY, fs=9.5, bold=False)
+box(ax, 4.4, 0.3, 2.2, 0.85, "TASK_\nATTACHMENTS", fc="#FFF4E5", ec=AMBER, fs=9.5, bold=False)
+
+arrow(ax, 5.5, 6.3, 5.5, 5.75, label="oluşturur (1:N)")
+arrow(ax, 5.5, 4.9, 5.5, 4.35, label="içerir (1:N)")
+for cx in (1.3, 3.8, 6.3, 8.8):
+    arrow(ax, 5.0, 3.5, cx + 1.1, 2.75)
+arrow(ax, 5.5, 1.9, 5.5, 1.15)
+
+ax.text(5.5, 7.55, "ToDo+ Veri Modeli (özet)", ha="center", fontsize=13, fontweight="bold", color=NAVY)
+ax.text(5.5, -0.15, "Her tablo Row Level Security (RLS) ile korunur; bir kullanıcı yalnızca ilişkili olduğu satırları görebilir.",
+        ha="center", fontsize=9.3, color=GRAY, style="italic")
+save(fig, "veri-modeli-er.png")
+
 print("Tum diyagramlar uretildi:", OUT_DIR)

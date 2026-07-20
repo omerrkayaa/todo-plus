@@ -149,7 +149,25 @@ header_p = section.header.paragraphs[0]
 set_font(header_p.add_run("ToDo+ | Baştan Sona Proje ve Geliştirme Süreci Raporu"), 9, True, GRAY)
 footer_p = section.footer.paragraphs[0]
 footer_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-set_font(footer_p.add_run("Ömer Kaya • 2026"), 9, False, GRAY)
+set_font(footer_p.add_run("Ömer Kaya • 2026 • Sayfa "), 9, False, GRAY)
+
+
+def add_page_number_field(paragraph):
+    run = paragraph.add_run()
+    set_font(run, 9, False, GRAY)
+    fld_begin = OxmlElement("w:fldChar")
+    fld_begin.set(qn("w:fldCharType"), "begin")
+    instr = OxmlElement("w:instrText")
+    instr.set(qn("xml:space"), "preserve")
+    instr.text = "PAGE"
+    fld_end = OxmlElement("w:fldChar")
+    fld_end.set(qn("w:fldCharType"), "end")
+    run._r.append(fld_begin)
+    run._r.append(instr)
+    run._r.append(fld_end)
+
+
+add_page_number_field(footer_p)
 
 
 def add_bold_runs(paragraph, text, size=11, base_color=INK, base_italic=False):
@@ -180,8 +198,44 @@ def add_bullet(text):
     return p
 
 
-def add_number(text):
+_numbering_counter = [100]
+
+
+def _new_numbering_id():
+    """Her yeni numarali liste icin ayri bir numId olusturur, boylece
+    onceki listenin sayaci (1,2,3...) devam etmez, her liste 1'den baslar."""
+    numbering = doc.part.numbering_part.element
+    num_id = _numbering_counter[0]
+    _numbering_counter[0] += 1
+    num = OxmlElement("w:num")
+    num.set(qn("w:numId"), str(num_id))
+    abstract_ref = OxmlElement("w:abstractNumId")
+    abstract_ref.set(qn("w:val"), "7")
+    override = OxmlElement("w:lvlOverride")
+    override.set(qn("w:ilvl"), "0")
+    start = OxmlElement("w:startOverride")
+    start.set(qn("w:val"), "1")
+    override.append(start)
+    num.extend([abstract_ref, override])
+    numbering.append(num)
+    return num_id
+
+
+_current_num_id = [None]
+
+
+def add_number(text, is_new_list):
+    if is_new_list or _current_num_id[0] is None:
+        _current_num_id[0] = _new_numbering_id()
     p = doc.add_paragraph(style="List Number")
+    p_pr = p._p.get_or_add_pPr()
+    num_pr = OxmlElement("w:numPr")
+    ilvl = OxmlElement("w:ilvl")
+    ilvl.set(qn("w:val"), "0")
+    num_id_el = OxmlElement("w:numId")
+    num_id_el.set(qn("w:val"), str(_current_num_id[0]))
+    num_pr.extend([ilvl, num_id_el])
+    p_pr.append(num_pr)
     add_bold_runs(p, text)
     return p
 
@@ -268,10 +322,37 @@ set_font(
 doc.add_page_break()
 
 # ----------------------------------------------------------------------------
-# Markdown -> Word govde donusumu
+# Icindekiler (basliklar onceden taranarak statik liste olarak uretilir)
 # ----------------------------------------------------------------------------
 lines = SRC.read_text(encoding="utf-8").splitlines()
 
+doc.add_heading("İçindekiler", level=1)
+in_fence_scan = False
+for scan_line in lines:
+    s = scan_line.rstrip()
+    if s.strip().startswith("```"):
+        in_fence_scan = not in_fence_scan
+        continue
+    if in_fence_scan:
+        continue
+    if s.startswith("## "):
+        p = doc.add_paragraph()
+        p.paragraph_format.space_after = Pt(3)
+        set_font(p.add_run(s[3:].strip()), 11.5, True, NAVY)
+    elif s.startswith("### "):
+        p = doc.add_paragraph()
+        p.paragraph_format.left_indent = Inches(0.3)
+        p.paragraph_format.space_after = Pt(2)
+        set_font(p.add_run(s[4:].strip()), 10, False, GRAY)
+doc.add_paragraph().paragraph_format.space_after = Pt(4)
+doc.add_paragraph().paragraph_format.space_after = Pt(4)
+cap = doc.add_paragraph()
+set_font(cap.add_run("Ek olarak: 6 mimari diyagram ve 11 ekran görüntüsü, ilgili bölümlerin içine gömülüdür."), 9.5, False, GRAY, True)
+doc.add_page_break()
+
+# ----------------------------------------------------------------------------
+# Markdown -> Word govde donusumu
+# ----------------------------------------------------------------------------
 table_buffer = []
 
 
@@ -294,6 +375,7 @@ img_re = re.compile(r"^\[\[IMG:(.+?)\|(.+?)\]\]$")
 i = 0
 first_h1_seen = False
 in_code_fence = False
+prev_was_number = False
 while i < len(lines):
     raw = lines[i]
     line = raw.rstrip()
@@ -320,8 +402,11 @@ while i < len(lines):
     img_match = img_re.match(line.strip())
     if img_match:
         add_image(img_match.group(1), img_match.group(2))
+        prev_was_number = False
         i += 1
         continue
+
+    is_number_line = bool(re.match(r"^\d+\.\s+", line.strip()))
 
     if line.startswith("# "):
         text = line[2:].strip()
@@ -348,10 +433,12 @@ while i < len(lines):
         add_paragraph(line.strip()[1:-1], italic=True)
     elif re.match(r"^-\s+", line.strip()):
         add_bullet(re.sub(r"^-\s+", "", line.strip()))
-    elif re.match(r"^\d+\.\s+", line.strip()):
-        add_number(re.sub(r"^\d+\.\s+", "", line.strip()))
+    elif is_number_line:
+        add_number(re.sub(r"^\d+\.\s+", "", line.strip()), is_new_list=not prev_was_number)
     else:
         add_paragraph(line.strip())
+
+    prev_was_number = is_number_line
     i += 1
 
 flush_table()
