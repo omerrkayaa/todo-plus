@@ -12,6 +12,7 @@
     "test:offline": "node scripts/offline-sync-test.mjs",
     "test:pwa": "node scripts/pwa-test.mjs",
     "icons": "node scripts/generate-icons.mjs",
+    "demo": "node scripts/demo-server.mjs",
     "test:node": "npm run test:server && npm run test:merge && npm run test:unit",
     "test:all": "npm run test:server && npm test",
     "test": "npm run test:merge && npm run test:unit && node scripts/smoke-test.mjs && npm run test:offline && npm run test:pwa",
