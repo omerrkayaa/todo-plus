@@ -6,6 +6,25 @@
     );
   }
 
+  // Aynı girdiden hep aynı UUID biçimli kimliği üretir (kriptografik değildir). Tekrarlayan görev
+  // örneklerinde iki cihaz/sekme aynı görevi tamamlasa bile aynı satırı üretsin, çift kayıt oluşmasın diye.
+  function deterministicId(seed) {
+    const input = String(seed);
+    const hex = [0x811c9dc5, 0x01000193, 0x9e3779b9, 0x85ebca6b]
+      .map((offset) => {
+        let hash = offset >>> 0;
+        for (let index = 0; index < input.length; index += 1) {
+          hash ^= input.charCodeAt(index);
+          hash = Math.imul(hash, 16777619) >>> 0;
+          hash ^= hash >>> 15;
+        }
+        return (hash >>> 0).toString(16).padStart(8, "0");
+      })
+      .join("");
+    const variant = ((parseInt(hex[16], 16) & 0x3) | 0x8).toString(16);
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-${variant}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+  }
+
   function escapeHtml(value) {
     return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
   }
@@ -76,5 +95,5 @@
     return { Görsel: "🖼", PDF: "PDF", Tablo: "▦", Belge: "DOC" }[getAttachmentLabel(attachment)] || "📎";
   }
 
-  global.TODO_PLUS_UTILS = Object.freeze({ createId, escapeHtml, today, addDays, formatDate, getDueDateMeta, isTaskOverdue, isUuid, formatFileSize, readFileAsDataURL, getAttachmentLabel, getAttachmentGroupLabel, getAttachmentGroupIcon });
+  global.TODO_PLUS_UTILS = Object.freeze({ createId, deterministicId, escapeHtml, today, addDays, formatDate, getDueDateMeta, isTaskOverdue, isUuid, formatFileSize, readFileAsDataURL, getAttachmentLabel, getAttachmentGroupLabel, getAttachmentGroupIcon });
 })(window);

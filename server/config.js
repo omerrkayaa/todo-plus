@@ -16,7 +16,7 @@ export function getConfig({ requireAi = true } = {}) {
     supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "",
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
     geminiApiKey: process.env.GEMINI_API_KEY || "",
-    geminiModel: process.env.GEMINI_MODEL || "gemini-flash-latest",
+    geminiModel: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
     voyageApiKey: process.env.VOYAGE_API_KEY || "",
     voyageModel: process.env.VOYAGE_MODEL || "voyage-4-lite",
     shortDocumentCharLimit: integer(process.env.SHORT_DOCUMENT_CHAR_LIMIT, 12000),

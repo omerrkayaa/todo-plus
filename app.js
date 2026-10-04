@@ -1,5 +1,5 @@
 const { storageKeys, priorityScores, priorityLabels, statusLabels, roleLabels, repeatIntervalLabels, documentAssistantApiUrl } = window.TODO_PLUS_APP;
-const { createId, escapeHtml, today, addDays, formatDate, getDueDateMeta, isTaskOverdue, isUuid, formatFileSize, readFileAsDataURL, getAttachmentLabel, getAttachmentGroupLabel, getAttachmentGroupIcon } = window.TODO_PLUS_UTILS;
+const { createId, deterministicId, escapeHtml, today, addDays, formatDate, getDueDateMeta, isTaskOverdue, isUuid, formatFileSize, readFileAsDataURL, getAttachmentLabel, getAttachmentGroupLabel, getAttachmentGroupIcon } = window.TODO_PLUS_UTILS;
 const localStore = window.TODO_PLUS_STORAGE.createStorage(window.localStorage, storageKeys);
 const taskModel = window.TODO_PLUS_TASK_MODEL.createTaskModel({ createId, priorityScores });
 const supabaseMapper = window.TODO_PLUS_SUPABASE_MAPPER;
@@ -49,315 +49,7 @@ const attachmentMimeByExtension = Object.freeze({
   txt: "text/plain", jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
 });
 
-const sampleAttachmentDataUrl =
-  "data:image/svg+xml;charset=utf-8," +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 140"><rect width="240" height="140" rx="18" fill="#eaf2ff"/><rect x="18" y="18" width="204" height="104" rx="14" fill="#ffffff"/><path d="M40 88h160" stroke="#2563eb" stroke-width="8" stroke-linecap="round"/><circle cx="72" cy="58" r="18" fill="#93c5fd"/><circle cx="120" cy="58" r="18" fill="#60a5fa"/><circle cx="168" cy="58" r="18" fill="#2563eb"/><text x="120" y="118" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700" fill="#1e3a8a">Örnek ek</text></svg>',
-  );
-
-const defaultState = {
-  activeUserId: "user-1",
-  users: [
-    { id: "user-1", fullName: "Ömer Kaya", email: "omer@example.com", role: "admin" },
-    { id: "user-2", fullName: "Ayşe Demir", email: "ayse@example.com", role: "user" },
-    { id: "user-3", fullName: "Mehmet Yılmaz", email: "mehmet@example.com", role: "user" },
-    { id: "user-4", fullName: "Zeynep Arslan", email: "zeynep@example.com", role: "admin" },
-    { id: "user-5", fullName: "Can Aydın", email: "can@example.com", role: "user" },
-    { id: "user-6", fullName: "Elif Şahin", email: "elif@example.com", role: "user" },
-    { id: "user-7", fullName: "Burak Koç", email: "burak@example.com", role: "user" },
-    { id: "user-8", fullName: "Selin Yıldız", email: "selin@example.com", role: "user" },
-    { id: "user-9", fullName: "Mert Çelik", email: "mert@example.com", role: "user" },
-    { id: "user-10", fullName: "Derya Akın", email: "derya@example.com", role: "user" },
-    { id: "user-11", fullName: "Kerem Öz", email: "kerem@example.com", role: "user" },
-    { id: "user-12", fullName: "İrem Güneş", email: "irem@example.com", role: "user" },
-  ],
-  projects: [
-    {
-      id: "project-1",
-      userId: "user-1",
-      categoryId: "category-2",
-      name: "ToDo+ Proje Geliştirme",
-      description: "Görev takip sistemi için analiz, tasarım ve uygulama süreci.",
-      createdAt: "2026-07-09",
-    },
-    {
-      id: "project-2",
-      userId: "user-1",
-      categoryId: "category-1",
-      name: "Veritabanı Tasarımı",
-      description: "Supabase tabloları, ER diyagramı ve başarı oranı hesabı.",
-      createdAt: "2026-07-09",
-    },
-    { id: "project-3", userId: "user-4", categoryId: "category-4", name: "Mobil Uygulama", description: "Mobil deneyim, erişilebilirlik ve responsive kontroller.", createdAt: "2026-07-10" },
-    { id: "project-4", userId: "user-4", categoryId: "category-7", name: "Canlıya Geçiş", description: "Test, güvenlik, Supabase ve yayın hazırlıkları.", createdAt: "2026-07-10" },
-    { id: "project-5", userId: "user-1", categoryId: "category-8", name: "Motor Tasarımı", description: "Motor parçaları ve hareket sistemlerinin tasarımı.", createdAt: "2026-07-11" },
-    { id: "project-6", userId: "user-4", categoryId: "category-8", name: "Hidrolik Sistem", description: "Pompa, valf ve basınç hattı çalışmaları.", createdAt: "2026-07-11" },
-    { id: "project-7", userId: "user-1", categoryId: "category-8", name: "Dişli Kutusu", description: "Dişli oranları ve mekanik aktarım tasarımı.", createdAt: "2026-07-11" },
-    { id: "project-8", userId: "user-1", categoryId: "category-1", name: "Satış Analiz Paneli", description: "Satış verilerinin temizlenmesi ve görselleştirilmesi.", createdAt: "2026-06-18" },
-    { id: "project-9", userId: "user-4", categoryId: "category-2", name: "Müşteri Portalı", description: "Müşteriler için görev ve bildirim ekranları.", createdAt: "2026-06-22" },
-    { id: "project-10", userId: "user-1", categoryId: "category-3", name: "Kullanıcı Kılavuzu", description: "Ürün kullanım ve kurulum belgelerinin hazırlanması.", createdAt: "2026-06-25" },
-    { id: "project-11", userId: "user-4", categoryId: "category-4", name: "Saha Takip Uygulaması", description: "Saha ekipleri için mobil görev deneyimi.", createdAt: "2026-06-27" },
-    { id: "project-12", userId: "user-1", categoryId: "category-5", name: "Erişilebilir Tasarım", description: "WCAG uyumlu bileşen ve gezinme çalışmaları.", createdAt: "2026-07-01" },
-    { id: "project-13", userId: "user-4", categoryId: "category-6", name: "Regresyon Test Paketi", description: "Kritik kullanıcı akışları için otomatik testler.", createdAt: "2026-07-02" },
-    { id: "project-14", userId: "user-1", categoryId: "category-7", name: "Yetki ve Güvenlik", description: "Rol, oturum ve erişim kontrollerinin güçlendirilmesi.", createdAt: "2026-07-04" },
-    { id: "project-15", userId: "user-4", categoryId: "category-8", name: "Konveyör Sistemi", description: "Konveyör mekanizması ve taşıma kapasitesi tasarımı.", createdAt: "2026-07-05" },
-    { id: "project-16", userId: "user-1", categoryId: "category-1", name: "Performans Raporlama", description: "Ekip performans metriklerinin analiz edilmesi.", createdAt: "2026-07-06" },
-    { id: "project-17", userId: "user-4", categoryId: "category-2", name: "Yönetim Konsolu", description: "Yönetici kontrol ve raporlama arayüzü.", createdAt: "2026-07-07" },
-    { id: "project-18", userId: "user-1", categoryId: "category-6", name: "API Test Otomasyonu", description: "Servis uçları için otomatik doğrulama paketi.", createdAt: "2026-07-08" },
-  ],
-  categories: [
-    { id: "category-1", userId: "user-1", name: "Veri Analizi", color: "#2563eb" },
-    { id: "category-2", userId: "user-1", name: "Arayüz Kodlama", color: "#15803d" },
-    { id: "category-3", userId: "user-1", name: "Dokümantasyon", color: "#b45309" },
-    { id: "category-4", userId: "user-4", name: "Mobil Tasarım", color: "#7c3aed" },
-    { id: "category-5", userId: "user-4", name: "Erişilebilirlik", color: "#db2777" },
-    { id: "category-6", userId: "user-4", name: "Otomatik Test", color: "#0891b2" },
-    { id: "category-7", userId: "user-4", name: "Güvenlik", color: "#dc2626" },
-    { id: "category-8", userId: "user-1", name: "Mekanik", color: "#475569" },
-  ],
-  tasks: [
-    {
-      id: "task-1",
-      projectId: "project-2",
-      categoryId: "category-1",
-      createdBy: "user-1",
-      title: "ER diyagramını hazırla",
-      description: "Users, projects, tasks, categories ve history ilişkilerini göster.",
-      priority: "yuksek",
-      status: "tamamlandi",
-      estimatedMinutes: 90,
-      dueDate: "2026-07-10",
-      createdAt: "2026-07-09",
-    },
-    {
-      id: "task-2",
-      projectId: "project-1",
-      categoryId: "category-2",
-      createdBy: "user-1",
-      title: "Görev ekranını kodla",
-      description: "Görev ekleme, filtreleme ve durum değiştirme işlemleri.",
-      priority: "yuksek",
-      status: "bekliyor",
-      estimatedMinutes: 120,
-      dueDate: "2026-07-12",
-      attachments: [
-        {
-          id: "attachment-task-2-1",
-          name: "gorev-akisi.svg",
-          type: "image/svg+xml",
-          size: 612,
-          dataUrl: sampleAttachmentDataUrl,
-          uploadedAt: "2026-07-09",
-        },
-      ],
-      subtasks: [
-        { id: "subtask-task-2-1", title: "Görev formu alanlarını bağla", completed: true },
-        { id: "subtask-task-2-2", title: "Filtreleme ve arama ilişkisini doğrula", completed: false },
-        { id: "subtask-task-2-3", title: "Kanban görünümünü test et", completed: false },
-      ],
-      createdAt: "2026-07-09",
-    },
-    {
-      id: "task-3",
-      projectId: "project-1",
-      categoryId: "category-2",
-      createdBy: "user-1",
-      title: "Proje raporunu güncelle",
-      description: "Yapılan çalışmaları ve kullanılan yapıları rapora ekle.",
-      priority: "orta",
-      status: "bekliyor",
-      estimatedMinutes: 60,
-      dueDate: "2026-07-14",
-      createdAt: "2026-07-09",
-    },
-    { id: "task-4", projectId: "project-3", categoryId: "category-4", createdBy: "user-4", title: "Mobil menüyü test et", description: "390 px görünümde menü açma ve kapama akışını doğrula.", priority: "orta", status: "tamamlandi", estimatedMinutes: 45, dueDate: "2026-07-11", createdAt: "2026-07-10" },
-    { id: "task-5", projectId: "project-3", categoryId: "category-4", createdBy: "user-4", title: "Klavye erişimini kontrol et", description: "Tab ve Escape tuşlarıyla tüm temel akışları denetle.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 75, dueDate: "2026-07-13", createdAt: "2026-07-10" },
-    { id: "task-6", projectId: "project-4", categoryId: "category-7", createdBy: "user-4", title: "Smoke testleri çalıştır", description: "Giriş, proje, kategori, görev ve yorum akışlarını doğrula.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 90, dueDate: "2026-07-15", createdAt: "2026-07-10" },
-    { id: "task-7", projectId: "project-4", categoryId: "category-7", createdBy: "user-1", title: "RLS politikalarını denetle", description: "Kullanıcıların yalnızca ilişkili görevleri görebildiğini doğrula.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 120, dueDate: "2026-07-16", createdAt: "2026-07-10" },
-    { id: "task-8", projectId: "project-1", categoryId: "category-2", createdBy: "user-1", title: "Filtreleme ekranını iyileştir", description: "Proje ve kategori ilişkisini görev formunda görünür yap.", priority: "orta", status: "bekliyor", estimatedMinutes: 60, dueDate: "2026-07-17", createdAt: "2026-07-11" },
-    { id: "task-9", projectId: "project-5", categoryId: "category-8", createdBy: "user-1", title: "Mil ölçülerini kontrol et", description: "Motor mili ölçülerini teknik çizimle karşılaştır.", priority: "dusuk", status: "bekliyor", estimatedMinutes: 30, dueDate: "2026-07-18", createdAt: "2026-07-11" },
-    { id: "task-10", projectId: "project-5", categoryId: "category-8", createdBy: "user-1", title: "Motor gövdesini modelle", description: "Motor gövdesinin üç boyutlu modelini hazırla.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 150, dueDate: "2026-07-19", createdAt: "2026-07-11" },
-    { id: "task-11", projectId: "project-6", categoryId: "category-8", createdBy: "user-4", title: "Valf listesini hazırla", description: "Hidrolik devrede kullanılacak valfleri listele.", priority: "dusuk", status: "tamamlandi", estimatedMinutes: 40, dueDate: "2026-07-12", createdAt: "2026-07-11" },
-    { id: "task-12", projectId: "project-6", categoryId: "category-8", createdBy: "user-4", title: "Basınç testini yap", description: "Hidrolik hattın çalışma basıncını doğrula.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 90, dueDate: "2026-07-20", createdAt: "2026-07-11" },
-    { id: "task-13", projectId: "project-7", categoryId: "category-8", createdBy: "user-1", title: "Dişli numaralarını düzenle", description: "Parça listesindeki dişli numaralarını sırala.", priority: "dusuk", status: "bekliyor", estimatedMinutes: 35, dueDate: "2026-07-21", createdAt: "2026-07-11" },
-    { id: "task-14", projectId: "project-7", categoryId: "category-8", createdBy: "user-1", title: "Aktarım oranını hesapla", description: "Giriş ve çıkış dişlilerinin aktarım oranını hesapla.", priority: "orta", status: "tamamlandi", estimatedMinutes: 70, dueDate: "2026-07-13", createdAt: "2026-07-11" },
-    { id: "task-15", projectId: "project-8", categoryId: "category-1", createdBy: "user-1", title: "Satış verilerini temizle", description: "Eksik ve yinelenen satış kayıtlarını düzenle.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 120, dueDate: "2026-07-22", createdAt: "2026-07-01" },
-    { id: "task-16", projectId: "project-8", categoryId: "category-1", createdBy: "user-1", title: "Bölgesel satış grafiği oluştur", description: "Bölgelere göre aylık satış dağılımını göster.", priority: "orta", status: "bekliyor", estimatedMinutes: 75, dueDate: "2026-07-25", createdAt: "2026-07-02" },
-    { id: "task-17", projectId: "project-9", categoryId: "category-2", createdBy: "user-4", title: "Portal ana sayfasını kodla", description: "Müşteri özet kartlarını ve görev listesini hazırla.", priority: "yuksek", status: "tamamlandi", estimatedMinutes: 180, dueDate: "2026-07-08", createdAt: "2026-06-24" },
-    { id: "task-18", projectId: "project-9", categoryId: "category-2", createdBy: "user-4", title: "Bildirim menüsünü geliştir", description: "Okundu ve okunmadı bildirim durumlarını ekle.", priority: "dusuk", status: "bekliyor", estimatedMinutes: 60, dueDate: "2026-07-28", createdAt: "2026-07-03" },
-    { id: "task-19", projectId: "project-10", categoryId: "category-3", createdBy: "user-1", title: "Kurulum bölümünü yaz", description: "Yerel ve bulut kurulum adımlarını belgeleyin.", priority: "orta", status: "tamamlandi", estimatedMinutes: 90, dueDate: "2026-07-05", createdAt: "2026-06-26" },
-    { id: "task-20", projectId: "project-10", categoryId: "category-3", createdBy: "user-1", title: "Ekran görüntülerini güncelle", description: "Yeni arayüz ekranlarını kılavuza ekle.", priority: "dusuk", status: "bekliyor", estimatedMinutes: 45, dueDate: "2026-08-01", createdAt: "2026-07-04" },
-    { id: "task-21", projectId: "project-11", categoryId: "category-4", createdBy: "user-4", title: "Çevrimdışı görev ekranını tasarla", description: "Bağlantı yokken görevlerin görüntülenmesini sağla.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 150, dueDate: "2026-07-24", createdAt: "2026-07-05" },
-    { id: "task-22", projectId: "project-11", categoryId: "category-4", createdBy: "user-4", title: "Konum izinlerini test et", description: "Android ve iOS izin akışlarını doğrula.", priority: "orta", status: "bekliyor", estimatedMinutes: 80, dueDate: "2026-07-30", createdAt: "2026-07-06" },
-    { id: "task-23", projectId: "project-12", categoryId: "category-5", createdBy: "user-1", title: "Renk kontrastlarını denetle", description: "Metin ve arka plan kontrast oranlarını ölç.", priority: "yuksek", status: "tamamlandi", estimatedMinutes: 70, dueDate: "2026-07-09", createdAt: "2026-07-01" },
-    { id: "task-24", projectId: "project-12", categoryId: "category-5", createdBy: "user-1", title: "Ekran okuyucu etiketlerini ekle", description: "Form alanlarına erişilebilir adlar tanımla.", priority: "orta", status: "bekliyor", estimatedMinutes: 110, dueDate: "2026-07-26", createdAt: "2026-07-07" },
-    { id: "task-25", projectId: "project-13", categoryId: "category-6", createdBy: "user-4", title: "Giriş testlerini otomatikleştir", description: "Başarılı ve hatalı giriş senaryolarını kapsa.", priority: "yuksek", status: "tamamlandi", estimatedMinutes: 130, dueDate: "2026-07-10", attachments: [{ id: "attachment-task-25-1", name: "test-senaryolari.png", type: "image/svg+xml", size: 598, dataUrl: sampleAttachmentDataUrl, uploadedAt: "2026-07-02" }], subtasks: [{ id: "subtask-task-25-1", title: "Başarılı giriş testini yaz", completed: true }, { id: "subtask-task-25-2", title: "Hatalı giriş durumunu kapsa", completed: true }, { id: "subtask-task-25-3", title: "Rapor çıktısını doğrula", completed: false }], createdAt: "2026-07-02" },
-    { id: "task-26", projectId: "project-13", categoryId: "category-6", createdBy: "user-4", title: "Filtre regresyonlarını yaz", description: "Tüm filtre kombinasyonlarını otomatik doğrula.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 140, dueDate: "2026-07-23", createdAt: "2026-07-08" },
-    { id: "task-27", projectId: "project-14", categoryId: "category-7", createdBy: "user-1", title: "Oturum süresini sınırla", description: "Hareketsiz oturumların güvenli biçimde kapanmasını sağla.", priority: "orta", status: "bekliyor", estimatedMinutes: 85, dueDate: "2026-08-03", createdAt: "2026-07-09" },
-    { id: "task-28", projectId: "project-14", categoryId: "category-7", createdBy: "user-1", title: "Yetki matrisini doğrula", description: "Yönetici ve kullanıcı izinlerini karşılaştır.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 100, dueDate: "2026-07-27", createdAt: "2026-07-09" },
-    { id: "task-29", projectId: "project-15", categoryId: "category-8", createdBy: "user-4", title: "Bant hızını hesapla", description: "Hedef kapasiteye göre konveyör hızını belirle.", priority: "orta", status: "tamamlandi", estimatedMinutes: 95, dueDate: "2026-07-07", createdAt: "2026-07-05" },
-    { id: "task-30", projectId: "project-15", categoryId: "category-8", createdBy: "user-4", title: "Rulman seçimini yap", description: "Yük değerlerine uygun rulmanları listele.", priority: "dusuk", status: "bekliyor", estimatedMinutes: 55, dueDate: "2026-08-05", createdAt: "2026-07-10" },
-    { id: "task-31", projectId: "project-16", categoryId: "category-1", createdBy: "user-1", title: "Başarı oranlarını karşılaştır", description: "Aylık ekip başarı oranlarını analiz et.", priority: "orta", status: "bekliyor", estimatedMinutes: 65, dueDate: "2026-07-29", createdAt: "2026-07-10" },
-    { id: "task-32", projectId: "project-16", categoryId: "category-1", createdBy: "user-1", title: "Geciken görev raporu hazırla", description: "Proje ve kullanıcı bazında gecikmeleri grupla.", priority: "dusuk", status: "tamamlandi", estimatedMinutes: 50, dueDate: "2026-07-11", createdAt: "2026-07-10" },
-    { id: "task-33", projectId: "project-17", categoryId: "category-2", createdBy: "user-4", title: "Yönetici tablosunu geliştir", description: "Sıralanabilir ekip ve görev tablosu ekle.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 125, dueDate: "2026-08-02", createdAt: "2026-07-11" },
-    { id: "task-34", projectId: "project-17", categoryId: "category-2", createdBy: "user-4", title: "Toplu işlem menüsünü ekle", description: "Seçilen görevlerin durumunu topluca güncelle.", priority: "dusuk", status: "bekliyor", estimatedMinutes: 100, dueDate: "2026-08-04", createdAt: "2026-07-11" },
-    { id: "task-35", projectId: "project-18", categoryId: "category-6", createdBy: "user-1", title: "Görev API testlerini yaz", description: "Oluşturma, güncelleme ve silme uçlarını doğrula.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 160, dueDate: "2026-07-31", createdAt: "2026-07-11" },
-    { id: "task-36", projectId: "project-18", categoryId: "category-6", createdBy: "user-1", title: "Hata yanıtlarını doğrula", description: "Geçersiz isteklerin hata kodlarını kontrol et.", priority: "orta", status: "bekliyor", estimatedMinutes: 80, dueDate: "2026-08-06", createdAt: "2026-07-11" },
-    { id: "task-37", projectId: "project-9", categoryId: "category-2", createdBy: "user-4", title: "Müşteri destek notlarını ekle", description: "Sık sorulan sorular ve kısa yönlendirme metinleri yaz.", priority: "orta", status: "bekliyor", estimatedMinutes: 70, dueDate: "2026-07-18", createdAt: "2026-07-12" },
-    { id: "task-38", projectId: "project-9", categoryId: "category-2", createdBy: "user-4", title: "Portal bildirimlerini grupla", description: "Önemli ve normal bildirimleri ayrı kartlarda göster.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 95, dueDate: "2026-07-19", createdAt: "2026-07-12" },
-    { id: "task-39", projectId: "project-10", categoryId: "category-3", createdBy: "user-1", title: "Kılavuz görsellerini yenile", description: "Eski ekran görüntülerini yeni sürümle değiştir.", priority: "dusuk", status: "bekliyor", estimatedMinutes: 55, dueDate: "2026-07-20", createdAt: "2026-07-12" },
-    { id: "task-40", projectId: "project-11", categoryId: "category-4", createdBy: "user-4", title: "Saha raporu formunu düzenle", description: "Tek satırlık not ve konum alanlarını iyileştir.", priority: "orta", status: "bekliyor", estimatedMinutes: 85, dueDate: "2026-07-21", createdAt: "2026-07-12" },
-    { id: "task-41", projectId: "project-12", categoryId: "category-5", createdBy: "user-1", title: "Klavyeyle gezinmeyi test et", description: "Formlar, menüler ve modal pencereler arasında dolaş.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 100, dueDate: "2026-07-22", createdAt: "2026-07-12" },
-    { id: "task-42", projectId: "project-13", categoryId: "category-6", createdBy: "user-4", title: "Ödeme akışı regresyonu", description: "Başarılı, hatalı ve iptal durumlarını otomatik doğrula.", priority: "yuksek", status: "bekliyor", estimatedMinutes: 140, dueDate: "2026-07-23", createdAt: "2026-07-12" },
-    { id: "task-43", projectId: "project-16", categoryId: "category-1", createdBy: "user-1", title: "Raporu yönetime hazırla", description: "Özet metrikleri kısa yönetici notu haline getir.", priority: "orta", status: "bekliyor", estimatedMinutes: 75, dueDate: "2026-07-24", createdAt: "2026-07-12" },
-    { id: "task-44", projectId: "project-18", categoryId: "category-6", createdBy: "user-1", title: "API sonuçlarını belgeye aktar", description: "Test çıktılarından kısa özet ve ekran notu hazırla.", priority: "dusuk", status: "bekliyor", estimatedMinutes: 60, dueDate: "2026-07-25", createdAt: "2026-07-12" },
-  ],
-  assignments: [
-    {
-      id: "assignment-1",
-      taskId: "task-1",
-      userId: "user-1",
-      isCompleted: true,
-      completedAt: "2026-07-09",
-      earnedScore: 3,
-      assignedAt: "2026-07-09",
-    },
-    {
-      id: "assignment-2",
-      taskId: "task-2",
-      userId: "user-2",
-      isCompleted: false,
-      completedAt: "",
-      earnedScore: 0,
-      assignedAt: "2026-07-09",
-    },
-    {
-      id: "assignment-3",
-      taskId: "task-3",
-      userId: "user-1",
-      isCompleted: false,
-      completedAt: "",
-      earnedScore: 0,
-      assignedAt: "2026-07-09",
-    },
-    { id: "assignment-4", taskId: "task-4", userId: "user-5", isCompleted: true, completedAt: "2026-07-11", earnedScore: 2, assignedAt: "2026-07-10" },
-    { id: "assignment-5", taskId: "task-5", userId: "user-6", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-10" },
-    { id: "assignment-6", taskId: "task-6", userId: "user-3", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-10" },
-    { id: "assignment-7", taskId: "task-7", userId: "user-2", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-10" },
-    { id: "assignment-8", taskId: "task-8", userId: "user-5", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-11" },
-    { id: "assignment-9", taskId: "task-9", userId: "user-2", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-11" },
-    { id: "assignment-10", taskId: "task-10", userId: "user-3", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-11" },
-    { id: "assignment-11", taskId: "task-11", userId: "user-5", isCompleted: true, completedAt: "2026-07-12", earnedScore: 1, assignedAt: "2026-07-11" },
-    { id: "assignment-12", taskId: "task-12", userId: "user-6", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-11" },
-    { id: "assignment-13", taskId: "task-13", userId: "user-2", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-11" },
-    { id: "assignment-14", taskId: "task-14", userId: "user-3", isCompleted: true, completedAt: "2026-07-13", earnedScore: 2, assignedAt: "2026-07-11" },
-    { id: "assignment-15", taskId: "task-15", userId: "user-7", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-01" },
-    { id: "assignment-16", taskId: "task-16", userId: "user-8", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-02" },
-    { id: "assignment-17", taskId: "task-17", userId: "user-9", isCompleted: true, completedAt: "2026-07-08", earnedScore: 3, assignedAt: "2026-06-24" },
-    { id: "assignment-18", taskId: "task-18", userId: "user-10", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-03" },
-    { id: "assignment-19", taskId: "task-19", userId: "user-11", isCompleted: true, completedAt: "2026-07-05", earnedScore: 2, assignedAt: "2026-06-26" },
-    { id: "assignment-20", taskId: "task-20", userId: "user-12", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-04" },
-    { id: "assignment-21", taskId: "task-21", userId: "user-7", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-05" },
-    { id: "assignment-22", taskId: "task-22", userId: "user-8", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-06" },
-    { id: "assignment-23", taskId: "task-23", userId: "user-9", isCompleted: true, completedAt: "2026-07-09", earnedScore: 3, assignedAt: "2026-07-01" },
-    { id: "assignment-24", taskId: "task-24", userId: "user-10", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-07" },
-    { id: "assignment-25", taskId: "task-25", userId: "user-11", isCompleted: true, completedAt: "2026-07-10", earnedScore: 3, assignedAt: "2026-07-02" },
-    { id: "assignment-26", taskId: "task-26", userId: "user-12", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-08" },
-    { id: "assignment-27", taskId: "task-27", userId: "user-7", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-09" },
-    { id: "assignment-28", taskId: "task-28", userId: "user-8", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-09" },
-    { id: "assignment-29", taskId: "task-29", userId: "user-9", isCompleted: true, completedAt: "2026-07-07", earnedScore: 2, assignedAt: "2026-07-05" },
-    { id: "assignment-30", taskId: "task-30", userId: "user-10", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-10" },
-    { id: "assignment-31", taskId: "task-31", userId: "user-11", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-10" },
-    { id: "assignment-32", taskId: "task-32", userId: "user-12", isCompleted: true, completedAt: "2026-07-11", earnedScore: 1, assignedAt: "2026-07-10" },
-    { id: "assignment-33", taskId: "task-33", userId: "user-7", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-11" },
-    { id: "assignment-34", taskId: "task-34", userId: "user-8", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-11" },
-    { id: "assignment-35", taskId: "task-35", userId: "user-9", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-11" },
-    { id: "assignment-36", taskId: "task-36", userId: "user-10", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-11" },
-    { id: "assignment-37", taskId: "task-37", userId: "user-2", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-12" },
-    { id: "assignment-38", taskId: "task-38", userId: "user-3", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-12" },
-    { id: "assignment-39", taskId: "task-39", userId: "user-5", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-12" },
-    { id: "assignment-40", taskId: "task-40", userId: "user-6", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-12" },
-    { id: "assignment-41", taskId: "task-41", userId: "user-2", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-12" },
-    { id: "assignment-42", taskId: "task-42", userId: "user-3", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-12" },
-    { id: "assignment-43", taskId: "task-43", userId: "user-5", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-12" },
-    { id: "assignment-44", taskId: "task-44", userId: "user-6", isCompleted: false, completedAt: "", earnedScore: 0, assignedAt: "2026-07-12" },
-  ],
-  taskGivers: [
-    { id: "giver-1", taskId: "task-1", userId: "user-1", assignedAt: "2026-07-09" },
-    { id: "giver-2", taskId: "task-2", userId: "user-1", assignedAt: "2026-07-09" },
-    { id: "giver-3", taskId: "task-2", userId: "user-3", assignedAt: "2026-07-09" },
-    { id: "giver-4", taskId: "task-3", userId: "user-1", assignedAt: "2026-07-09" },
-    { id: "giver-5", taskId: "task-4", userId: "user-4", assignedAt: "2026-07-10" },
-    { id: "giver-6", taskId: "task-5", userId: "user-4", assignedAt: "2026-07-10" },
-    { id: "giver-7", taskId: "task-6", userId: "user-4", assignedAt: "2026-07-10" },
-    { id: "giver-8", taskId: "task-7", userId: "user-1", assignedAt: "2026-07-10" },
-    { id: "giver-9", taskId: "task-8", userId: "user-1", assignedAt: "2026-07-11" },
-    { id: "giver-10", taskId: "task-9", userId: "user-1", assignedAt: "2026-07-11" },
-    { id: "giver-11", taskId: "task-10", userId: "user-1", assignedAt: "2026-07-11" },
-    { id: "giver-12", taskId: "task-11", userId: "user-4", assignedAt: "2026-07-11" },
-    { id: "giver-13", taskId: "task-12", userId: "user-4", assignedAt: "2026-07-11" },
-    { id: "giver-14", taskId: "task-13", userId: "user-1", assignedAt: "2026-07-11" },
-    { id: "giver-15", taskId: "task-14", userId: "user-1", assignedAt: "2026-07-11" },
-    ...Array.from({ length: 22 }, (_, index) => ({
-      id: `giver-${index + 16}`,
-      taskId: `task-${index + 15}`,
-      userId: index % 2 === 0 ? "user-1" : "user-4",
-      assignedAt: index < 6 ? "2026-07-01" : "2026-07-11",
-    })),
-    { id: "giver-38", taskId: "task-37", userId: "user-4", assignedAt: "2026-07-12" },
-    { id: "giver-39", taskId: "task-38", userId: "user-1", assignedAt: "2026-07-12" },
-    { id: "giver-40", taskId: "task-39", userId: "user-1", assignedAt: "2026-07-12" },
-    { id: "giver-41", taskId: "task-40", userId: "user-4", assignedAt: "2026-07-12" },
-    { id: "giver-42", taskId: "task-41", userId: "user-1", assignedAt: "2026-07-12" },
-    { id: "giver-43", taskId: "task-42", userId: "user-4", assignedAt: "2026-07-12" },
-    { id: "giver-44", taskId: "task-43", userId: "user-1", assignedAt: "2026-07-12" },
-    { id: "giver-45", taskId: "task-44", userId: "user-1", assignedAt: "2026-07-12" },
-  ],
-  history: [
-    {
-      id: "history-1",
-      taskId: "task-1",
-      changedBy: "user-1",
-      oldStatus: "bekliyor",
-      newStatus: "tamamlandi",
-      note: "ER diyagramı tamamlandı.",
-      changedAt: "2026-07-09",
-    },
-  ],
-  taskComments: [
-    {
-      id: "comment-1",
-      taskId: "task-2",
-      userId: "user-1",
-      body: "Kanban akışı ve görev düzenleme kontrolleri birlikte test edilecek.",
-      createdAt: "2026-07-09",
-    },
-  ],
-  projectMembers: [],
-  projectInvitations: [],
-  calendarNotes: [],
-};
-
-const defaultAuthAccounts = [
-  {
-    id: "user-1",
-    fullName: "Ömer Kaya",
-    email: "omer@example.com",
-    password: "123456",
-    role: "admin",
-  },
-  { id: "user-2", fullName: "Ayşe Demir", email: "ayse@example.com", password: "123456", role: "user" },
-  { id: "user-3", fullName: "Mehmet Yılmaz", email: "mehmet@example.com", password: "123456", role: "user" },
-  { id: "user-4", fullName: "Zeynep Arslan", email: "zeynep@example.com", password: "123456", role: "admin" },
-  { id: "user-5", fullName: "Can Aydın", email: "can@example.com", password: "123456", role: "user" },
-  { id: "user-6", fullName: "Elif Şahin", email: "elif@example.com", password: "123456", role: "user" },
-  { id: "user-7", fullName: "Burak Koç", email: "burak@example.com", password: "123456", role: "user" },
-  { id: "user-8", fullName: "Selin Yıldız", email: "selin@example.com", password: "123456", role: "user" },
-  { id: "user-9", fullName: "Mert Çelik", email: "mert@example.com", password: "123456", role: "user" },
-  { id: "user-10", fullName: "Derya Akın", email: "derya@example.com", password: "123456", role: "user" },
-  { id: "user-11", fullName: "Kerem Öz", email: "kerem@example.com", password: "123456", role: "user" },
-  { id: "user-12", fullName: "İrem Güneş", email: "irem@example.com", password: "123456", role: "user" },
-];
+const { defaultState, defaultAuthAccounts } = window.TODO_PLUS_DEMO_DATA;
 
 const state = loadState();
 let authAccounts = loadAuthAccounts();
@@ -423,6 +115,7 @@ const elements = {
   connectionDot: document.querySelector("#connectionDot"),
   connectionStatus: document.querySelector("#connectionStatus"),
   toastRegion: document.querySelector("#toastRegion"),
+  undoToastRegion: document.querySelector("#undoToastRegion"),
   activeUser: document.querySelector("#activeUser"),
   addUserBtn: document.querySelector("#addUserBtn"),
   userEmailFieldWrap: document.querySelector("#userEmailFieldWrap"),
@@ -696,6 +389,7 @@ function savePendingDeletions() {
 
 async function flushPendingDeletions(client) {
   for (const deletion of [...pendingDeletions]) {
+    if (heldDeletionKeys.has(deletion.key)) continue; // "Geri al" süresi dolmadan buluta gönderme
     const { error } = await client.from(deletion.tableName).delete().eq("id", deletion.rowId);
     if (error) throw error;
     pendingDeletions = pendingDeletions.filter((item) => item.key !== deletion.key);
@@ -862,6 +556,83 @@ function showToast(message, type = "success") {
   toastTimer = setTimeout(() => {
     elements.toastRegion.innerHTML = "";
   }, offlineNote ? 5200 : 3200);
+}
+
+// --- Geri alınabilir silme -------------------------------------------------------------
+// Silme yerel olarak hemen uygulanır ve bulut silmesi UNDO_WINDOW_MS boyunca bekletilir.
+// Bekleme süresince satır silme kuyruğunda "tutulur" (eşitleme göndermez); "Geri al" kayıtları
+// yerele geri koyup kuyruktan çıkarır, süre dolarsa silme buluta gönderilir.
+const UNDO_WINDOW_MS = 8000;
+const heldDeletionKeys = new Set();
+let pendingUndo = null;
+
+function holdSupabaseDeletion(tableName, rowId) {
+  if (!getSupabaseClient() || !rowId || !isUuid(rowId)) return;
+  const key = `${tableName}:${rowId}`;
+  if (!pendingDeletions.some((item) => item.key === key)) {
+    pendingDeletions.push({ key, tableName, rowId });
+    savePendingDeletions();
+  }
+  heldDeletionKeys.add(key);
+}
+
+function finalizePendingUndo() {
+  if (!pendingUndo) return;
+  const { timer, commit } = pendingUndo;
+  pendingUndo = null;
+  clearTimeout(timer);
+  elements.undoToastRegion.innerHTML = "";
+  commit();
+}
+
+function undoPendingDeletion() {
+  if (!pendingUndo) return;
+  const { timer, restore } = pendingUndo;
+  pendingUndo = null;
+  clearTimeout(timer);
+  elements.undoToastRegion.innerHTML = "";
+  restore();
+}
+
+// removed: { koleksiyonAdı: [kayıtlar] }  — state içinden çıkarılır, geri alınırsa özgün sıraya konur.
+// rows: [[tablo, id]] — süre dolunca buluttan silinecek satırlar.
+function removeWithUndo({ message, removed, rows = [] }) {
+  finalizePendingUndo();
+
+  const snapshot = Object.entries(removed).map(([collection, items]) => {
+    const removedItems = new Set(items);
+    const entries = [];
+    state[collection].forEach((item, index) => {
+      if (removedItems.has(item)) entries.push({ item, index });
+    });
+    state[collection] = state[collection].filter((item) => !removedItems.has(item));
+    return { collection, entries };
+  });
+  rows.forEach(([tableName, rowId]) => holdSupabaseDeletion(tableName, rowId));
+  saveState();
+  renderAll();
+
+  const rowKeys = rows.map(([tableName, rowId]) => `${tableName}:${rowId}`);
+  const timer = setTimeout(finalizePendingUndo, UNDO_WINDOW_MS);
+  pendingUndo = {
+    timer,
+    commit() {
+      rowKeys.forEach((key) => heldDeletionKeys.delete(key));
+      rows.forEach(([tableName, rowId]) => deleteSupabaseRow(tableName, rowId));
+    },
+    restore() {
+      snapshot.forEach(({ collection, entries }) => {
+        entries.forEach(({ item, index }) => state[collection].splice(Math.min(index, state[collection].length), 0, item));
+      });
+      rowKeys.forEach((key) => heldDeletionKeys.delete(key));
+      pendingDeletions = pendingDeletions.filter((item) => !rowKeys.includes(item.key));
+      savePendingDeletions();
+      saveState();
+      renderAll();
+      showToast("Silme geri alındı.");
+    },
+  };
+  elements.undoToastRegion.innerHTML = `<div class="toast success undo-toast"><span>${escapeHtml(message)}</span><button type="button" class="toast-action" data-undo-delete>Geri al</button></div>`;
 }
 
 function scheduleSupabaseSync() {
@@ -1245,6 +1016,7 @@ function saveSession(userId) {
 }
 
 function clearSession() {
+  finalizePendingUndo(); // çıkış yaparken bekleyen silmeyi kesinleştir
   currentSession = null;
   localStore.clearSession();
 }
@@ -3726,6 +3498,7 @@ async function login(email, password, requestedRole) {
     await upsertSupabaseUserProfile(account);
     saveState();
     await showApp();
+    promptForcedPasswordChange(data.user);
     return;
   }
 
@@ -3842,6 +3615,7 @@ async function initializeAuth() {
       };
       state.activeUserId = data.session.user.id;
       await showApp();
+      promptForcedPasswordChange(data.session.user);
       return;
     }
 
@@ -4432,7 +4206,12 @@ function getNextRecurrenceDate(dateStr, interval) {
 function createRecurringTaskInstance(task) {
   if (!task.repeatInterval || task.repeatInterval === "none") return;
 
-  const newTaskId = createId("task");
+  // Kimlikler "görev + sonraki teslim tarihi"nden türetilir: aynı görevi iki cihaz tamamlasa ya da
+  // tamamla → yeniden aç → tamamla yapılsa bile aynı örnek bir kez oluşur (çift kayıt yok).
+  const nextDueDate = getNextRecurrenceDate(task.dueDate, task.repeatInterval);
+  const seed = `recurrence:${task.id}:${nextDueDate}`;
+  const newTaskId = deterministicId(seed);
+  if (state.tasks.some((item) => item.id === newTaskId)) return;
   const assignments = getTaskAssignments(task.id);
   const givers = getTaskGivers(task.id);
 
@@ -4447,10 +4226,10 @@ function createRecurringTaskInstance(task) {
     status: "bekliyor",
     estimatedMinutes: task.estimatedMinutes,
     startDate: task.startDate ? getNextRecurrenceDate(task.startDate, task.repeatInterval) : "",
-    dueDate: getNextRecurrenceDate(task.dueDate, task.repeatInterval),
+    dueDate: nextDueDate,
     repeatInterval: task.repeatInterval,
     attachments: [],
-    subtasks: getTaskSubtasks(task).map((subtask) => ({ id: createId("subtask"), title: subtask.title, completed: false })),
+    subtasks: getTaskSubtasks(task).map((subtask, index) => ({ id: deterministicId(`${seed}:subtask:${index}`), title: subtask.title, completed: false })),
     tags: [...(task.tags || [])],
     createdAt: today(),
     updatedAt: today(),
@@ -4458,7 +4237,7 @@ function createRecurringTaskInstance(task) {
 
   assignments.forEach((assignment) => {
     state.assignments.push({
-      id: createId("assignment"),
+      id: deterministicId(`${seed}:assignment:${assignment.userId}`),
       taskId: newTaskId,
       userId: assignment.userId,
       isCompleted: false,
@@ -4470,7 +4249,7 @@ function createRecurringTaskInstance(task) {
 
   givers.forEach((giver) => {
     state.taskGivers.push({
-      id: createId("giver"),
+      id: deterministicId(`${seed}:giver:${giver.userId}`),
       taskId: newTaskId,
       userId: giver.userId,
       assignedAt: today(),
@@ -4478,7 +4257,7 @@ function createRecurringTaskInstance(task) {
   });
 
   state.history.push({
-    id: createId("history"),
+    id: deterministicId(`${seed}:history`),
     taskId: newTaskId,
     changedBy: getSessionUser().id,
     oldStatus: "",
@@ -4607,20 +4386,22 @@ function updateTaskStatus(taskId, nextStatus) {
 function deleteTask(taskId) {
   if (!isAdmin()) return showToast("Görev silme yalnızca yöneticilere açıktır.", "error");
   const task = state.tasks.find((item) => item.id === taskId);
-  if (!task || !confirm(`"${task.title}" görevi silinsin mi?`)) return;
+  if (!task) return;
 
-  deleteSupabaseRow("tasks", taskId);
-  state.tasks = state.tasks.filter((task) => task.id !== taskId);
-  state.assignments = state.assignments.filter((assignment) => assignment.taskId !== taskId);
-  state.taskGivers = state.taskGivers.filter((giver) => giver.taskId !== taskId);
-  state.history = state.history.filter((historyItem) => historyItem.taskId !== taskId);
-  state.taskComments = state.taskComments.filter((comment) => comment.taskId !== taskId);
   if (activeDetailTaskId === taskId) {
     closeTaskDetail();
   }
-  saveState();
-  renderAll();
-  showToast("Görev silindi.");
+  removeWithUndo({
+    message: `"${task.title}" görevi silindi.`,
+    removed: {
+      tasks: [task],
+      assignments: state.assignments.filter((assignment) => assignment.taskId === taskId),
+      taskGivers: state.taskGivers.filter((giver) => giver.taskId === taskId),
+      history: state.history.filter((historyItem) => historyItem.taskId === taskId),
+      taskComments: state.taskComments.filter((comment) => comment.taskId === taskId),
+    },
+    rows: [["tasks", taskId]],
+  });
 }
 
 function convertTaskToProject(taskId) {
@@ -4718,26 +4499,25 @@ function convertTaskToProject(taskId) {
 function deleteProject(projectId) {
   if (!isAdmin()) return showToast("Proje silme yalnızca yöneticilere açıktır.", "error");
   const project = state.projects.find((item) => item.id === projectId);
-  if (!project || !confirm(`"${project.name}" projesi ve bağlı görevleri silinsin mi?`)) return;
+  if (!project) return;
 
-  deleteSupabaseRow("projects", projectId);
-  const projectTaskIds = state.tasks
-    .filter((task) => task.projectId === projectId)
-    .map((task) => task.id);
-
-  state.projects = state.projects.filter((project) => project.id !== projectId);
-  state.tasks = state.tasks.filter((task) => task.projectId !== projectId);
-  state.assignments = state.assignments.filter(
-    (assignment) => !projectTaskIds.includes(assignment.taskId),
-  );
-  state.taskGivers = state.taskGivers.filter((giver) => !projectTaskIds.includes(giver.taskId));
-  state.history = state.history.filter((historyItem) => !projectTaskIds.includes(historyItem.taskId));
-  state.taskComments = state.taskComments.filter((comment) => !projectTaskIds.includes(comment.taskId));
+  const projectTasks = state.tasks.filter((task) => task.projectId === projectId);
+  const projectTaskIds = projectTasks.map((task) => task.id);
   if (projectTaskIds.includes(activeDetailTaskId)) {
     closeTaskDetail();
   }
-  saveState();
-  renderAll();
+  removeWithUndo({
+    message: `"${project.name}" projesi ve ${projectTasks.length} görevi silindi.`,
+    removed: {
+      projects: [project],
+      tasks: projectTasks,
+      assignments: state.assignments.filter((assignment) => projectTaskIds.includes(assignment.taskId)),
+      taskGivers: state.taskGivers.filter((giver) => projectTaskIds.includes(giver.taskId)),
+      history: state.history.filter((historyItem) => projectTaskIds.includes(historyItem.taskId)),
+      taskComments: state.taskComments.filter((comment) => projectTaskIds.includes(comment.taskId)),
+    },
+    rows: [["projects", projectId]],
+  });
 }
 
 function deleteCategory(categoryId) {
@@ -4747,13 +4527,13 @@ function deleteCategory(categoryId) {
   if (linkedProjects.length) {
     return showToast(`Bu kategoriye bağlı ${linkedProjects.length} proje var. Önce projeleri başka kategoriye taşıyın.`, "error");
   }
-  if (!category || !confirm(`"${category.name}" kategorisi silinsin mi?`)) return;
+  if (!category) return;
 
-  deleteSupabaseRow("categories", categoryId);
-  state.categories = state.categories.filter((category) => category.id !== categoryId);
-  saveState();
-  renderAll();
-  showToast("Kategori silindi.");
+  removeWithUndo({
+    message: `"${category.name}" kategorisi silindi.`,
+    removed: { categories: [category] },
+    rows: [["categories", categoryId]],
+  });
 }
 
 function openUserModal() {
@@ -4791,6 +4571,13 @@ function closeChangePasswordModal() {
   elements.changePasswordForm.reset();
 }
 
+// Yönetici tarafından oluşturulan hesaplar geçici şifreyle gelir; ilk girişte değiştirilmesini iste.
+function promptForcedPasswordChange(authUser) {
+  if (!authUser?.user_metadata?.must_change_password) return;
+  showToast("Geçici şifreyle giriş yaptın. Lütfen şimdi yeni bir şifre belirle.", "error");
+  openChangePasswordModal();
+}
+
 async function submitChangePassword(event) {
   event.preventDefault();
   const currentPassword = elements.currentPassword.value;
@@ -4812,7 +4599,7 @@ async function submitChangePassword(event) {
       });
       if (signInError) throw new Error("Mevcut şifre yanlış.");
 
-      const { error } = await client.auth.updateUser({ password: newPassword });
+      const { error } = await client.auth.updateUser({ password: newPassword, data: { must_change_password: false } });
       if (error) throw new Error(error.message);
     } else {
       const account = authAccounts.find((item) => item.id === getSessionUser()?.id);
@@ -5736,6 +5523,11 @@ function bindEvents() {
   elements.changePasswordForm.addEventListener("submit", submitChangePassword);
   elements.closeChangePasswordModalBtn.addEventListener("click", closeChangePasswordModal);
   elements.cancelChangePasswordBtn.addEventListener("click", closeChangePasswordModal);
+  elements.undoToastRegion.addEventListener("click", (event) => {
+    if (event.target.closest("[data-undo-delete]")) undoPendingDeletion();
+  });
+  // Sayfa kapanırken bekleyen silmeyi hemen kesinleştir (kuyrukta zaten kayıtlı, bu sadece gecikmeyi önler).
+  window.addEventListener("pagehide", finalizePendingUndo);
   elements.changePasswordModal.addEventListener("click", (event) => {
     if (event.target.closest("[data-close-change-password-modal]")) {
       closeChangePasswordModal();

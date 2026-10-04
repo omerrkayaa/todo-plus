@@ -12,7 +12,7 @@ import { getSummaryChunks, retrieveDocumentContext } from "../services/retrieval
 const router = Router();
 const idSchema = z.string().uuid();
 const chatSchema = z.object({ question: z.string().trim().min(2).max(2000) });
-const limiter = aiRateLimit({ limit: 30, windowMs: 60_000 });
+const limiter = aiRateLimit({ limit: 30, windowMs: 60_000, dailyLimit: Number(process.env.ASSISTANT_DAILY_LIMIT) || 300 });
 
 const parseDocumentId = (request) => {
   const result = idSchema.safeParse(request.params.id);

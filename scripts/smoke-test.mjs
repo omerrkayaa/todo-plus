@@ -71,9 +71,14 @@ try {
   await page.fill("#categoryName", "Düzenlenmiş Kategori");
   await page.click("#categorySubmitBtn");
   const editedCategory = page.locator("#categoryList .category-card", { hasText: "Düzenlenmiş Kategori" });
-  page.once("dialog", (dialog) => dialog.accept());
+  // Silme onay penceresi yerine "Geri al" bildirimi çıkar: önce geri al, sonra tekrar sil.
   await editedCategory.locator("[data-delete-category]").click();
   if (await page.locator("#categoryList >> text=Düzenlenmiş Kategori").count()) throw new Error("Kategori silinemedi.");
+  await expectVisible("#undoToastRegion >> text=Geri al", "Geri al bildirimi");
+  await page.click("#undoToastRegion [data-undo-delete]");
+  await expectVisible("#categoryList >> text=Düzenlenmiş Kategori", "Geri alınan kategori");
+  await editedCategory.locator("[data-delete-category]").click();
+  if (await page.locator("#categoryList >> text=Düzenlenmiş Kategori").count()) throw new Error("Kategori ikinci kez silinemedi.");
 
   await page.fill("#projectName", "Smoke Test Projesi");
   await page.fill("#projectDescription", "Otomatik test projesi");

@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 globalThis.window = globalThis;
 await import("../app-utils.js");
 await import("../app-quick-add-parser.js");
-const { escapeHtml, today, addDays, getDueDateMeta, isTaskOverdue, isUuid } = globalThis.TODO_PLUS_UTILS;
+const { deterministicId, escapeHtml, today, addDays, getDueDateMeta, isTaskOverdue, isUuid } = globalThis.TODO_PLUS_UTILS;
 const { parseQuickAddText } = globalThis.TODO_PLUS_QUICK_ADD_PARSER;
 
 test("escapeHtml tırnak ve etiketleri kaçırır (nitelik enjeksiyonu regresyonu)", () => {
@@ -47,6 +47,16 @@ test("isUuid geçerli ve geçersiz değerleri ayırır", () => {
   assert.equal(isUuid("00000000-0000-4000-8000-000000000001"), true);
   assert.equal(isUuid("task-1"), false);
   assert.equal(isUuid(undefined), false);
+});
+
+test("deterministicId: aynı girdi aynı UUID, farklı girdi farklı UUID, geçerli biçim", () => {
+  const a = deterministicId("recurrence:task-1:2026-07-27");
+  assert.equal(a, deterministicId("recurrence:task-1:2026-07-27"));
+  assert.notEqual(a, deterministicId("recurrence:task-1:2026-08-03"));
+  assert.notEqual(a, deterministicId("recurrence:task-2:2026-07-27"));
+  assert.equal(isUuid(a), true);
+  const ids = new Set(Array.from({ length: 2000 }, (_, index) => deterministicId(`seed:${index}`)));
+  assert.equal(ids.size, 2000);
 });
 
 // 2026-07-20 Pazartesi

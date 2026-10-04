@@ -71,6 +71,9 @@ Temel hedefler:
 - Görev yorumları
 - Görev durum geçmişi
 - Görevi tamamlama veya tekrar açma
+- Görev, proje ve kategori silme sonrası 8 saniyelik "Geri al" (bulut silmesi bu süre dolana kadar bekletilir)
+- Tekrarlayan görevlerde bir sonraki örnek, görev kimliği ve tarihten türetilen sabit kimlikle oluşur; aynı görev iki cihazda tamamlansa da çift kayıt oluşmaz
+- Yönetici tarafından açılan hesaplar ilk girişte şifre değiştirmeye yönlendirilir
 - Kanban üzerinde sürükle-bırak durum değiştirme
 
 ### Arama ve raporlama

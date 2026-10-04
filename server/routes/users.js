@@ -28,7 +28,8 @@ router.post("/", limiter, async (request, response) => {
     email,
     password: tempPassword,
     email_confirm: true,
-    user_metadata: { full_name: fullName, role },
+    // Geçici şifre ilk girişte değiştirilmeli; arayüz bu bayrağı görünce şifre değiştirme penceresini açar.
+    user_metadata: { full_name: fullName, role, must_change_password: true },
   });
   if (createError) throw new HttpError(400, `Kullanıcı oluşturulamadı: ${createError.message}`, "user_create_failed");
 
