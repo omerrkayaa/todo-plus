@@ -10,9 +10,11 @@
     "test:merge": "node --test tests/sync-merge.test.mjs",
     "test:unit": "node --test tests/utils-and-parser.test.mjs",
     "test:offline": "node scripts/offline-sync-test.mjs",
+    "test:pwa": "node scripts/pwa-test.mjs",
+    "icons": "node scripts/generate-icons.mjs",
     "test:node": "npm run test:server && npm run test:merge && npm run test:unit",
     "test:all": "npm run test:server && npm test",
-    "test": "npm run test:merge && npm run test:unit && node scripts/smoke-test.mjs && npm run test:offline",
+    "test": "npm run test:merge && npm run test:unit && node scripts/smoke-test.mjs && npm run test:offline && npm run test:pwa",
     "screenshots": "node scripts/capture-screenshots.mjs"
   },
   "dependencies": {

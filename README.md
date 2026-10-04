@@ -197,6 +197,10 @@ Demo modunda veriler tarayıcının LocalStorage alanında saklanır. Supabase b
 
 > Üretim kullanımında demo kullanıcı ekleme ve demo sıfırlama işlemleri Supabase modunda kapatılmalı veya gerçek davet/yönetim akışına dönüştürülmelidir.
 
+### Yayına alma ve PWA
+
+Uygulama bir PWA'dır (`manifest.webmanifest`, `sw.js`): ilk ziyaretten sonra kabuk dosyaları önbelleğe alınır, ağ kesikken yenilense bile açılır ve ana ekrana eklenebilir. Strateji "önce ağ, olmazsa önbellek"tir; çevrimiçiyken hep güncel kod gelir. Ücretsiz yayın adımları (GitHub Pages + Render) için `DEPLOY.md` dosyasına bakın.
+
 ### Çevrimdışı çalışma (Supabase modu)
 
 Uygulama yerel-öncelikli çalışır: her değişiklik önce cihaza (LocalStorage) yazılır, sonra buluta gönderilir.

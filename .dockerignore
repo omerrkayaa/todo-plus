@@ -1,0 +1,14 @@
+node_modules
+.git
+.env
+.env.*
+!.env.example
+.gstack
+.npm-cache
+.agents
+screenshots
+rapor-gorseller
+gunluk-raporlar
+todos-en-saglam-gelistirmeler
+todo-plus
+*.docx

@@ -37,7 +37,8 @@ jobs:
         run: |
           python3 -m http.server 4173 --bind 127.0.0.1 &
           sleep 2
-      - name: Smoke ve çevrimdışı eşitleme testleri
+      - name: Smoke, çevrimdışı eşitleme ve PWA testleri
         run: |
           node scripts/smoke-test.mjs
           node scripts/offline-sync-test.mjs
+          node scripts/pwa-test.mjs

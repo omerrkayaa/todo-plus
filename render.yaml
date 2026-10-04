@@ -1,0 +1,25 @@
+# Render.com "Blueprint": doküman asistanı sunucusunu ücretsiz planda çalıştırır.
+# Not: ücretsiz plan boşta uyur; ilk istek ~30-60 sn gecikebilir. Anahtarlar panelden girilir (sync: false).
+services:
+  - type: web
+    name: todo-plus-assistant
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: VOYAGE_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.1-flash-lite
+      - key: ASSISTANT_DAILY_LIMIT
+        value: "300"
+      - key: CORS_ORIGIN
+        sync: false # ör. https://<kullanıcı>.github.io
