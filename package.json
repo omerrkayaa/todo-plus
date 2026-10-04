@@ -8,9 +8,11 @@
     "start": "node server/index.js",
     "test:server": "node --test server/tests/*.test.js",
     "test:merge": "node --test tests/sync-merge.test.mjs",
+    "test:unit": "node --test tests/utils-and-parser.test.mjs",
     "test:offline": "node scripts/offline-sync-test.mjs",
+    "test:node": "npm run test:server && npm run test:merge && npm run test:unit",
     "test:all": "npm run test:server && npm test",
-    "test": "npm run test:merge && node scripts/smoke-test.mjs && npm run test:offline",
+    "test": "npm run test:merge && npm run test:unit && node scripts/smoke-test.mjs && npm run test:offline",
     "screenshots": "node scripts/capture-screenshots.mjs"
   },
   "dependencies": {

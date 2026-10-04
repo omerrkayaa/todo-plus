@@ -5,10 +5,12 @@ async function createMessage({ system, messages, maxTokens = 900 }) {
   const config = getConfig();
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiModel}:generateContent?key=${config.geminiApiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiModel}:generateContent`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        // Anahtar URL yerine başlıkta gider; böylece günlüklere ve hata izlerine sızmaz.
+        headers: { "Content-Type": "application/json", "x-goog-api-key": config.geminiApiKey },
+        signal: AbortSignal.timeout(30_000),
         body: JSON.stringify({
           system_instruction: { parts: [{ text: system }] },
           contents: messages.map((message) => ({

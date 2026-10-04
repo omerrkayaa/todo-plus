@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  node-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Sunucu, birleştirme ve birim testleri
+        run: npm run test:node
+        env:
+          # Testler dış servise bağlanmaz; yalnızca yapılandırma doğrulamasını geçmek için sahte değerler.
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_ANON_KEY: ci-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: ci-service-role-key
+
+  browser-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Arayüzü başlat
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 &
+          sleep 2
+      - name: Smoke ve çevrimdışı eşitleme testleri
+        run: |
+          node scripts/smoke-test.mjs
+          node scripts/offline-sync-test.mjs

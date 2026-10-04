@@ -3479,7 +3479,7 @@ function renderDashboard() {
             <span>${escapeHtml(user.fullName)} <small class="role-inline">${roleLabels[user.role] || roleLabels.user}</small></span>
             <span>${stats.rate}%</span>
           </strong>
-          <div class="score-bar" aria-label="${user.fullName} başarı oranı">
+          <div class="score-bar" aria-label="${escapeHtml(user.fullName)} başarı oranı">
             <div class="score-fill" style="width: ${stats.rate}%"></div>
           </div>
           <p>${stats.completedScore}/${stats.totalScore} puan - ${stats.completedCount}/${stats.assignedCount} görev</p>

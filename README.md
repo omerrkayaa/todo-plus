@@ -102,11 +102,17 @@ Temel hedefler:
 todo app uygulaması/
 ├── index.html
 ├── styles.css
-├── app.js
+├── app.js                      # ana uygulama (auth, render, olaylar)
+├── app-*.js                    # ayrılmış modüller: utils, storage, task-model, sync-merge,
+│                               #   quick-add-parser, supabase, supabase-mapper, document-assistant, config
 ├── supabase-config.js
 ├── supabase-schema.sql
 ├── package.json
 ├── README.md
+├── server/                     # Express API: doküman asistanı (RAG) ve yönetici kullanıcı oluşturma
+├── tests/                      # birim testleri (sync-merge, utils-and-parser)
+├── vendor/supabase.js          # çevrimdışı açılış için yerel supabase-js kopyası
+├── .github/workflows/ci.yml    # GitHub Actions: sunucu/birim testleri + tarayıcı testleri
 ├── screenshots/
 │   ├── 01-giris-ekrani.png
 │   ├── 02-istatistik-ekrani.png
@@ -257,6 +263,11 @@ Güvenlik notları:
 | `task_givers` | Görevi veren kullanıcılar |
 | `task_history` | Görev durum değişiklikleri |
 | `task_comments` | Görev yorumları |
+| `task_attachments` | Görev dosya ekleri |
+| `project_members` | Proje üyelikleri |
+| `project_invitations` | Proje davetleri |
+| `document_chunks` | Doküman asistanı için parçalanmış metin ve vektörler (`pgvector`) |
+| `document_chat_messages` | Doküman asistanı sohbet geçmişi |
 
 ### ER diyagramı
 
@@ -326,13 +337,14 @@ Başka bir terminalde:
 npm test
 ```
 
-`npm test` üç aşamayı sırayla çalıştırır:
+`npm test` dört aşamayı sırayla çalıştırır (tarayıcı gerektirmeyen kısım için `npm run test:node`; sunucu testleri dahildir):
 
 1. **Birleştirme birim testleri** (`npm run test:merge`) — alan bazlı üç yönlü birleştirme motorunun 15 senaryosu (çakışma tespiti, çevrimdışı oluşturulan kaydın korunması, silme kuyruğu vb.).
-2. **Smoke test** (Playwright) — demo modda uçtan uca arayüz akışları:
+2. **Yardımcı ve ayrıştırıcı birim testleri** (`npm run test:unit`) — `escapeHtml` (nitelik enjeksiyonu), `today()` yerel saat/UTC regresyonu, gecikme/yaklaşan tarih hesabı, Türkçe hızlı-ekle ayrıştırıcısı (11 test).
+3. **Smoke test** (Playwright) — demo modda uçtan uca arayüz akışları:
    giriş, proje/kategori/görev oluşturma, arama ve filtreler, görev detayı ve yorum,
    görevi tamamlayıp Arşiv'de görme ve yeniden açma, mobil menü, rol panelleri.
-3. **Çevrimdışı eşitleme testi** (`npm run test:offline`) — sahte Supabase oturumu ve araya
+4. **Çevrimdışı eşitleme testi** (`npm run test:offline`) — sahte Supabase oturumu ve araya
    girilen REST çağrılarıyla: çakışma kartının açılması, "Benimki kalsın" seçiminin buluta
    gönderilmesi, çevrimdışı değişikliğin sayfa yenilemede korunması ve bağlantı gelince
    kendiliğinden eşitlenmesi.
@@ -419,7 +431,7 @@ npm run screenshots
 
 - Proje şu anda ağırlıklı olarak demo modunda doğrulanmıştır.
 - Supabase entegrasyonu için gerçek proje URL'si ve anon key gereklidir.
-- Çok kullanıcılı proje üyeliği ve rol modeli henüz ayrı tablolarla uygulanmamıştır.
+- Proje üyeliği (`project_members`) ve davet (`project_invitations`) tabloları vardır; ancak proje bazlı roller (aynı kullanıcının bir projede yönetici, diğerinde çalışan olması) henüz yoktur, roller genel `users.role` alanındadır.
 - Demo kullanıcı ekleme gerçek Supabase Auth hesabı oluşturmaz.
 - Çevrimdışıyken ilk giriş yapılamaz; açık oturum çevrimdışı çalışmaya devam eder.
 - `app.js` büyüktür; sonraki sürümde modüllere ayrılması önerilir.
