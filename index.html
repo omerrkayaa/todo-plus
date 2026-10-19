@@ -463,8 +463,17 @@
         <section class="panel kanban-panel task-layout-panel hidden" data-task-layout-panel="board">
           <div class="panel-header">
             <h3>Kanban panosu</h3>
-            <span>Duruma göre görev akışı</span>
+            <label class="kanban-group-control">
+              <span>Sütunlar</span>
+              <select id="kanbanGroupBy" aria-label="Pano sütunlarını grupla">
+                <option value="status">Duruma göre</option>
+                <option value="priority">Önceliğe göre</option>
+                <option value="assignee">Kişiye göre</option>
+                <option value="project">Projeye göre</option>
+              </select>
+            </label>
           </div>
+          <p id="kanbanGroupHint" class="section-hint kanban-group-hint"></p>
           <div id="kanbanBoard" class="kanban-board"></div>
         </section>
 
@@ -596,7 +605,13 @@
                 <button id="calendarNextBtn" class="small-button" type="button" aria-label="Sonraki ay">›</button>
                 <button id="calendarTodayBtn" class="small-button" type="button">Bugün</button>
               </div>
-              <button id="calendarExportBtn" class="small-button" type="button">📤 Takvimi indir (.ics)</button>
+              <div class="calendar-toolbar-actions">
+                <div class="segmented-toggle" role="group" aria-label="Takvim görünümü">
+                  <button class="small-button" type="button" data-calendar-mode="month" aria-pressed="true">Ay</button>
+                  <button class="small-button" type="button" data-calendar-mode="week" aria-pressed="false">Hafta</button>
+                </div>
+                <button id="calendarExportBtn" class="small-button" type="button">📤 Takvimi indir (.ics)</button>
+              </div>
             </div>
             <p class="calendar-hint">Bir güne tıklayınca sağda o günün planı açılır. Yönetici, görevi başka güne sürükleyerek teslim tarihini değiştirebilir.</p>
             <div class="calendar-legend">
@@ -646,6 +661,14 @@
         </section>
       </section>
     </main>
+
+    <nav class="mobile-tabbar" aria-label="Hızlı gezinme">
+      <button class="mobile-tab" type="button" data-mobile-view="today"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Z"/><path d="M4 9h16M8 3v3M16 3v3"/><circle cx="12" cy="14.5" r="2.5"/></svg><span>Bugün</span></button>
+      <button class="mobile-tab" type="button" data-mobile-view="tasks"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11 11 13 15.5 8.5M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/></svg><span>Görevler</span></button>
+      <button class="mobile-tab" type="button" data-mobile-view="calendar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M8 3v3M16 3v3"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01"/></svg><span>Takvim</span></button>
+      <button class="mobile-tab" type="button" data-mobile-view="dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6v-9h-6v9Zm0-16v5h6V4h-6Z"/></svg><span>Özet</span></button>
+      <button class="mobile-tab" type="button" data-mobile-menu aria-controls="sidebar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg><span>Menü</span></button>
+    </nav>
   </div>
 
   <div id="sidebarBackdrop" class="sidebar-backdrop hidden"></div>
@@ -686,6 +709,18 @@
         <button id="closeAttachmentPreviewBtn" class="small-button" type="button" aria-label="Ek önizlemeyi kapat">Kapat</button>
       </div>
       <div id="attachmentPreviewBody" class="attachment-preview-body"></div>
+    </section>
+  </div>
+
+  <div id="confirmModal" class="modal confirm-modal hidden" role="alertdialog" aria-modal="true" aria-labelledby="confirmModalTitle" aria-describedby="confirmModalMessage">
+    <div class="modal-backdrop" data-confirm-cancel></div>
+    <section class="modal-panel">
+      <h2 id="confirmModalTitle">Emin misin?</h2>
+      <p id="confirmModalMessage"></p>
+      <div class="confirm-actions">
+        <button id="confirmCancelBtn" class="small-button" type="button" data-confirm-cancel>Vazgeç</button>
+        <button id="confirmOkBtn" class="primary-button" type="button">Onayla</button>
+      </div>
     </section>
   </div>
 

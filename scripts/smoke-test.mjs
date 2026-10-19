@@ -157,7 +157,7 @@ try {
   const combinedLowInProgress = page.locator("#taskList .task-card");
   for (let index = 0; index < (await combinedLowInProgress.count()); index += 1) {
     const card = combinedLowInProgress.nth(index);
-    if (!(await card.locator(".priority-dusuk").count()) || !(await card.locator(".status-dot-bekliyor").count())) {
+    if (!(await card.locator(".priority-dusuk").count()) || !(await card.locator(".task-check[aria-checked='false']").count())) {
       throw new Error("Öncelik ve durum filtreleri AND mantığıyla birleşmedi.");
     }
   }
@@ -193,7 +193,7 @@ try {
   await taskCard.waitFor({ state: "hidden" });
   await page.click("#taskList [data-open-archive]");
   const archivedCard = page.locator("#archiveList .task-card", { hasText: "Smoke Test Görevi" });
-  await archivedCard.locator(".task-status-dot.status-dot-tamamlandi").waitFor({ state: "visible" });
+  await archivedCard.locator(".task-check[aria-checked='true']").waitFor({ state: "visible" });
   await archivedCard.locator("[data-status-task]").click();
   await archivedCard.waitFor({ state: "hidden" });
   await page.locator("[data-view='tasks']").evaluate((element) => element.click());

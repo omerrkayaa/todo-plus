@@ -87,6 +87,14 @@ const ARCHIVE_PAGE_SIZE = 20;
 let archiveVisibleCount = ARCHIVE_PAGE_SIZE;
 let calendarAnchorDate = new Date();
 calendarAnchorDate.setDate(1);
+const calendarModeStorageKey = "todo_plus_calendar_mode_v1";
+let calendarMode = "month";
+try {
+  if (localStorage.getItem(calendarModeStorageKey) === "week") {
+    calendarMode = "week";
+    calendarAnchorDate = new Date();
+  }
+} catch { /* depolama kapalıysa ay görünümü */ }
 let selectedPlannerDate = today();
 const modalReturnFocus = new WeakMap();
 
@@ -130,6 +138,11 @@ const elements = {
   resetDemoBtn: document.querySelector("#resetDemoBtn"),
   changePasswordBtn: document.querySelector("#changePasswordBtn"),
   changePasswordModal: document.querySelector("#changePasswordModal"),
+  confirmModal: document.querySelector("#confirmModal"),
+  confirmModalTitle: document.querySelector("#confirmModalTitle"),
+  confirmModalMessage: document.querySelector("#confirmModalMessage"),
+  confirmOkBtn: document.querySelector("#confirmOkBtn"),
+  confirmCancelBtn: document.querySelector("#confirmCancelBtn"),
   closeChangePasswordModalBtn: document.querySelector("#closeChangePasswordModalBtn"),
   cancelChangePasswordBtn: document.querySelector("#cancelChangePasswordBtn"),
   changePasswordForm: document.querySelector("#changePasswordForm"),
@@ -280,6 +293,8 @@ const elements = {
   taskAttachmentPreview: document.querySelector("#taskAttachmentPreview"),
   taskCount: document.querySelector("#taskCount"),
   kanbanBoard: document.querySelector("#kanbanBoard"),
+  kanbanGroupBy: document.querySelector("#kanbanGroupBy"),
+  kanbanGroupHint: document.querySelector("#kanbanGroupHint"),
   taskList: document.querySelector("#taskList"),
   taskDetailModal: document.querySelector("#taskDetailModal"),
   closeTaskDetailBtn: document.querySelector("#closeTaskDetailBtn"),
@@ -1750,7 +1765,7 @@ function setView(viewName, activeNavItem = null) {
     tasks: "Önceliklerinizi düzenleyin ve işi akışta tutun.",
     today: "Başlangıcı bugün olan ve teslim tarihi bugün/geçmiş olan görevler.",
     upcoming: "Gelecek tarihli görevler, teslim tarihine göre sıralı.",
-    calendar: "Son tarihli görevlerin aylık görünümü.",
+    calendar: "Son tarihli görevlerin aylık ya da haftalık görünümü.",
     archive: "Tamamlanan görevlerin geçmişi, en yeniden eskiye.",
   };
   const displayView = taskScopeViews.has(viewName) ? "tasks" : viewName;
@@ -1774,6 +1789,12 @@ function setView(viewName, activeNavItem = null) {
     } else {
       item.removeAttribute("aria-current");
     }
+  });
+  document.querySelectorAll("[data-mobile-view]").forEach((tab) => {
+    const active = tab.dataset.mobileView === viewName;
+    tab.classList.toggle("active", active);
+    if (active) tab.setAttribute("aria-current", "page");
+    else tab.removeAttribute("aria-current");
   });
 }
 
@@ -2199,7 +2220,7 @@ function renderTaskCard(task, options = {}) {
   const dueDate = getDueDateMeta(task);
   const attachmentCount = getTaskAttachments(task).length;
   const compactClass = options.compact ? " task-card-compact" : "";
-  const draggableAttribute = options.compact && isAdmin() ? ' draggable="true"' : "";
+  const draggableAttribute = options.compact && options.draggable !== false && isAdmin() ? ' draggable="true"' : "";
   const assigneeInitials = getInitials(assigneeNames[0] || "?");
 
   // WCAG 2.5.7: sürükle-bırakın klavye alternatifi — panoda kartı ok düğmeleriyle taşı.
@@ -2207,19 +2228,53 @@ function renderTaskCard(task, options = {}) {
   const statusIndex = statusOrder.indexOf(task.status);
   const previousStatus = statusOrder[statusIndex - 1];
   const nextColumnStatus = statusOrder[statusIndex + 1];
-  const moveButtons = options.compact
+  const moveButtons = options.compact && options.moveButtons !== false
     ? `
       ${previousStatus ? `<button class="icon-button move-button" type="button" data-status-task="${task.id}" data-next-status="${previousStatus}" aria-label="${escapeHtml(task.title)} görevini ${statusLabels[previousStatus]} sütununa taşı" title="${statusLabels[previousStatus]} sütununa taşı">◀</button>` : ""}
       ${nextColumnStatus ? `<button class="icon-button move-button" type="button" data-status-task="${task.id}" data-next-status="${nextColumnStatus}" aria-label="${escapeHtml(task.title)} görevini ${statusLabels[nextColumnStatus]} sütununa taşı" title="${statusLabels[nextColumnStatus]} sütununa taşı">▶</button>` : ""}
     `
     : "";
 
+  const titleButton = `<button class="task-title-button" type="button" data-detail-task="${task.id}" aria-label="${escapeHtml(task.title)} görevinin detayını aç">${escapeHtml(task.title)}</button>`;
+  const editButton = isAdmin() || isTaskAssignee(task) ? `<button class="icon-button" type="button" data-edit-task="${task.id}" aria-label="${escapeHtml(task.title)} görevini düzenle" title="Düzenle">✎</button>` : "";
+  const deleteButton = isAdmin() ? `<button class="icon-button danger-icon" type="button" data-delete-task="${task.id}" aria-label="${escapeHtml(task.title)} görevini sil" title="Sil">×</button>` : "";
+  const repeatBadge = task.repeatInterval && task.repeatInterval !== "none" ? `<span class="badge">🔁 ${escapeHtml(repeatIntervalLabels[task.repeatInterval] || task.repeatInterval)}</span>` : "";
+  const tagBadges = (task.tags || []).map((tag) => `<span class="badge tag-badge">#${escapeHtml(tag)}</span>`).join("");
+
+  if (!options.compact) {
+    const done = task.status === "tamamlandi";
+    return `
+      <article class="task-card task-row${done ? " is-done" : ""}" data-task-card data-task-id="${task.id}">
+        <button class="task-check" type="button" role="checkbox" aria-checked="${done}" data-status-task="${task.id}" data-next-status="${nextStatus}" aria-label="${escapeHtml(task.title)}: ${done ? "tekrar aç" : "tamamla"}" title="${actionText}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12.5 4 4 8-9"/></svg>
+        </button>
+        <div class="task-row-main">
+          <div class="task-row-top">
+            <h4>${titleButton}</h4>
+            <span class="priority-chip priority-${task.priority}">${priorityLabels[task.priority]}</span>
+          </div>
+          ${task.description ? `<p>${escapeHtml(task.description)}</p>` : ""}
+          <div class="task-row-meta">
+            <span class="task-project">${escapeHtml(getProjectName(task.projectId))}</span>
+            ${category ? `<span class="context-separator">/</span><span>${escapeHtml(category.name)}</span>` : ""}
+            ${repeatBadge}${tagBadges}
+            <span class="task-assignee" title="Atanan: ${escapeHtml(assigneeName)}"><span class="avatar avatar-sm">${escapeHtml(assigneeInitials)}</span><span>${escapeHtml(assigneeDisplay)}</span></span>
+            <span class="due-signal ${dueDate.className}">${escapeHtml(dueDate.label)}</span>
+            ${attachmentCount ? `<span class="score-signal">📎 ${attachmentCount}</span>` : ""}
+            <span class="score-signal" title="Görev puanı">${getTaskScore(task)}p</span>
+          </div>
+        </div>
+        <div class="card-actions">${editButton}${deleteButton}</div>
+      </article>
+    `;
+  }
+
   return `
     <article class="task-card${compactClass}"${draggableAttribute} data-task-card data-task-id="${task.id}">
       <div class="task-card-header">
         <div class="task-card-title">
           <span class="task-status-dot status-dot-${task.status}"></span>
-          <h4>${escapeHtml(task.title)}</h4>
+          <h4>${titleButton}</h4>
         </div>
         <span class="priority-chip priority-${task.priority}">${priorityLabels[task.priority]}</span>
       </div>
@@ -2229,8 +2284,8 @@ function renderTaskCard(task, options = {}) {
         <span class="context-separator">/</span>
         <span>${escapeHtml(category ? category.name : "Kategori yok")}</span>
       </div>
-      ${task.repeatInterval && task.repeatInterval !== "none" ? `<div class="task-tags"><span class="badge">🔁 ${escapeHtml(repeatIntervalLabels[task.repeatInterval] || task.repeatInterval)}</span></div>` : ""}
-      ${(task.tags || []).length ? `<div class="task-tags">${task.tags.map((tag) => `<span class="badge tag-badge">#${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
+      ${repeatBadge ? `<div class="task-tags">${repeatBadge}</div>` : ""}
+      ${tagBadges ? `<div class="task-tags">${tagBadges}</div>` : ""}
       <div class="task-card-footer">
         <div class="task-assignee" title="Atanan: ${escapeHtml(assigneeName)}">
           <span class="avatar avatar-sm">${escapeHtml(assigneeInitials)}</span>
@@ -2243,14 +2298,48 @@ function renderTaskCard(task, options = {}) {
         </div>
       </div>
       <div class="card-actions">
-        <button class="small-button action-detail" type="button" data-detail-task="${task.id}">Detayı aç</button>
-        ${options.compact ? "" : `<button class="small-button action-status" type="button" data-status-task="${task.id}" data-next-status="${nextStatus}">${actionText}</button>`}
         ${moveButtons}
-        ${isAdmin() || isTaskAssignee(task) ? `<button class="icon-button" type="button" data-edit-task="${task.id}" aria-label="${escapeHtml(task.title)} görevini düzenle">✎</button>` : ""}
-        ${isAdmin() ? `<button class="icon-button danger-icon" type="button" data-delete-task="${task.id}" aria-label="${escapeHtml(task.title)} görevini sil">×</button>` : ""}
+        ${editButton}
+        ${deleteButton}
       </div>
     </article>
   `;
+}
+
+// Liste, seçili sıralamayı grup içinde koruyarak teslim tarihine göre bölümlere ayrılır.
+const taskDateGroups = [
+  { key: "overdue", label: "Gecikmiş" },
+  { key: "today", label: "Bugün" },
+  { key: "week", label: "Önümüzdeki 7 gün" },
+  { key: "later", label: "Daha sonra" },
+  { key: "none", label: "Tarihsiz" },
+  { key: "done", label: "Tamamlanan" },
+];
+
+function getTaskDateGroup(task) {
+  if (task.status === "tamamlandi") return "done";
+  if (!task.dueDate) return "none";
+  const todayValue = today();
+  if (task.dueDate < todayValue) return "overdue";
+  if (task.dueDate === todayValue) return "today";
+  return task.dueDate <= addDays(todayValue, 7) ? "week" : "later";
+}
+
+function renderGroupedTaskCards(tasks) {
+  const buckets = new Map(taskDateGroups.map((group) => [group.key, []]));
+  tasks.forEach((task) => buckets.get(getTaskDateGroup(task)).push(task));
+  return taskDateGroups
+    .filter((group) => buckets.get(group.key).length)
+    .map((group) => {
+      const groupTasks = buckets.get(group.key);
+      return `
+        <section class="task-group task-group-${group.key}" aria-label="${group.label}, ${groupTasks.length} görev">
+          <div class="task-group-header"><h4>${group.label}</h4><span>${groupTasks.length}</span></div>
+          ${groupTasks.map((task) => renderTaskCard(task)).join("")}
+        </section>
+      `;
+    })
+    .join("");
 }
 
 function renderTasks() {
@@ -2288,9 +2377,7 @@ function renderTasks() {
     return;
   }
 
-  elements.taskList.innerHTML = tasks
-    .map((task) => renderTaskCard(task))
-    .join("") + (hidingCompleted && hiddenCompletedCount > 0
+  elements.taskList.innerHTML = renderGroupedTaskCards(tasks) + (hidingCompleted && hiddenCompletedCount > 0
       ? `<div class="empty-state archive-hint"><span>${hiddenCompletedCount} tamamlanan görev daha var.</span><button class="small-button" type="button" data-open-archive>Arşivde gör</button></div>`
       : "");
 }
@@ -2357,10 +2444,42 @@ function getCalendarMonthCells(anchorDate) {
   });
 }
 
+function getCalendarWeekCells(anchorDate) {
+  const monday = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), anchorDate.getDate() - ((anchorDate.getDay() + 6) % 7));
+  return Array.from({ length: 7 }, (_, index) => new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + index));
+}
+
+function getCalendarRangeLabel(cells) {
+  if (calendarMode !== "week") {
+    return new Intl.DateTimeFormat("tr-TR", { month: "long", year: "numeric" }).format(calendarAnchorDate);
+  }
+  const first = cells[0];
+  const last = cells[cells.length - 1];
+  const dayMonth = new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "short" });
+  return `${dayMonth.format(first)} – ${dayMonth.format(last)} ${last.getFullYear()}`;
+}
+
+function setCalendarMode(mode) {
+  calendarMode = mode === "week" ? "week" : "month";
+  try { localStorage.setItem(calendarModeStorageKey, calendarMode); } catch { /* yok say */ }
+  // Hafta görünümü seçili günün (yoksa bugünün) haftasıyla açılır; ay görünümüne dönünce o ayda kalınır.
+  const focusDate = new Date(`${selectedPlannerDate || today()}T12:00:00`);
+  calendarAnchorDate = calendarMode === "week" ? focusDate : new Date(calendarAnchorDate.getFullYear(), calendarAnchorDate.getMonth(), 1);
+  renderCalendarView();
+}
+
 function renderCalendarView() {
   if (!elements.calendarGrid) return;
+  const isWeek = calendarMode === "week";
+  const cells = isWeek ? getCalendarWeekCells(calendarAnchorDate) : getCalendarMonthCells(calendarAnchorDate);
   const month = calendarAnchorDate.getMonth();
-  elements.calendarMonthLabel.textContent = new Intl.DateTimeFormat("tr-TR", { month: "long", year: "numeric" }).format(calendarAnchorDate);
+  elements.calendarMonthLabel.textContent = getCalendarRangeLabel(cells);
+  elements.calendarGrid.classList.toggle("calendar-grid-week", isWeek);
+  elements.calendarPrevBtn.setAttribute("aria-label", isWeek ? "Önceki hafta" : "Önceki ay");
+  elements.calendarNextBtn.setAttribute("aria-label", isWeek ? "Sonraki hafta" : "Sonraki ay");
+  document.querySelectorAll("[data-calendar-mode]").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.calendarMode === calendarMode));
+  });
 
   const tasksByDate = {};
   state.tasks
@@ -2370,12 +2489,13 @@ function renderCalendarView() {
     });
 
   const todayKey = today();
-  elements.calendarGrid.innerHTML = getCalendarMonthCells(calendarAnchorDate)
+  const weekdayFormat = new Intl.DateTimeFormat("tr-TR", { weekday: "short" });
+  elements.calendarGrid.innerHTML = cells
     .map((cellDate) => {
       const dateKey = formatDateKey(cellDate);
-      const inMonth = cellDate.getMonth() === month;
+      const inMonth = isWeek || cellDate.getMonth() === month;
       const dayTasks = (tasksByDate[dateKey] || []).sort((a, b) => getTaskScore(b) - getTaskScore(a));
-      const visibleChips = dayTasks.slice(0, 3);
+      const visibleChips = isWeek ? dayTasks : dayTasks.slice(0, 3);
       const overflowCount = dayTasks.length - visibleChips.length;
       const hasNote = Boolean(getCalendarNote(dateKey));
       const dayClasses = [
@@ -2389,7 +2509,7 @@ function renderCalendarView() {
 
       return `
         <div class="${dayClasses}" data-calendar-date="${dateKey}">
-          <span class="calendar-day-number">${cellDate.getDate()}</span>
+          <span class="calendar-day-number">${isWeek ? `<span class="calendar-day-weekday">${weekdayFormat.format(cellDate)} </span>` : ""}${cellDate.getDate()}</span>
           ${hasNote ? '<span class="calendar-day-note-badge" title="Kişisel notun var" aria-hidden="true">📝</span>' : ""}
           <div class="calendar-day-tasks">
             ${visibleChips
@@ -2412,7 +2532,9 @@ function renderCalendarView() {
 }
 
 function shiftCalendarMonth(offset) {
-  calendarAnchorDate = new Date(calendarAnchorDate.getFullYear(), calendarAnchorDate.getMonth() + offset, 1);
+  calendarAnchorDate = calendarMode === "week"
+    ? new Date(calendarAnchorDate.getFullYear(), calendarAnchorDate.getMonth(), calendarAnchorDate.getDate() + offset * 7)
+    : new Date(calendarAnchorDate.getFullYear(), calendarAnchorDate.getMonth() + offset, 1);
   renderCalendarView();
 }
 
@@ -2594,31 +2716,86 @@ function handleCalendarDrop(event) {
   if (taskId) rescheduleTaskDueDate(taskId, dropTarget.dataset.calendarDate);
 }
 
+// Pano sütunları: durum dışındaki gruplamalarda yalnız açık görevler gösterilir (tamamlananlar sütunları kalabalıklaştırmasın).
+function getKanbanColumns(groupBy, tasks) {
+  const openTasks = tasks.filter((task) => task.status !== "tamamlandi");
+  if (groupBy === "priority") {
+    return ["yuksek", "orta", "dusuk"].map((priority) => ({
+      key: priority, attr: `data-kanban-priority="${priority}"`, label: priorityLabels[priority],
+      tasks: openTasks.filter((task) => task.priority === priority),
+    }));
+  }
+  if (groupBy === "assignee") {
+    const columns = state.users
+      .map((user) => ({
+        key: user.id, attr: "", label: user.fullName,
+        tasks: openTasks.filter((task) => getTaskAssignments(task.id).some((assignment) => assignment.userId === user.id)),
+      }))
+      .filter((column) => column.tasks.length);
+    const unassigned = openTasks.filter((task) => getTaskAssignments(task.id).length === 0);
+    if (unassigned.length) columns.push({ key: "none", attr: "", label: "Atanmamış", tasks: unassigned });
+    return columns;
+  }
+  if (groupBy === "project") {
+    const projectIds = [...new Set(openTasks.map((task) => task.projectId || ""))];
+    return projectIds
+      .map((projectId) => ({
+        key: projectId || "inbox", attr: "", label: getProjectName(projectId || null),
+        tasks: openTasks.filter((task) => (task.projectId || "") === projectId),
+      }))
+      .sort((a, b) => b.tasks.length - a.tasks.length);
+  }
+  return ["bekliyor", "tamamlandi"].map((status) => ({
+    key: status, attr: `data-kanban-status="${status}"`, label: statusLabels[status],
+    tasks: tasks.filter((task) => task.status === status),
+  }));
+}
+
+const kanbanGroupStorageKey = "todo_plus_kanban_group_v1";
+const kanbanGroupHints = {
+  status: "Kartı sürükleyerek ya da ◀ ▶ düğmeleriyle durumunu değiştir.",
+  priority: "Açık görevler. Kartı başka sütuna sürükleyince önceliği değişir.",
+  assignee: "Açık görevler kişiye göre. Birden fazla kişiye atanan görev her birinin sütununda görünür.",
+  project: "Açık görevler projeye göre, en kalabalık proje solda.",
+};
+
 function renderKanbanBoard() {
-  const tasks = getFilteredTasks();
-  const columns = ["bekliyor", "tamamlandi"];
+  const groupBy = elements.kanbanGroupBy?.value || "status";
+  const columns = getKanbanColumns(groupBy, getFilteredTasks());
+  const draggable = groupBy === "status" || groupBy === "priority";
+  elements.kanbanGroupHint.textContent = kanbanGroupHints[groupBy] || "";
 
-  elements.kanbanBoard.innerHTML = columns
-    .map((status) => {
-      const columnTasks = tasks.filter((task) => task.status === status);
-
-      return `
-        <section class="kanban-column" data-kanban-status="${status}" aria-label="${statusLabels[status]} sütunu, ${columnTasks.length} görev">
+  elements.kanbanBoard.innerHTML = columns.length === 0
+    ? `<div class="empty-state kanban-empty">Gösterilecek açık görev yok.</div>`
+    : columns
+      .map((column) => `
+        <section class="kanban-column kanban-group-${groupBy}" ${column.attr} aria-label="${escapeHtml(column.label)} sütunu, ${column.tasks.length} görev">
           <div class="kanban-column-header">
-            <h4>${statusLabels[status]}</h4>
-            <span aria-hidden="true">${columnTasks.length}</span>
+            <h4>${escapeHtml(column.label)}</h4>
+            <span aria-hidden="true">${column.tasks.length}</span>
           </div>
-          <div class="kanban-column-body" role="group" data-kanban-status="${status}">
+          <div class="kanban-column-body" role="group" ${column.attr}>
             ${
-              columnTasks.length === 0
+              column.tasks.length === 0
                 ? `<div class="empty-state kanban-empty">Görev yok.</div>`
-                : columnTasks.map((task) => renderTaskCard(task, { compact: true })).join("")
+                : column.tasks.map((task) => renderTaskCard(task, { compact: true, draggable, moveButtons: groupBy === "status" })).join("")
             }
           </div>
         </section>
-      `;
-    })
-    .join("");
+      `)
+      .join("");
+}
+
+function updateTaskPriority(taskId, nextPriority) {
+  if (!isAdmin()) return showToast("Önceliği yalnızca yöneticiler değiştirebilir.", "error");
+  const task = state.tasks.find((item) => item.id === taskId);
+  if (!task || !priorityLabels[nextPriority] || task.priority === nextPriority) return;
+
+  task.priority = nextPriority;
+  task.updatedAt = today();
+  saveState();
+  renderAll();
+  showToast(`"${task.title}" önceliği ${priorityLabels[nextPriority]} oldu.`);
 }
 
 function renderTaskViews() {
@@ -3167,7 +3344,31 @@ function trapModalFocus(event, modal) {
   }
 }
 
+// Tarayıcının confirm() penceresi yerine temaya uyan onay penceresi; true/false ile çözülen bir Promise döner.
+let confirmResolver = null;
+
+function askConfirm({ title, message, confirmLabel = "Onayla", danger = false }) {
+  if (confirmResolver) settleConfirm(false);
+  elements.confirmModalTitle.textContent = title;
+  elements.confirmModalMessage.textContent = message;
+  elements.confirmOkBtn.textContent = confirmLabel;
+  elements.confirmOkBtn.className = danger ? "danger-button" : "primary-button";
+  activateModal(elements.confirmModal, danger ? elements.confirmCancelBtn : elements.confirmOkBtn);
+  return new Promise((resolve) => {
+    confirmResolver = resolve;
+  });
+}
+
+function settleConfirm(result) {
+  if (!confirmResolver) return;
+  const resolve = confirmResolver;
+  confirmResolver = null;
+  deactivateModal(elements.confirmModal);
+  resolve(result);
+}
+
 function getTopmostOpenModal() {
+  if (!elements.confirmModal.classList.contains("hidden")) return elements.confirmModal;
   if (!elements.conflictModal.classList.contains("hidden")) return elements.conflictModal;
   if (!elements.changePasswordModal.classList.contains("hidden")) return elements.changePasswordModal;
   if (!elements.attachmentPreviewModal.classList.contains("hidden")) return elements.attachmentPreviewModal;
@@ -4397,7 +4598,7 @@ function editTask(taskId) {
   openTaskDrawer();
 }
 
-function updateTaskStatus(taskId, nextStatus) {
+async function updateTaskStatus(taskId, nextStatus) {
   const task = state.tasks.find((item) => item.id === taskId);
   if (!task) return;
   const assignments = getTaskAssignments(taskId);
@@ -4411,10 +4612,16 @@ function updateTaskStatus(taskId, nextStatus) {
     const hasComments = getTaskComments(taskId).length > 0;
     const hasAttachments = getTaskAttachments(task).length > 0;
     if (!hasSubtasks && !hasComments && !hasAttachments) {
-      const confirmed = confirm(
-        `"${task.title}" görevinde henüz alt görev, yorum veya dosya eklemediniz. Yine de tamamlandı olarak işaretlensin mi?`,
-      );
-      if (!confirmed) return;
+      const confirmed = await askConfirm({
+        title: "Görev boş görünüyor",
+        message: `"${task.title}" görevinde henüz alt görev, yorum veya dosya yok. Yine de tamamlandı olarak işaretlensin mi?`,
+        confirmLabel: "Tamamlandı yap",
+      });
+      if (!confirmed) {
+        if (activeDetailTaskId === taskId) renderTaskDetail(); // detaydaki durum seçicisi eski değerine dönsün
+        return;
+      }
+      if (task.status === nextStatus) return;
     }
   }
 
@@ -4468,7 +4675,7 @@ function deleteTask(taskId) {
   });
 }
 
-function convertTaskToProject(taskId) {
+async function convertTaskToProject(taskId) {
   if (!isAdmin()) return showToast("Bu işlem için yönetici yetkisi gerekir.", "error");
   const task = state.tasks.find((item) => item.id === taskId);
   if (!task) return;
@@ -4477,7 +4684,7 @@ function convertTaskToProject(taskId) {
   const confirmMessage = subtasks.length
     ? `"${task.title}" görevi projeye dönüştürülecek ve ${subtasks.length} alt görev bağımsız göreve yükseltilecek. Görevin yorumları ve dosya ekleri kaybolacak. Devam edilsin mi?`
     : `"${task.title}" görevi projeye dönüştürülecek. Görevin yorumları ve dosya ekleri kaybolacak. Devam edilsin mi?`;
-  if (!confirm(confirmMessage)) return;
+  if (!(await askConfirm({ title: "Projeye dönüştür", message: confirmMessage, confirmLabel: "Dönüştür", danger: true }))) return;
 
   const assigneeIds = getTaskAssignments(taskId).map((assignment) => assignment.userId);
   const giverIds = getTaskGivers(taskId).map((giver) => giver.userId);
@@ -5044,7 +5251,7 @@ async function deleteTaskAttachment(taskId, attachmentId) {
     return showToast("Dosya düzenleme için yetki yok.", "error");
   }
 
-  if (!confirm("Bu dosya silinsin mi?")) return;
+  if (!(await askConfirm({ title: "Dosyayı sil", message: `"${attachment.name || "Bu dosya"}" kalıcı olarak silinsin mi?`, confirmLabel: "Sil", danger: true }))) return;
 
   if (attachment.storagePath && getSupabaseClient()) {
     const { error: storageError } = await getSupabaseClient().storage.from("task-documents").remove([attachment.storagePath]);
@@ -5114,6 +5321,13 @@ function handleTaskActionClick(event) {
   const previewRemoveButton = event.target.closest("[data-preview-remove-attachment]");
   const subtaskToggle = event.target.closest("[data-toggle-subtask]");
   const convertButton = event.target.closest("[data-convert-task-to-project]");
+
+  // Liste satırında düğme dışındaki bir yere tıklamak da detayı açar.
+  const rowCard = event.target.closest(".task-row");
+  if (rowCard && !event.target.closest("button, a, input, select, textarea, label")) {
+    openTaskDetail(rowCard.dataset.taskId);
+    return;
+  }
 
   if (convertButton) {
     convertTaskToProject(convertButton.dataset.convertTaskToProject);
@@ -5207,7 +5421,7 @@ function handleKanbanDragEnd() {
 }
 
 function handleKanbanDragOver(event) {
-  const dropTarget = event.target.closest("[data-kanban-status]");
+  const dropTarget = event.target.closest("[data-kanban-status], [data-kanban-priority]");
   if (!dropTarget) return;
 
   event.preventDefault();
@@ -5216,23 +5430,25 @@ function handleKanbanDragOver(event) {
 }
 
 function handleKanbanDragLeave(event) {
-  const dropTarget = event.target.closest("[data-kanban-status]");
+  const dropTarget = event.target.closest("[data-kanban-status], [data-kanban-priority]");
   if (!dropTarget || dropTarget.contains(event.relatedTarget)) return;
 
   dropTarget.classList.remove("drop-target");
 }
 
 function handleKanbanDrop(event) {
-  const dropTarget = event.target.closest("[data-kanban-status]");
+  const dropTarget = event.target.closest("[data-kanban-status], [data-kanban-priority]");
   if (!dropTarget) return;
 
   event.preventDefault();
   const taskId = event.dataTransfer.getData("text/plain") || draggedTaskId;
-  const nextStatus = dropTarget.dataset.kanbanStatus;
+  const { kanbanStatus: nextStatus, kanbanPriority: nextPriority } = dropTarget.dataset;
   dropTarget.classList.remove("drop-target");
 
   if (taskId && nextStatus) {
     updateTaskStatus(taskId, nextStatus);
+  } else if (taskId && nextPriority) {
+    updateTaskPriority(taskId, nextPriority);
   }
 }
 
@@ -5299,6 +5515,18 @@ function bindEvents() {
     closeSidebar();
     clearSession();
     showAuth();
+  });
+
+  // Mobil alt çubuk, yan menüdeki karşılığını tıklar; böylece filtre sıfırlama gibi davranışlar tek yerde kalır.
+  document.querySelectorAll("[data-mobile-view]").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      [...elements.navItems].find((item) => item.dataset.view === tab.dataset.mobileView)?.click();
+    });
+  });
+  document.querySelector("[data-mobile-menu]")?.addEventListener("click", openSidebar);
+  elements.confirmOkBtn.addEventListener("click", () => settleConfirm(true));
+  elements.confirmModal.querySelectorAll("[data-confirm-cancel]").forEach((button) => {
+    button.addEventListener("click", () => settleConfirm(false));
   });
 
   elements.navItems.forEach((item) => {
@@ -5516,6 +5744,14 @@ function bindEvents() {
 
   elements.taskList.addEventListener("click", handleTaskActionClick);
   elements.kanbanBoard.addEventListener("click", handleTaskActionClick);
+  try {
+    const savedGroup = localStorage.getItem(kanbanGroupStorageKey);
+    if (savedGroup && kanbanGroupHints[savedGroup]) elements.kanbanGroupBy.value = savedGroup;
+  } catch { /* depolama kapalıysa varsayılan gruplama */ }
+  elements.kanbanGroupBy.addEventListener("change", () => {
+    try { localStorage.setItem(kanbanGroupStorageKey, elements.kanbanGroupBy.value); } catch { /* yok say */ }
+    renderKanbanBoard();
+  });
   elements.kanbanBoard.addEventListener("dragstart", handleKanbanDragStart);
   elements.kanbanBoard.addEventListener("dragend", handleKanbanDragEnd);
   elements.archiveList.addEventListener("click", handleTaskActionClick);
@@ -5533,6 +5769,9 @@ function bindEvents() {
   elements.calendarPrevBtn.addEventListener("click", () => shiftCalendarMonth(-1));
   elements.calendarNextBtn.addEventListener("click", () => shiftCalendarMonth(1));
   elements.calendarTodayBtn.addEventListener("click", resetCalendarToToday);
+  document.querySelectorAll("[data-calendar-mode]").forEach((button) => {
+    button.addEventListener("click", () => setCalendarMode(button.dataset.calendarMode));
+  });
   elements.calendarExportBtn.addEventListener("click", downloadCalendarIcs);
   elements.calendarGrid.addEventListener("click", handleTaskActionClick);
   elements.calendarGrid.addEventListener("click", handleCalendarDayClick);
@@ -5628,6 +5867,9 @@ function bindEvents() {
     const openModal = getTopmostOpenModal();
     if (event.key === "Tab" && openModal) {
       trapModalFocus(event, openModal);
+    } else if (event.key === "Escape" && !elements.confirmModal.classList.contains("hidden")) {
+      event.preventDefault();
+      settleConfirm(false);
     } else if (event.key === "Escape" && !elements.conflictModal.classList.contains("hidden")) {
       event.preventDefault();
       dismissSyncConflicts();

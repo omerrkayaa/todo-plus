@@ -72,8 +72,6 @@ const launchBrowser = async () => {
 const browser = await launchBrowser();
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 page.setDefaultTimeout(15000);
-// Alt görev/yorum/dosyası olmayan bir görev tamamlanırken uygulama confirm() ile onay ister; bu testte kabul et.
-page.on("dialog", (dialog) => dialog.accept());
 
 const pushedTaskBodies = [];
 let jwtRejectionsServed = 0;
@@ -216,6 +214,8 @@ try {
   pushedTaskBodies.length = 0;
   const offlineCard = page.locator("#taskList .task-card", { hasText: "Yerel başlık" });
   await offlineCard.locator("[data-status-task]").click();
+  // Alt görev/yorum/dosyası olmayan görev tamamlanırken uygulama içi onay penceresi açılır; onayla.
+  await page.click("#confirmOkBtn");
   await page.waitForFunction(() =>
     document.querySelector("#toastRegion")?.textContent.includes("cihazında saklandı"));
 
