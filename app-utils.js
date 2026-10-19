@@ -95,5 +95,29 @@
     return { Görsel: "🖼", PDF: "PDF", Tablo: "▦", Belge: "DOC" }[getAttachmentLabel(attachment)] || "📎";
   }
 
-  global.TODO_PLUS_UTILS = Object.freeze({ createId, deterministicId, escapeHtml, today, addDays, formatDate, getDueDateMeta, isTaskOverdue, isUuid, formatFileSize, readFileAsDataURL, getAttachmentLabel, getAttachmentGroupLabel, getAttachmentGroupIcon });
+  // Demo modunda şifreler tarayıcıda düz metin durmasın diye PBKDF2-SHA256 ile hash'lenir
+  // (Web Crypto API). Biçim: "pbkdf2-sha256$<tur>$<tuz>$<özet>", tuz ve özet base64.
+  const PASSWORD_HASH_ITERATIONS = 100000;
+  const toBase64 = (buffer) => btoa(String.fromCharCode(...new Uint8Array(buffer)));
+  const fromBase64 = (text) => Uint8Array.from(atob(text), (char) => char.charCodeAt(0));
+
+  async function derivePasswordBits(password, salt, iterations) {
+    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+    return crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations }, key, 256);
+  }
+
+  async function hashPassword(password) {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const bits = await derivePasswordBits(password, salt, PASSWORD_HASH_ITERATIONS);
+    return `pbkdf2-sha256$${PASSWORD_HASH_ITERATIONS}$${toBase64(salt)}$${toBase64(bits)}`;
+  }
+
+  async function verifyPassword(password, storedHash) {
+    const [scheme, iterations, salt, expected] = String(storedHash || "").split("$");
+    if (scheme !== "pbkdf2-sha256" || !salt || !expected) return false;
+    const bits = await derivePasswordBits(password, fromBase64(salt), Number(iterations));
+    return toBase64(bits) === expected;
+  }
+
+  global.TODO_PLUS_UTILS = Object.freeze({ hashPassword, verifyPassword, createId, deterministicId, escapeHtml, today, addDays, formatDate, getDueDateMeta, isTaskOverdue, isUuid, formatFileSize, readFileAsDataURL, getAttachmentLabel, getAttachmentGroupLabel, getAttachmentGroupIcon });
 })(window);

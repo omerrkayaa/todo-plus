@@ -7,6 +7,7 @@ window.TODO_PLUS_APP = Object.freeze({
     lastSync: "todo_plus_last_sync_v1",
     syncBase: "todo_plus_sync_base_v1",
     theme: "todo_plus_theme_v1",
+    sidebarCollapsed: "todo_plus_sidebar_collapsed_v1",
   }),
   priorityScores: Object.freeze({ dusuk: 1, orta: 2, yuksek: 3 }),
   priorityLabels: Object.freeze({ dusuk: "Düşük", orta: "Orta", yuksek: "Yüksek" }),

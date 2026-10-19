@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 globalThis.window = globalThis;
 await import("../app-utils.js");
 await import("../app-quick-add-parser.js");
-const { deterministicId, escapeHtml, today, addDays, getDueDateMeta, isTaskOverdue, isUuid } = globalThis.TODO_PLUS_UTILS;
+const { hashPassword, verifyPassword, deterministicId, escapeHtml, today, addDays, getDueDateMeta, isTaskOverdue, isUuid } = globalThis.TODO_PLUS_UTILS;
 const { parseQuickAddText } = globalThis.TODO_PLUS_QUICK_ADD_PARSER;
 
 test("escapeHtml tırnak ve etiketleri kaçırır (nitelik enjeksiyonu regresyonu)", () => {
@@ -99,4 +99,14 @@ test("hızlı ekle: boş giriş güvenli döner", () => {
   assert.equal(result.title, "");
   assert.equal(result.dueDate, "");
   assert.equal(result.priority, null);
+});
+
+test("demo şifresi hash'lenir: düz metin saklanmaz, doğru şifre doğrulanır, tuz her seferinde farklı", async () => {
+  const stored = await hashPassword("gizli-123");
+  assert.match(stored, /^pbkdf2-sha256\$100000\$[^$]+\$[^$]+$/);
+  assert.ok(!stored.includes("gizli-123"));
+  assert.equal(await verifyPassword("gizli-123", stored), true);
+  assert.equal(await verifyPassword("yanlis-123", stored), false);
+  assert.notEqual(await hashPassword("gizli-123"), stored);
+  assert.equal(await verifyPassword("gizli-123", "123456"), false);
 });

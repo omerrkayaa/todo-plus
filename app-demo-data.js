@@ -310,5 +310,23 @@
     { id: "user-11", fullName: "Kerem Öz", email: "kerem@example.com", password: "123456", role: "user" },
     { id: "user-12", fullName: "İrem Güneş", email: "irem@example.com", password: "123456", role: "user" },
   ];
-  global.TODO_PLUS_DEMO_DATA = Object.freeze({ defaultState, defaultAuthAccounts });
+  // Örnek veri 2026-07-20 "bugün"müş gibi yazıldı. Tarihler yükleme anında bugüne kaydırılır ki demo
+  // hiç eskimesin: gecikmiş / bugün / yaklaşan görevlerin dengesi her gün aynı kalır.
+  const DEMO_ANCHOR_DATE = "2026-07-20";
+  const now = new Date();
+  const localToday = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const offsetDays = Math.round((localToday - Date.parse(`${DEMO_ANCHOR_DATE}T00:00:00Z`)) / 86400000);
+  const shiftDates = (value) => {
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+      const shifted = new Date(Date.parse(`${value.slice(0, 10)}T00:00:00Z`) + offsetDays * 86400000);
+      return shifted.toISOString().slice(0, 10) + value.slice(10);
+    }
+    if (Array.isArray(value)) return value.map(shiftDates);
+    if (value && typeof value === "object") {
+      return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, shiftDates(item)]));
+    }
+    return value;
+  };
+
+  global.TODO_PLUS_DEMO_DATA = Object.freeze({ defaultState: shiftDates(defaultState), defaultAuthAccounts });
 })(window);

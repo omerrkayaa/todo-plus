@@ -1,5 +1,5 @@
 const { storageKeys, priorityScores, priorityLabels, statusLabels, roleLabels, repeatIntervalLabels, documentAssistantApiUrl } = window.TODO_PLUS_APP;
-const { createId, deterministicId, escapeHtml, today, addDays, formatDate, getDueDateMeta, isTaskOverdue, isUuid, formatFileSize, readFileAsDataURL, getAttachmentLabel, getAttachmentGroupLabel, getAttachmentGroupIcon } = window.TODO_PLUS_UTILS;
+const { hashPassword, verifyPassword, createId, deterministicId, escapeHtml, today, addDays, formatDate, getDueDateMeta, isTaskOverdue, isUuid, formatFileSize, readFileAsDataURL, getAttachmentLabel, getAttachmentGroupLabel, getAttachmentGroupIcon } = window.TODO_PLUS_UTILS;
 const localStore = window.TODO_PLUS_STORAGE.createStorage(window.localStorage, storageKeys);
 const taskModel = window.TODO_PLUS_TASK_MODEL.createTaskModel({ createId, priorityScores });
 const supabaseMapper = window.TODO_PLUS_SUPABASE_MAPPER;
@@ -106,6 +106,8 @@ const elements = {
   authMessage: document.querySelector("#authMessage"),
   sidebar: document.querySelector("#sidebar"),
   menuToggleBtn: document.querySelector("#menuToggleBtn"),
+  registerDemoNote: document.querySelector("#registerDemoNote"),
+  sidebarCollapseBtn: document.querySelector("#sidebarCollapseBtn"),
   sidebarBackdrop: document.querySelector("#sidebarBackdrop"),
   roleBadge: document.querySelector("#roleBadge"),
   activeUserLabel: document.querySelector("#activeUserLabel"),
@@ -1797,6 +1799,7 @@ function renderUsers() {
   elements.navRoleLabel.textContent = isAdmin() ? "YÖNETİCİ PANELİ" : "KULLANICI PANELİ";
   elements.dashboardNavText.textContent = isAdmin() ? "Ekip özeti" : "Benim özetim";
   elements.tasksNavText.textContent = isAdmin() ? "Görev yönetimi" : "Görevlerim";
+  applySidebarCollapsed(elements.appShell.classList.contains("sidebar-collapsed"));
   elements.newTaskBtn.classList.toggle("role-hidden", !isAdmin());
   elements.assigneeFilter.classList.toggle("role-hidden", !isAdmin());
 
@@ -3379,6 +3382,7 @@ function setAuthMode(mode) {
   elements.registerForm.classList.toggle("hidden", isLogin);
   elements.showLoginBtn.classList.toggle("active", isLogin);
   elements.showRegisterBtn.classList.toggle("active", !isLogin);
+  elements.registerDemoNote.classList.toggle("hidden", supabaseReady);
   showAuthMessage("");
 }
 
@@ -3504,7 +3508,7 @@ async function login(email, password, requestedRole) {
 
   const account = authAccounts.find((item) => item.email === normalizedEmail);
 
-  if (!account || account.password !== password) {
+  if (!account || !(await checkDemoPassword(account, password))) {
     showAuthMessage("E-posta veya şifre hatalı.");
     return;
   }
@@ -3519,6 +3523,28 @@ async function login(email, password, requestedRole) {
   saveState();
   saveSession(userId);
   await showApp();
+}
+
+// Demo hesap şifresini hash'leyerek saklar. Web Crypto yalnızca güvenli bağlamda (https, localhost,
+// file://) var; örn. http ile LAN adresinden açılınca eski düz metin saklamaya düşülür.
+async function setDemoPassword(account, password) {
+  if (!globalThis.crypto?.subtle) {
+    account.password = password;
+    return;
+  }
+  account.passwordHash = await hashPassword(password);
+  delete account.password;
+}
+
+// Demo hesap şifresini doğrular; eski düz metin kayıtlar ilk başarılı girişte hash'e çevrilir.
+async function checkDemoPassword(account, password) {
+  if (account.passwordHash) return Boolean(globalThis.crypto?.subtle) && verifyPassword(password, account.passwordHash);
+  if (!account.password || account.password !== password) return false;
+  if (globalThis.crypto?.subtle) {
+    await setDemoPassword(account, password);
+    saveAuthAccounts();
+  }
+  return true;
 }
 
 async function register(fullName, email, password) {
@@ -3582,9 +3608,9 @@ async function register(fullName, email, password) {
     id: createId("user"),
     fullName: normalizedName,
     email: normalizedEmail,
-    password,
     role: "user",
   };
+  await setDemoPassword(account, password);
 
   authAccounts.push(account);
   saveAuthAccounts();
@@ -3659,6 +3685,26 @@ function closeSidebar() {
   elements.menuToggleBtn.setAttribute("aria-expanded", "false");
   elements.menuToggleBtn.setAttribute("aria-label", "Menüyü aç");
   document.body.classList.remove("sidebar-open");
+}
+
+// Masaüstünde menüyü simge şeridine daraltır. Yazılar ekran okuyucu için kalır; fareyle
+// üzerine gelince adını göstermek için menü öğelerine title verilir.
+function applySidebarCollapsed(collapsed) {
+  elements.appShell.classList.toggle("sidebar-collapsed", collapsed);
+  const label = collapsed ? "Menüyü genişlet" : "Menüyü daralt";
+  elements.sidebarCollapseBtn.setAttribute("aria-expanded", String(!collapsed));
+  elements.sidebarCollapseBtn.setAttribute("aria-label", label);
+  elements.sidebarCollapseBtn.title = label;
+  elements.sidebar.querySelectorAll(".nav-item").forEach((item) => {
+    if (collapsed) item.title = item.querySelector("span")?.textContent.trim() || "";
+    else item.removeAttribute("title");
+  });
+}
+
+function toggleSidebarCollapsed() {
+  const collapsed = !elements.appShell.classList.contains("sidebar-collapsed");
+  localStore.saveSidebarCollapsed(collapsed);
+  applySidebarCollapsed(collapsed);
 }
 
 function openTaskDrawer() {
@@ -4604,8 +4650,8 @@ async function submitChangePassword(event) {
     } else {
       const account = authAccounts.find((item) => item.id === getSessionUser()?.id);
       if (!account) throw new Error("Hesap bulunamadı.");
-      if (account.password !== currentPassword) throw new Error("Mevcut şifre yanlış.");
-      account.password = newPassword;
+      if (!(await checkDemoPassword(account, currentPassword))) throw new Error("Mevcut şifre yanlış.");
+      await setDemoPassword(account, newPassword);
       saveAuthAccounts();
     }
     showToast("Şifreniz güncellendi.");
@@ -5351,6 +5397,7 @@ function bindEvents() {
   elements.closeTaskDrawerBtn.addEventListener("click", resetTaskForm);
   elements.taskDrawerBackdrop.addEventListener("click", resetTaskForm);
   elements.sidebarBackdrop.addEventListener("click", closeSidebar);
+  elements.sidebarCollapseBtn.addEventListener("click", toggleSidebarCollapsed);
   elements.taskFiles.addEventListener("change", handleTaskAttachmentInputChange);
   elements.taskAttachmentDropzone.addEventListener("click", () => elements.taskFiles.click());
   elements.taskAttachmentDropzone.addEventListener("keydown", (event) => {
@@ -5629,6 +5676,7 @@ function bindEvents() {
 
 elements.taskDueDate.min = getLocalTodayValue();
 applyTheme(localStore.loadTheme());
+applySidebarCollapsed(localStore.loadSidebarCollapsed());
 bindEvents();
 setTaskLayout("list");
 initializeAuth();

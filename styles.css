@@ -1382,34 +1382,57 @@ input:disabled, select:disabled, textarea:disabled, button:disabled {
   background: var(--sidebar);
 }
 
-/* Desktop (>980px): sidebar rests as a slim peek strip and pushes the page
-   content over on hover, instead of overlaying on top of it like on mobile. */
+/* Masaüstü (>980px): menü sabit durur; logonun yanındaki düğmeyle simge şeridine daraltılır
+   (tercih cihazda saklanır). Mobilde menü eskisi gibi ☰ ile açılan bir çekmecedir. */
+.sidebar-collapse-toggle { display: none; }
+
 @media (min-width: 981px) {
   .app-shell {
-    grid-template-columns: 28px minmax(0, 1fr);
+    grid-template-columns: 280px minmax(0, 1fr);
     transition: grid-template-columns 200ms ease;
   }
-  .app-shell:has(.sidebar:hover, .sidebar:focus-within) {
-    grid-template-columns: 280px minmax(0, 1fr);
-  }
+  .app-shell.sidebar-collapsed { grid-template-columns: 76px minmax(0, 1fr); }
   main { grid-column: 2; }
 
   .sidebar {
-    position: fixed;
-    inset: 0 auto 0 0;
-    z-index: 40;
-    width: 280px;
+    position: sticky;
+    top: 0;
     height: 100svh;
+    overflow-x: hidden;
     overflow-y: auto;
-    transform: translateX(calc(-100% + 28px));
-    transition: transform 200ms ease;
-    box-shadow: 20px 0 45px rgba(15, 23, 42, 0.18);
   }
 
-  .sidebar:hover,
-  .sidebar:focus-within {
-    transform: translateX(0);
+  .sidebar-collapse-toggle {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    margin-left: auto;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 8px;
+    padding: 0;
+    color: #a39a89;
+    background: transparent;
+    cursor: pointer;
   }
+  .sidebar-collapse-toggle:hover { color: #fff; background: rgba(255,255,255,.07); }
+  .sidebar-collapse-toggle svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform 200ms ease; }
+
+  .sidebar-collapsed .sidebar { padding-inline: 12px; }
+  .sidebar-collapsed .sidebar .brand { flex-direction: column; gap: 12px; padding: 0; }
+  .sidebar-collapsed .sidebar-collapse-toggle { margin-left: 0; }
+  .sidebar-collapsed .sidebar-collapse-toggle svg { transform: rotate(180deg); }
+  .sidebar-collapsed .brand-text,
+  .sidebar-collapsed .workspace-pill,
+  .sidebar-collapsed .profile-panel,
+  .sidebar-collapsed .nav-label,
+  .sidebar-collapsed .sidebar-footnote { display: none; }
+  .sidebar-collapsed .nav-item { position: relative; justify-content: center; padding: 9px; }
+  .sidebar-collapsed .nav-item > span:not(.nav-badge) {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap;
+  }
+  .sidebar-collapsed .nav-badge { position: absolute; top: 2px; right: 2px; min-width: 17px; height: 17px; padding: 0 4px; font-size: 10px; }
 }
 
 .sidebar .brand { padding: 0 8px; }

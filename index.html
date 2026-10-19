@@ -91,6 +91,7 @@
           Şifre
           <input id="registerPassword" type="password" required minlength="6" autocomplete="new-password" placeholder="En az 6 karakter" />
         </label>
+        <p id="registerDemoNote" class="auth-hint hidden">Demo modundasın: hesap yalnızca bu tarayıcıda saklanır. Başka bir yerde kullandığın gerçek şifreni kullanma.</p>
         <button class="primary-button" type="submit">Kullanıcı olmak için kayıt ol</button>
       </form>
 
@@ -104,10 +105,11 @@
     <aside id="sidebar" class="sidebar">
       <div class="brand">
         <div class="brand-mark"><img src="./icons/logo.svg" alt="" /></div>
-        <div>
+        <div class="brand-text">
           <h1>Docket</h1>
           <p>Workspace</p>
         </div>
+        <button id="sidebarCollapseBtn" class="sidebar-collapse-toggle" type="button" aria-controls="sidebar" aria-expanded="true" aria-label="Menüyü daralt" title="Menüyü daralt"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
       </div>
 
       <div class="workspace-pill">
