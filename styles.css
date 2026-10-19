@@ -1052,7 +1052,7 @@ textarea {
   }
 }
 
-/* ToDo+ 2026 product redesign — Kağıt ve Mürekkep (rota ve raf paletinden ilham) */
+/* Docket 2026 product redesign — Kağıt ve Mürekkep (rota ve raf paletinden ilham) */
 :root {
   color-scheme: light;
   --bg: #f4f0e8;
@@ -1421,6 +1421,7 @@ input:disabled, select:disabled, textarea:disabled, button:disabled {
   background: linear-gradient(135deg, #3f7660 0%, #17352b 100%);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 8px 22px rgba(33,71,58,.3);
 }
+.brand-mark img { display: block; width: 100%; height: 100%; border-radius: inherit; }
 .brand h1 { font-family: Georgia, "Times New Roman", serif; font-size: 19px; letter-spacing: -0.02em; }
 .brand p { margin-top: 1px; color: var(--text-tertiary); font-size: 11px; }
 

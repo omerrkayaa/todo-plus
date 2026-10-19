@@ -1,11 +1,11 @@
 <mxfile host="app.diagrams.net" modified="2026-07-09T12:00:00.000Z" agent="draw.io" version="24.7.8" type="device">
-  <diagram id="todo-plus-er" name="ToDo+ ER Diyagrami">
+  <diagram id="docket-er" name="Docket ER Diyagrami">
     <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
 
-        <mxCell id="title" value="ToDo+ Gorev Takip Sistemi - ER Diyagrami" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1;fontColor=#172554;" vertex="1" parent="1">
+        <mxCell id="title" value="Docket Gorev Takip Sistemi - ER Diyagrami" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1;fontColor=#172554;" vertex="1" parent="1">
           <mxGeometry x="360" y="30" width="650" height="40" as="geometry" />
         </mxCell>
 

@@ -1,4 +1,4 @@
-"""ToDo_Plus_Genel_Proje_Raporu.md dosyasini birebir Word (.docx) belgesine cevirir.
+"""Docket_Genel_Proje_Raporu.md dosyasini birebir Word (.docx) belgesine cevirir.
 
 Kaynak Markdown dosyasi tek gercek kaynaktir (source of truth); bu script icerigi
 elle tekrar yazmak yerine dogrudan o dosyayi parse edip bicimlendirir, boylece
@@ -20,9 +20,9 @@ from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "ToDo_Plus_Genel_Proje_Raporu.md"
+SRC = ROOT / "Docket_Genel_Proje_Raporu.md"
 SHOTS = ROOT / "screenshots"
-OUT = ROOT / "ToDo_Plus_Proje_Raporu.docx"
+OUT = ROOT / "Docket_Proje_Raporu.docx"
 
 NAVY = "17324D"
 BLUE = "2563EB"
@@ -146,7 +146,7 @@ for list_name in ("List Bullet", "List Number"):
     style.paragraph_format.line_spacing = 1.2
 
 header_p = section.header.paragraphs[0]
-set_font(header_p.add_run("ToDo+ | Baştan Sona Proje ve Geliştirme Süreci Raporu"), 9, True, GRAY)
+set_font(header_p.add_run("Docket | Baştan Sona Proje ve Geliştirme Süreci Raporu"), 9, True, GRAY)
 footer_p = section.footer.paragraphs[0]
 footer_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 set_font(footer_p.add_run("Ömer Kaya • 2026 • Sayfa "), 9, False, GRAY)
@@ -293,7 +293,7 @@ doc.add_paragraph().paragraph_format.space_after = Pt(60)
 p = doc.add_paragraph()
 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 set_font(p.add_run("BAŞTAN SONA PROJE RAPORU"), 12, True, BLUE)
-title("ToDo+", 34, NAVY, 4)
+title("Docket", 34, NAVY, 4)
 title("Görev Takip Sistemi", 22, BLUE, 18)
 p = doc.add_paragraph()
 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -306,7 +306,7 @@ meta = doc.add_table(rows=3, cols=2)
 set_table_geometry(meta, [2700, 6560])
 for i, (k, v) in enumerate([
     ("Hazırlayan", "Ömer Kaya"),
-    ("Çalışma", "ToDo+ Görev Takip Sistemi"),
+    ("Çalışma", "Docket Görev Takip Sistemi"),
     ("Yıl", "2026"),
 ]):
     shade(meta.cell(i, 0), LIGHT)
@@ -443,9 +443,9 @@ while i < len(lines):
 
 flush_table()
 
-doc.core_properties.title = "ToDo+ — Baştan Sona Proje Raporu"
-doc.core_properties.subject = "ToDo+ projesinin tüm geliştirme sürecinin detaylı raporu"
+doc.core_properties.title = "Docket — Baştan Sona Proje Raporu"
+doc.core_properties.subject = "Docket projesinin tüm geliştirme sürecinin detaylı raporu"
 doc.core_properties.author = "Ömer Kaya"
-doc.core_properties.keywords = "ToDo+, görev takip, proje raporu, geliştirme süreci"
+doc.core_properties.keywords = "Docket, görev takip, proje raporu, geliştirme süreci"
 doc.save(OUT)
 print(OUT)

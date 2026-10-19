@@ -1,5 +1,5 @@
-// PWA simgelerini (192/512 PNG) tek bir SVG'den Playwright ile üretir: node scripts/generate-icons.mjs
-import { mkdir } from "node:fs/promises";
+// PWA simgelerini (192/512 PNG) icons/logo.svg'den Playwright ile üretir: node scripts/generate-icons.mjs
+import { mkdir, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { chromium } from "playwright";
@@ -8,12 +8,14 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = join(root, "icons");
 await mkdir(outDir, { recursive: true });
 
-const svg = (size) => `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#2563eb"/>
-  <text x="32" y="41" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#ffffff">T+</text>
-</svg>`;
+// Kaynak logo icons/logo.svg; PNG'ler ondan istenen boyutta çizilir.
+const logo = await readFile(join(outDir, "logo.svg"), "utf8");
+const svg = (size) => logo.replace("<svg ", `<svg width="${size}" height="${size}" `);
 
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true }).catch((error) => {
+  if (!String(error?.message).includes("Executable doesn't exist")) throw error;
+  return chromium.launch({ headless: true, channel: "chrome" });
+});
 try {
   for (const size of [192, 512]) {
     const page = await browser.newPage({ viewport: { width: size, height: size } });

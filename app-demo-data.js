@@ -28,7 +28,7 @@
         id: "project-1",
         userId: "user-1",
         categoryId: "category-2",
-        name: "ToDo+ Proje Geliştirme",
+        name: "Docket Proje Geliştirme",
         description: "Görev takip sistemi için analiz, tasarım ve uygulama süreci.",
         createdAt: "2026-07-09",
       },

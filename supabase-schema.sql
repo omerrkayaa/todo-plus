@@ -1,4 +1,4 @@
--- ToDo+ Gorev Takip Sistemi
+-- Docket Gorev Takip Sistemi
 -- Supabase / PostgreSQL veritabani semasi
 
 create extension if not exists "pgcrypto";

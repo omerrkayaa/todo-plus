@@ -18,6 +18,10 @@ const launchBrowser = async () => {
 };
 const browser = await launchBrowser();
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+// Görüntüler demo verisiyle alınsın: Supabase yapılandırmasını etkisizleştir (gerçek girişe düşmesin).
+await page.addInitScript(() => {
+  Object.defineProperty(window, "TODO_PLUS_SUPABASE", { value: null, writable: false, configurable: false });
+});
 
 await page.goto(appUrl, { waitUntil: "networkidle" });
 await page.screenshot({ path: path.join(outDir, "01-giris-ekrani.png") });

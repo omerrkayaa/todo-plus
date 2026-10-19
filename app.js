@@ -2527,7 +2527,7 @@ function formatIcsTimestamp(date) {
 }
 
 function generateIcsContent(tasks) {
-  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//ToDo+//Takvim//TR", "CALSCALE:GREGORIAN"];
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Docket//Takvim//TR", "CALSCALE:GREGORIAN"];
   const stamp = formatIcsTimestamp(new Date());
 
   tasks.forEach((task) => {
@@ -2557,7 +2557,7 @@ function downloadCalendarIcs() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = "todoplus-takvim.ics";
+  link.download = "docket-takvim.ics";
   document.body.appendChild(link);
   link.click();
   link.remove();

@@ -1,8 +1,8 @@
-// ToDo+ service worker: uygulama kabuğunu önbelleğe alır, böylece çevrimdışıyken de açılır.
+// Docket service worker: uygulama kabuğunu önbelleğe alır, böylece çevrimdışıyken de açılır.
 // Strateji "önce ağ, olmazsa önbellek": çevrimiçiyken hep güncel dosya gelir (geliştirirken eski kod
 // görünmez), çevrimdışıyken son görülen sürüm kullanılır. Yalnızca aynı kaynaktaki GET istekleri ele
 // alınır; Supabase ve doküman asistanı API çağrılarına dokunulmaz.
-const CACHE_NAME = "todo-plus-shell-v1";
+const CACHE_NAME = "docket-shell-v2";
 const SHELL = [
   "./",
   "./index.html",
@@ -10,6 +10,7 @@ const SHELL = [
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
+  "./icons/logo.svg",
   "./vendor/supabase.js",
   "./supabase-config.js",
   "./app-config.js",

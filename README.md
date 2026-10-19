@@ -1,6 +1,10 @@
-# ToDo+ Görev Takip Sistemi
+<p align="center"><img src="icons/logo.svg" alt="Docket logosu" width="96" /></p>
 
-ToDo+, rol tabanlı bir ekip çalışma alanı olarak tasarlanmış; üyelik, yönetici/çalışan ayrımı, görev atama, önceliklendirme, Kanban takibi, yorum, geçmiş kaydı, filtreleme ve istatistik özelliklerini bir araya getiren bir web uygulamasıdır. Proje hem demo hem de Supabase çalışma modunu destekler.
+# Docket — Görev Takip Sistemi
+
+> Proje önceki sürümlerde **ToDo+** adıyla geliştirildi; tarayıcıdaki kayıt anahtarları (`todo_plus_*`) ve kod içi global adlar (`window.TODO_PLUS_*`) mevcut verilerin ve yayın ayarlarının bozulmaması için eski adlarıyla korunuyor.
+
+Docket, rol tabanlı bir ekip çalışma alanı olarak tasarlanmış; üyelik, yönetici/çalışan ayrımı, görev atama, önceliklendirme, Kanban takibi, yorum, geçmiş kaydı, filtreleme ve istatistik özelliklerini bir araya getiren bir web uygulamasıdır. Proje hem demo hem de Supabase çalışma modunu destekler.
 
 Bu dosya projenin kullanım kılavuzu, teknik raporu, veritabanı dokümantasyonu, Supabase kurulum rehberi, test planı ve teslim kontrol listesidir.
 
@@ -102,7 +106,7 @@ Temel hedefler:
 ## 4. Proje Yapısı
 
 ```text
-todo app uygulaması/
+docket/
 ├── index.html
 ├── styles.css
 ├── app.js                      # ana uygulama (auth, render, olaylar)
@@ -114,6 +118,7 @@ todo app uygulaması/
 ├── README.md
 ├── server/                     # Express API: doküman asistanı (RAG) ve yönetici kullanıcı oluşturma
 ├── tests/                      # birim testleri (sync-merge, utils-and-parser)
+├── icons/                      # logo.svg (kaynak logo) ve ondan üretilen PWA simgeleri
 ├── vendor/supabase.js          # çevrimdışı açılış için yerel supabase-js kopyası
 ├── .github/workflows/ci.yml    # GitHub Actions: sunucu/birim testleri + tarayıcı testleri
 ├── screenshots/
@@ -129,8 +134,8 @@ todo app uygulaması/
 ├── scripts/
 │   ├── capture-screenshots.mjs
 │   └── smoke-test.mjs
-└── todo-plus/
-    ├── todo-plus-er-diyagram.drawio
+└── docket/
+    ├── docket-er-diyagram.drawio
     └── veritabani-diyagramlari.html
 ```
 
@@ -306,7 +311,7 @@ erDiagram
 - Aynı kullanıcı aynı görev için birden fazla “veren” kaydı alamaz.
 - Proje veya görev silindiğinde ilgili alt kayıtlar foreign-key kurallarına göre temizlenir.
 
-Draw.io üzerinde düzenlenebilir ayrıntılı diyagram `todo-plus/todo-plus-er-diyagram.drawio` dosyasındadır.
+Draw.io üzerinde düzenlenebilir ayrıntılı diyagram `docket/docket-er-diyagram.drawio` dosyasındadır.
 
 ## 9. Başarı Oranı
 
@@ -467,7 +472,7 @@ npm run screenshots
 
 ## 15. Kısa Sunum Metni
 
-ToDo+, kullanıcıların proje oluşturabildiği, görevleri kategorilere ayırabildiği, kişilere atayabildiği ve Kanban panosunda takip edebildiği bir görev yönetim uygulamasıdır. Görevlerin öncelik, durum, süre ve teslim tarihi bilgileri saklanır; yorum ve geçmiş kayıtları görev detayında görüntülenir. Kullanıcı başarısı, tamamlanan görevlerin öncelik puanları üzerinden hesaplanır. Uygulama kurulum gerektirmeyen demo moduyla çalışabildiği gibi Supabase Authentication ve PostgreSQL altyapısına bağlanacak şekilde de hazırlanmıştır.
+Docket, kullanıcıların proje oluşturabildiği, görevleri kategorilere ayırabildiği, kişilere atayabildiği ve Kanban panosunda takip edebildiği bir görev yönetim uygulamasıdır. Görevlerin öncelik, durum, süre ve teslim tarihi bilgileri saklanır; yorum ve geçmiş kayıtları görev detayında görüntülenir. Kullanıcı başarısı, tamamlanan görevlerin öncelik puanları üzerinden hesaplanır. Uygulama kurulum gerektirmeyen demo moduyla çalışabildiği gibi Supabase Authentication ve PostgreSQL altyapısına bağlanacak şekilde de hazırlanmıştır.
 
 ## 16. Lisans ve Kullanım
 

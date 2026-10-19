@@ -1,6 +1,6 @@
 """Raporda kullanilan mimari diyagramlarini (PNG) uretir.
 
-Kaynak degil, gorsel yardimci materyaldir; ToDo_Plus_Genel_Proje_Raporu.md
+Kaynak degil, gorsel yardimci materyaldir; Docket_Genel_Proje_Raporu.md
 icinde [[IMG:rapor-gorseller/<dosya>.png|Aciklama]] seklinde referans verilir
 ve scripts/build_full_report.py tarafindan docx'e gomulur.
 
@@ -74,7 +74,7 @@ def save(fig, name):
 # 1) Iki calisma modu
 # ---------------------------------------------------------------------------
 fig, ax = new_fig(10, 5.2)
-box(ax, 3.2, 3.9, 3.6, 1.0, "ToDo+ — Tek Kod Tabanı\n(index.html / app.js)", fc=NAVY, tc=WHITE, fs=12)
+box(ax, 3.2, 3.9, 3.6, 1.0, "Docket — Tek Kod Tabanı\n(index.html / app.js)", fc=NAVY, tc=WHITE, fs=12)
 box(ax, 0.4, 1.2, 4.0, 1.5, "DEMO MOD\n\nsupabaseReady = false\nVeri: tarayıcı localStorage\nKurulum gerekmez", fc=LIGHT, ec=BLUE, fs=10.5)
 box(ax, 5.6, 1.2, 4.0, 1.5, "SUPABASE MODU\n\nsupabaseReady = true\nVeri: PostgreSQL + Auth\nÇok kullanıcılı, kalıcı", fc=LIGHT, ec=GREEN, fs=10.5)
 arrow(ax, 4.3, 3.9, 2.4, 2.7, label="supabase-config.js boş")
@@ -182,7 +182,7 @@ for cx in (1.3, 3.8, 6.3, 8.8):
     arrow(ax, 5.0, 3.5, cx + 1.1, 2.75)
 arrow(ax, 5.5, 1.9, 5.5, 1.15)
 
-ax.text(5.5, 7.55, "ToDo+ Veri Modeli (özet)", ha="center", fontsize=13, fontweight="bold", color=NAVY)
+ax.text(5.5, 7.55, "Docket Veri Modeli (özet)", ha="center", fontsize=13, fontweight="bold", color=NAVY)
 ax.text(5.5, -0.15, "Her tablo Row Level Security (RLS) ile korunur; bir kullanıcı yalnızca ilişkili olduğu satırları görebilir.",
         ha="center", fontsize=9.3, color=GRAY, style="italic")
 save(fig, "veri-modeli-er.png")

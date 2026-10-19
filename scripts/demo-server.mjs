@@ -35,5 +35,5 @@ createServer(async (request, response) => {
     response.end("Bulunamadı");
   }
 }).listen(port, "127.0.0.1", () => {
-  console.log(`ToDo+ DEMO modu: http://127.0.0.1:${port}/  (omer@example.com / 123456, giriş türü: Yönetici)`);
+  console.log(`Docket DEMO modu: http://127.0.0.1:${port}/  (omer@example.com / 123456, giriş türü: Yönetici)`);
 });
