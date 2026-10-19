@@ -3,9 +3,7 @@ node_modules
 .env
 .env.*
 !.env.example
-.gstack
 .npm-cache
-.agents
 screenshots
 rapor-gorseller
 gunluk-raporlar

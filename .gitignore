@@ -1,4 +1,3 @@
-.agents/
 node_modules/
 .npm-cache/
 dist/
@@ -11,5 +10,3 @@ Thumbs.db
 .DS_Store
 ~$*.docx
 ~$*.doc
-.gstack/
-.claude/
