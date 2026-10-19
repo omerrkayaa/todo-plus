@@ -134,7 +134,7 @@
         <button id="calendarNavBtn" class="nav-item" data-view="calendar" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M8 3v3M16 3v3"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01"/></svg><span>Takvim</span></button>
         <button class="nav-item active" data-view="dashboard" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6v-9h-6v9Zm0-16v5h6V4h-6Z"/></svg><span id="dashboardNavText">Ekip özeti</span></button>
         <button class="nav-item admin-only" data-view="projects" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H10l2 2h6.5A2.5 2.5 0 0 1 21 8.5v8A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5v-10Z"/></svg><span>Proje yönetimi</span></button>
-        <button id="addCategoryNavBtn" class="nav-item admin-only" data-view="projects" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Kategori Ekle</span></button>
+        <button id="addCategoryNavBtn" class="nav-item admin-only" data-view="projects" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Kategori ekle</span></button>
         <button class="nav-item" data-view="tasks" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11 11 13 15.5 8.5M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/></svg><span id="tasksNavText">Görev yönetimi</span></button>
       </nav>
 
@@ -219,7 +219,7 @@
           <article class="stat-card stat-rate">
             <div class="stat-card-top"><span class="stat-icon">◎</span><span class="stat-kicker">Performans</span></div>
             <span class="stat-label">Başarı oranı</span>
-            <strong id="successRate">0%</strong><small>öncelik ağırlıklı</small>
+            <strong id="successRate">%0</strong><small>öncelik ağırlıklı</small>
           </article>
           <article class="stat-card stat-overdue">
             <div class="stat-card-top"><span class="stat-icon">!</span><span class="stat-kicker">Dikkat</span></div>
@@ -398,7 +398,7 @@
         <form id="quickAddForm" class="panel quick-add-panel admin-only" aria-label="Hızlı görev ekle">
           <div class="quick-add-row">
             <span class="quick-add-icon" aria-hidden="true">⚡</span>
-            <input id="quickAddInput" type="text" autocomplete="off" placeholder='Hızlı ekle: "raporu bitir yarın #Mobil !yüksek her hafta"' aria-label="Hızlı görev ekle metni" />
+            <input id="quickAddInput" type="text" autocomplete="off" placeholder='Hızlı ekle: "raporu bitir yarın #Mobil !yüksek her hafta"' aria-label="Hızlı görev ekle metni" aria-keyshortcuts="q" title="Kısayol: Q" />
             <button class="primary-button" type="submit">Ekle</button>
           </div>
           <div id="quickAddPreview" class="quick-add-preview hidden" aria-live="polite"></div>
@@ -411,6 +411,7 @@
               <li><code>bugün</code>, <code>yarın</code>, bir gün adı (<code>pazartesi</code>… <code>pazar</code>), <code>gelecek hafta</code> veya <code>gelecek ay</code> — son teslim tarihini belirler</li>
               <li><code>her gün</code>, <code>her hafta</code> veya <code>her ay</code> — görevi tekrarlayan yapar</li>
               <li>Geri kalan yazı görevin başlığı olur; sıralama önemli değil, hepsini istediğiniz gibi karıştırabilirsiniz.</li>
+              <li>Kısayol: yazı alanında değilken herhangi bir ekranda <kbd>Q</kbd> tuşuna basınca bu satıra gelirsiniz.</li>
             </ul>
             <p class="section-hint">Örnek: <code>"raporu bitir yarın #Mobil !yüksek her hafta"</code> → başlık "raporu bitir", son teslim yarın, proje Mobil, öncelik yüksek, her hafta tekrarlanır.</p>
           </div>

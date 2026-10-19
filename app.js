@@ -1934,7 +1934,7 @@ function renderProjects() {
           <div class="project-progress">
             <strong>
               <span>İlerleme</span>
-              <span>${progressRate}%</span>
+              <span>%${progressRate}</span>
             </strong>
             <div class="score-bar" aria-label="${escapeHtml(project.name)} ilerleme oranı">
               <div class="score-fill" style="width: ${progressRate}%"></div>
@@ -2101,6 +2101,8 @@ function renderTodayNavBadge() {
   const count = getTodayTaskCount();
   elements.todayNavCount.textContent = String(count);
   elements.todayNavCount.classList.toggle("hidden", count === 0);
+  // Rozet yalnız "bugün teslim" değil; gecikmişleri ve bugün başlayanları da sayar, panelle karışmasın.
+  elements.todayNavCount.title = `${count} açık görev: bugün teslim, gecikmiş veya bugün başlayan`;
 }
 
 function renderUpcomingNavBadge() {
@@ -3167,6 +3169,7 @@ function trapModalFocus(event, modal) {
 
 function getTopmostOpenModal() {
   if (!elements.conflictModal.classList.contains("hidden")) return elements.conflictModal;
+  if (!elements.changePasswordModal.classList.contains("hidden")) return elements.changePasswordModal;
   if (!elements.attachmentPreviewModal.classList.contains("hidden")) return elements.attachmentPreviewModal;
   if (!elements.userModal.classList.contains("hidden")) return elements.userModal;
   if (!elements.taskDetailModal.classList.contains("hidden")) return elements.taskDetailModal;
@@ -3207,7 +3210,7 @@ function renderDashboard() {
   elements.totalTasks.textContent = totalTasks;
   elements.completedTasks.textContent = completedTasks;
   elements.overdueTasks.textContent = overdueTasks;
-  elements.successRate.textContent = `${activeStats.rate}%`;
+  elements.successRate.textContent = `%${activeStats.rate}`;
 
   const streak = calculateUserStreak(dashboardUserId);
   elements.streakDays.textContent = streak.current;
@@ -3253,7 +3256,7 @@ function renderDashboard() {
         <article class="score-card">
           <strong>
             <span>${escapeHtml(user.fullName)} <small class="role-inline">${roleLabels[user.role] || roleLabels.user}</small></span>
-            <span>${stats.rate}%</span>
+            <span>%${stats.rate}</span>
           </strong>
           <div class="score-bar" aria-label="${escapeHtml(user.fullName)} başarı oranı">
             <div class="score-fill" style="width: ${stats.rate}%"></div>
@@ -4013,6 +4016,18 @@ function renderQuickAddPreview() {
 
   elements.quickAddPreview.classList.toggle("hidden", chips.length === 0);
   elements.quickAddPreview.innerHTML = chips.map((chip) => `<span class="quick-add-chip">${escapeHtml(chip)}</span>`).join("");
+}
+
+// "Q" kısayolu: yazı alanında değilken hızlı ekleme satırına götürür (gerekirse Görevler ekranını açar).
+function focusQuickAddFromShortcut(target) {
+  if (!isAdmin() || elements.appShell.classList.contains("hidden")) return false;
+  if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return false;
+  if (elements.taskForm.classList.contains("open")) return false;
+  if (elements.quickAddInput.offsetParent === null) {
+    [...elements.navItems].find((item) => item.dataset.view === "tasks")?.click();
+  }
+  elements.quickAddInput.focus();
+  return true;
 }
 
 function handleQuickAddSubmit(event) {
@@ -5616,6 +5631,9 @@ function bindEvents() {
     } else if (event.key === "Escape" && !elements.conflictModal.classList.contains("hidden")) {
       event.preventDefault();
       dismissSyncConflicts();
+    } else if (event.key === "Escape" && !elements.changePasswordModal.classList.contains("hidden")) {
+      event.preventDefault();
+      closeChangePasswordModal();
     } else if (event.key === "Escape" && !elements.userModal.classList.contains("hidden")) {
       event.preventDefault();
       closeUserModal();
@@ -5635,6 +5653,9 @@ function bindEvents() {
     } else if (event.key === "Escape" && !elements.themePanel.classList.contains("hidden")) {
       elements.themePanel.classList.add("hidden");
       elements.themeToggleBtn.setAttribute("aria-expanded", "false");
+    } else if (event.key?.toLowerCase() === "q" && !event.ctrlKey && !event.metaKey && !event.altKey && !openModal
+      && focusQuickAddFromShortcut(event.target)) {
+      event.preventDefault();
     }
   });
 
