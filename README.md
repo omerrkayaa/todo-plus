@@ -79,6 +79,9 @@ Temel hedefler:
 - Tekrarlayan görevlerde bir sonraki örnek, görev kimliği ve tarihten türetilen sabit kimlikle oluşur; aynı görev iki cihazda tamamlansa da çift kayıt oluşmaz
 - Yönetici tarafından açılan hesaplar ilk girişte şifre değiştirmeye yönlendirilir
 - Kanban üzerinde sürükle-bırak durum değiştirme
+- Tarihe göre gruplanmış kompakt görev listesi (Gecikmiş / Bugün / Önümüzdeki 7 gün / Daha sonra / Tarihsiz); yuvarlak kutu görevi tamamlar, başlık detayı açar
+- Kanban sütunlarını duruma, önceliğe, kişiye veya projeye göre gruplama
+- Takvimde Ay / Hafta görünümü
 
 ### Arama ve raporlama
 
@@ -95,6 +98,9 @@ Temel hedefler:
 ### Kullanılabilirlik
 
 - Mobil açılır menü
+- Mobilde alt gezinme çubuğu (Bugün, Görevler, Takvim, Özet, Menü)
+- Tarayıcı `confirm()` yerine temaya uyan uygulama içi onay penceresi
+- Q kısayoluyla hızlı ekleme alanına odaklanma
 - Klavye odak göstergeleri
 - İşlem başarı ve hata bildirimleri
 - Geciken ve yaklaşan görev rozetleri

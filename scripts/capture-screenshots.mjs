@@ -30,6 +30,8 @@ await page.fill("#loginEmail", "omer@example.com");
 await page.fill("#loginPassword", "123456");
 await page.click("button[type='submit']");
 await page.waitForSelector("#appShell:not(.hidden)");
+// Geçici bildirimler (ör. "son 1 gün kaldı" uyarısı) ekranın bir kısmını kapatmasın.
+await page.addStyleTag({ content: "#toastRegion, #undoToastRegion { display: none !important; }" });
 await page.screenshot({ path: path.join(outDir, "02-istatistik-ekrani.png") });
 
 await page.click("[data-dashboard-tab='history']");
@@ -45,6 +47,8 @@ await page.screenshot({ path: path.join(outDir, "12-proje-uyelikleri.png") });
 
 await page.click("[data-view='tasks']");
 await page.waitForSelector("#tasksView.active-view");
+await page.evaluate(() => window.scrollTo(0, 0));
+await page.waitForTimeout(300);
 await page.screenshot({ path: path.join(outDir, "04-gorevler-ekrani.png") });
 
 await page.click("[data-task-layout='board']");
