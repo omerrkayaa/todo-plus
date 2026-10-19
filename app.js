@@ -107,6 +107,7 @@ const elements = {
   sidebar: document.querySelector("#sidebar"),
   menuToggleBtn: document.querySelector("#menuToggleBtn"),
   registerDemoNote: document.querySelector("#registerDemoNote"),
+  demoAccountsHint: document.querySelector("#demoAccountsHint"),
   sidebarCollapseBtn: document.querySelector("#sidebarCollapseBtn"),
   sidebarBackdrop: document.querySelector("#sidebarBackdrop"),
   roleBadge: document.querySelector("#roleBadge"),
@@ -3628,6 +3629,8 @@ async function register(fullName, email, password) {
 
 async function initializeAuth() {
   supabaseReady = isSupabaseConfigured();
+  // Örnek hesaplar yalnızca demo modunda var; Supabase modunda ipucu yanıltıcı olur.
+  elements.demoAccountsHint.classList.toggle("hidden", supabaseReady);
   saveAuthAccounts();
 
   if (supabaseReady) {
